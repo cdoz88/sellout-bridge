@@ -3,20 +3,20 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 
 /**
- * main.jsx - THE REACT GLUE
- * * WHAT THIS DOES:
- * 1. Finds the "root" empty box inside your index.html.
- * 2. Takes your entire Dashboard (App.jsx) and puts it in that box.
- * 3. Makes sure everything stays updated when you click buttons.
+ * main.jsx - THE REACT ENTRY POINT
+ * This file takes your App.jsx dashboard and injects it into the index.html.
+ * * * CRITICAL DEPLOYMENT NOTE: 
+ * Ensure App.jsx and main.jsx are located in the same root folder.
+ * Using './App' allows the build system to find the file automatically.
  */
 
 const rootElement = document.getElementById('root');
 
 if (rootElement) {
-  // We create the "Root" of the app
+  // Initialize the React application root
   const root = ReactDOM.createRoot(rootElement);
   
-  // We render your App dashboard inside it
+  // Render the App component
   root.render(
     <React.StrictMode>
       <App />
