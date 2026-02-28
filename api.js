@@ -1,68 +1,51 @@
 /**
- * api.js - THE SELLOUT CROWDS BRIDGE ENGINE
- * This file handles all secret communication between payment providers, 
- * your cPanel database, and your Sellout Crowds community site.
+ * api.js - THE BACKEND WORKER (THE BRAIN)
+ * * WHAT THIS DOES:
+ * 1. Listens for payment notifications (Webhooks) from Stripe or PayPal.
+ * 2. Checks your cPanel Database to see which product belongs to which group.
+ * 3. Tells your Sellout Crowds community site to add the member.
  */
 
 const express = require('express');
 const mysql = require('mysql2/promise');
-const stripe = require('stripe');
 const app = express();
 
-// 1. CONFIGURATION
+// 1. YOUR SELLOUT CROWDS SECRET KEYS
 const UNA_API_URL = "https://selloutcrowds.com/api.php";
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 
-// 2. DATABASE CONFIG (From your cPanel infrastructure)
+// 2. DATABASE CONFIGURATION
+// We use 'process.env' so your real passwords stay hidden in Vercel's settings.
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
-    user: 'sc_bridge',      // You will enter your cPanel DB username here
-    password: '2uM$O.ungd}f',  // You will enter your cPanel DB password here
+    user: process.env.DB_USER,      // This will be set in Vercel
+    password: process.env.DB_PASSWORD, // This will be set in Vercel
     database: 'una-bridge-35303839bd70'
 };
 
 app.use(express.json());
 
 /**
- * FETCH LIVE ASSETS
- * Used by the Dashboard to show your real Crowds and Spaces.
- */
-app.get('/api/get-una-assets', async (req, res) => {
-    try {
-        const response = await fetch(UNA_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module: 'bx_groups', // Fetching Crowds
-                method: 'get_author_entries',
-                params: [req.query.profileId || 0],
-                key: UNA_SECRET
-            })
-        });
-        
-        const data = await response.json();
-        res.json(data.result || []);
-    } catch (error) {
-        res.status(500).json({ error: "Failed to fetch UNA assets" });
-    }
-});
-
-/**
  * STRIPE WEBHOOK LISTENER
- * This is the URL you provide to Stripe: https://your-site.vercel.app/api/stripe-webhook
+ * Stripe will "text" this address when someone pays you.
  */
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
 
-    // Only proceed if the payment was successful
+    // Only do something if the payment was successful
     if (event.type === 'checkout.session.completed') {
         const customerEmail = event.data.object.customer_details.email;
+        
+        // We look for a "product_id" that you'll set in your Stripe dashboard metadata
         const stripeProductId = event.data.object.metadata.product_id;
 
+        console.log(`Payment success for ${customerEmail}. Product: ${stripeProductId}`);
+
         try {
+            // Open a connection to your cPanel Database
             const connection = await mysql.createConnection(dbConfig);
             
-            // Look up the mapping in your cPanel Database
+            // Look up which Group/Space is linked to this Stripe Product
             const [rows] = await connection.execute(
                 'SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ?', 
                 [stripeProductId]
@@ -71,56 +54,50 @@ app.post('/api/stripe-webhook', async (req, res) => {
             if (rows.length > 0) {
                 const { una_module, una_content_id } = rows[0];
                 
-                // Call the UNA API to grant access
+                // Call the helper function below to actually add the member to the site
                 await grantCommunityAccess(customerEmail, una_module, una_content_id);
                 
-                // Log the success in your database
+                // Record this event in your logs table
                 await connection.execute(
                     'INSERT INTO bridge_logs (customer_email, action, details) VALUES (?, ?, ?)',
                     [customerEmail, 'granted', `Added to ${una_module} ID ${una_content_id}`]
                 );
             }
-            await connection.end();
-        } catch (dbError) {
-            console.error('Database/Fulfillment Error:', dbError);
+            
+            await connection.end(); // Close the database door
+        } catch (error) {
+            console.error('Database Error:', error);
         }
     }
+    
+    // Always tell Stripe we got the message
     res.json({ received: true });
 });
 
 /**
- * PAYPAL WEBHOOK LISTENER
- * This is the URL you provide to PayPal: https://your-site.vercel.app/api/paypal-webhook
- */
-app.post('/api/paypal-webhook', async (req, res) => {
-    const event = req.body;
-
-    // Logic for PayPal payment completion
-    if (event.event_type === 'PAYMENT.SALE.COMPLETED') {
-        const email = event.resource.payer_email || event.resource.custom_json_data_email;
-        const paypalPlanId = event.resource.billing_agreement_id || event.resource.parent_payment;
-
-        // Perform similar lookup and grantAccess logic as Stripe above
-        console.log(`PayPal payment received from ${email} for plan ${paypalPlanId}`);
-    }
-    res.json({ received: true });
-});
-
-/**
- * INTERNAL FUNCTION: TALK TO SELLOUT CROWDS
+ * HELPER: THE COMMAND TO SELLOUT CROWDS
+ * This sends the secret request to your community site.
  */
 async function grantCommunityAccess(email, module, contentId) {
-    const response = await fetch(UNA_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            module: module,
-            method: 'serviceAddMember', // Official UNA Command
-            params: [contentId, email],
-            key: UNA_SECRET
-        })
-    });
-    return response.ok;
+    try {
+        const response = await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: module,         // e.g., 'bx_groups'
+                method: 'serviceAddMember',
+                params: [contentId, email],
+                key: UNA_SECRET
+            })
+        });
+
+        const result = await response.json();
+        return result.status === 'ok';
+    } catch (err) {
+        console.error("Sellout Crowds API Error:", err);
+        return false;
+    }
 }
 
+// Export this for Vercel to use
 module.exports = app;

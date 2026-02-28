@@ -1,12 +1,23 @@
 {
   "name": "sellout-bridge",
+  "private": true,
   "version": "1.0.0",
-  "description": "Bridge for Stripe/PayPal to Sellout Crowds",
-  "main": "api.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.263.1",
     "express": "^4.18.2",
     "mysql2": "^3.6.0",
-    "stripe": "^13.2.0",
-    "lucide-react": "^0.263.1"
+    "stripe": "^13.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5"
   }
 }
