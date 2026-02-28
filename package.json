@@ -1,0 +1,12 @@
+{
+  "name": "sellout-bridge",
+  "version": "1.0.0",
+  "description": "Bridge for Stripe/PayPal to Sellout Crowds",
+  "main": "api.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.0",
+    "stripe": "^13.2.0",
+    "lucide-react": "^0.263.1"
+  }
+}
