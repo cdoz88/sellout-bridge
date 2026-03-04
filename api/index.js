@@ -1,8 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Updated module names to match site architecture.
- * Crowds = bx_sites
- * Spaces = bx_groups
+ * FIX: Added a bulletproof text parser to catch silent HTML errors 
+ * from the UNA api.php file and pass them to the frontend diagnostic box.
  */
 
 import express from 'express';
@@ -27,7 +26,6 @@ app.use(express.json());
 
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
-
     try {
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
@@ -43,15 +41,9 @@ app.post('/api/auth/callback', async (req, res) => {
         });
 
         const data = await response.json();
-        
-        if (data.error) {
-            console.error("UNA Error:", data);
-            return res.status(400).json(data);
-        }
-        
+        if (data.error) return res.status(400).json(data);
         res.json(data);
     } catch (error) {
-        console.error("Auth Exchange Error:", error);
         res.status(500).json({ error: "Failed to exchange auth code" });
     }
 });
@@ -65,31 +57,35 @@ app.get('/api/get-una-assets', async (req, res) => {
         const meData = await meRes.json();
         const profileId = meData.id;
 
-        // FETCH CROWDS (UNA Module: bx_spaces)
-        const crowdsRes = await fetch(UNA_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module: 'bx_spaces',
-                method: 'get_author_entries',
-                params: [profileId],
-                key: UNA_SECRET
-            })
-        });
-        const crowdsData = await crowdsRes.json();
+        // NEW: Bulletproof fetcher to catch non-JSON errors
+        const fetchUnaModule = async (moduleName) => {
+            const response = await fetch(UNA_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    module: moduleName,
+                    method: 'get_author_entries',
+                    params: [profileId],
+                    key: UNA_SECRET
+                })
+            });
+            
+            const text = await response.text();
+            
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                // If UNA returns an HTML page or error string, we catch it here!
+                return { 
+                    error: "Parse failed - API returned HTML or Text", 
+                    status: response.status,
+                    rawText: text.substring(0, 500) + '...' // Get the first 500 chars of the error
+                };
+            }
+        };
 
-        // FETCH SPACES (UNA Module: bx_groups)
-        const spacesRes = await fetch(UNA_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module: 'bx_groups',
-                method: 'get_author_entries',
-                params: [profileId],
-                key: UNA_SECRET
-            })
-        });
-        const spacesData = await spacesRes.json();
+        const crowdsData = await fetchUnaModule('bx_spaces');
+        const spacesData = await fetchUnaModule('bx_groups');
 
         res.json({
             user: meData,
@@ -109,18 +105,15 @@ app.get('/api/get-una-assets', async (req, res) => {
 
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
-
     if (event.type === 'checkout.session.completed') {
         const customerEmail = event.data.object.customer_details.email;
         const stripeProductId = event.data.object.metadata.product_id;
-
         try {
             const connection = await mysql.createConnection(dbConfig);
             const [rows] = await connection.execute(
                 'SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ?', 
                 [stripeProductId]
             );
-
             if (rows.length > 0) {
                 const { una_module, una_content_id } = rows[0];
                 await grantCommunityAccess(customerEmail, una_module, una_content_id);
