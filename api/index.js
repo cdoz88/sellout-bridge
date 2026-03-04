@@ -10,7 +10,7 @@ import mysql from 'mysql2/promise';
 const app = express();
 
 // STUDIO URL CONFIGURATION
-const UNA_BASE_URL = "https://studio.selloutcrowds.com";
+const UNA_BASE_URL = "https://studio.selloutcrowds.com/";
 const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 
