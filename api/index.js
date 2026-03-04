@@ -1,7 +1,6 @@
 /**
- * api.js - THE BACKEND ENGINE
- * FIX: Ensuring the redirect_uri used during the code swap exactly matches 
- * the one used during the initial login request, and pointing to the Studio URL.
+ * api/index.js - THE BACKEND ENGINE
+ * FIX: Moved into an "api" folder so Vercel recognizes it as a live server.
  */
 
 const express = require('express');
@@ -34,7 +33,7 @@ app.post('/api/auth/callback', async (req, res) => {
         params.append('client_id', process.env.UNA_CLIENT_ID);
         params.append('client_secret', process.env.UNA_CLIENT_SECRET);
         params.append('code', code);
-        params.append('redirect_uri', redirect_uri); // Must be exactly the same string as the first step
+        params.append('redirect_uri', redirect_uri); 
 
         const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, {
             method: 'POST',
@@ -43,6 +42,13 @@ app.post('/api/auth/callback', async (req, res) => {
         });
 
         const data = await response.json();
+        
+        // If UNA sends back an error, pass it to the frontend so we can see it
+        if (data.error) {
+            console.error("UNA Error:", data);
+            return res.status(400).json(data);
+        }
+        
         res.json(data);
     } catch (error) {
         console.error("Auth Exchange Error:", error);
