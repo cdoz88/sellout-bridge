@@ -1,8 +1,8 @@
 /**
- * api.js - THE BACKEND ENGINE
+ * api.js - THE BACKEND ENGINE (UPDATED URL)
  * * WHAT THIS DOES:
- * 1. Exchanges OAuth codes for Access Tokens so you can log in.
- * 2. Fetches your real Crowds (Groups) and Spaces from Sellout Crowds.
+ * 1. Exchanges OAuth codes for Access Tokens using the Studio URL.
+ * 2. Fetches your real Crowds and Spaces from the Studio API.
  * 3. Listens for Stripe payments and adds members automatically.
  */
 
@@ -11,11 +11,12 @@ const mysql = require('mysql2/promise');
 const app = express();
 
 // 1. SELLOUT CROWDS CONFIGURATION
-const UNA_BASE_URL = "https://selloutcrowds.com";
+// Updated to use the 'Studio' subdomain as per your screenshot instructions.
+const UNA_BASE_URL = "https://studio.selloutcrowds.com";
 const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 
-// 2. DATABASE CONFIGURATION (Stored in Vercel Environment Variables)
+// 2. DATABASE CONFIGURATION
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
     user: process.env.DB_USER,
@@ -27,7 +28,7 @@ app.use(express.json());
 
 /**
  * AUTH CALLBACK: The "Secret Handshake"
- * This swaps the temporary 'code' from the login screen for a real 'token'.
+ * Uses the studio URL to swap the code for a token.
  */
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
@@ -56,20 +57,19 @@ app.post('/api/auth/callback', async (req, res) => {
 
 /**
  * FETCH ASSETS: Gets your real Crowds and Spaces
- * Uses your personal token to find your ID, then uses the Master Key to get the list.
  */
 app.get('/api/get-una-assets', async (req, res) => {
     const token = req.headers.authorization;
     
     try {
-        // Step A: Find out who is logged in
+        // Find the profile ID via the Studio API
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         const profileId = meData.id;
 
-        // Step B: Fetch their Groups (Crowds)
+        // Fetch Groups
         const groupsRes = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ app.get('/api/get-una-assets', async (req, res) => {
         });
         const groupsData = await groupsRes.json();
 
-        // Step C: Fetch their Spaces
+        // Fetch Spaces
         const spacesRes = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
