@@ -1,10 +1,12 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Moved into an "api" folder so Vercel recognizes it as a live server.
+ * FIX: Swapped out old "require" syntax for modern "import" syntax
+ * to match the strict "type: module" requirement in your package.json.
  */
 
-const express = require('express');
-const mysql = require('mysql2/promise');
+import express from 'express';
+import mysql from 'mysql2/promise';
+
 const app = express();
 
 // STUDIO URL CONFIGURATION
@@ -149,4 +151,5 @@ async function grantCommunityAccess(email, module, contentId) {
     }
 }
 
-module.exports = app;
+// FIX: Modern export to match ES Modules
+export default app;
