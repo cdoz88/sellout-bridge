@@ -10,9 +10,14 @@ import mysql from 'mysql2/promise';
 const app = express();
 
 // STUDIO URL CONFIGURATION
-const UNA_BASE_URL = "https://studio.selloutcrowds.com/";
+const UNA_BASE_URL = "https://studio.selloutcrowds.com";
 const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
+
+// NEW: We are hardcoding your Client ID and Secret directly into the file
+// so we don't have to rely on Vercel's Environment Variables working perfectly.
+const UNA_CLIENT_ID = "yxxnxsihu2";
+const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
@@ -32,8 +37,11 @@ app.post('/api/auth/callback', async (req, res) => {
     try {
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
-        params.append('client_id', process.env.UNA_CLIENT_ID);
-        params.append('client_secret', process.env.UNA_CLIENT_SECRET);
+        
+        // FIX: Use the hardcoded variables instead of process.env
+        params.append('client_id', UNA_CLIENT_ID);
+        params.append('client_secret', UNA_CLIENT_SECRET);
+        
         params.append('code', code);
         params.append('redirect_uri', redirect_uri); 
 
