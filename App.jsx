@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key } from 'lucide-react';
 
 /**
- * App.jsx - THE AUTHENTICATED DASHBOARD
- * FIX: Added a mandatory trailing slash to the redirect_uri to match the 
- * UNA OAuth2 Server settings exactly.
+ * App.jsx - THE RESTORED AUTHENTICATED DASHBOARD
+ * Features: Working SSO + Full Mapping UI with Stripe/PayPal tabs.
  */
 
 export default function App() {
+  // SSO & Data State
   const [session, setSession] = useState(null);
   const [unaData, setUnaData] = useState({ user: null, groups: [], spaces: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // UI State
+  const [activeTab, setActiveTab] = useState('stripe');
+  const [apiKey, setApiKey] = useState('');
+  const [mappings, setMappings] = useState([]);
+
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   
   // STUDIO CONFIGURATION
-  const UNA_STUDIO_URL = "https://studio.selloutcrowds.com/";
+  const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // STEP 1: Catch the user coming back from Sellout Crowds
+  // --- 1. SSO LOGIN LOGIC (UNCHANGED & WORKING) ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -35,7 +40,6 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
-      // We must send the EXACT SAME redirect_uri that was used in the first step
       const redirectUri = window.location.origin.endsWith('/') 
         ? window.location.origin 
         : `${window.location.origin}/`;
@@ -43,10 +47,7 @@ export default function App() {
       const res = await fetch('/api/auth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            code, 
-            redirect_uri: redirectUri 
-        })
+        body: JSON.stringify({ code, redirect_uri: redirectUri })
       });
       const data = await res.json();
       
@@ -54,12 +55,12 @@ export default function App() {
         setSession(data.access_token);
         fetchAssets(data.access_token);
       } else {
-        setError(data.error_description || "Authentication failed. Check your Client Secret in Vercel.");
+        setError(data.error_description || "Authentication failed.");
       }
       
       window.history.replaceState({}, document.title, "/");
     } catch (err) {
-      setError("The Bridge server is not responding. Ensure api.js is deployed.");
+      setError("The Bridge server is not responding.");
     } finally {
       setIsLoading(false);
     }
@@ -81,17 +82,25 @@ export default function App() {
   };
 
   const startLogin = () => {
-    // FIX: We manually add the '/' to match your "Keys" screenshot exactly
     const origin = window.location.origin;
     const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
-    
-    // NEW: Generate a random "state" string to satisfy UNA's security requirement
     const state = Math.random().toString(36).substring(7);
-    
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  // ... (Rest of the UI remains the same as your beautiful dark theme)
+  // --- 2. MAPPING LOGIC ---
+  const addMapping = () => {
+    setMappings([...mappings, { id: Date.now(), productId: '', unaId: '' }]);
+  };
+
+  const removeMapping = (id) => {
+    setMappings(mappings.filter(m => m.id !== id));
+  };
+
+
+  // --- 3. UI RENDERING ---
+
+  // LOADING SCREEN
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -101,6 +110,7 @@ export default function App() {
     );
   }
 
+  // LOGIN SCREEN
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -128,8 +138,10 @@ export default function App() {
     );
   }
 
+  // DASHBOARD SCREEN
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans">
+      {/* Navbar */}
       <nav className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-[#9df01c] flex items-center justify-center text-black">
@@ -144,70 +156,162 @@ export default function App() {
             <LogOut className="w-5 h-5" />
         </button>
       </nav>
-      <main className="max-w-6xl mx-auto py-16 px-8">
-        <header className="flex justify-between items-end mb-16">
-            <div>
-                <h2 className="text-5xl font-black uppercase italic tracking-tighter leading-none mb-4">Your Assets</h2>
-                <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full bg-[#9df01c] animate-pulse"></span>
-                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em]">Connected to studio.selloutcrowds.com</p>
-                </div>
-            </div>
-            <button style={{ backgroundColor: brandColor }} className="flex items-center gap-2 text-black font-black py-3 px-6 rounded-xl text-[11px] uppercase tracking-widest shadow-xl shadow-[#9df01c]/10">
-                <Plus className="w-4 h-4" /> New Mapping
+
+      <main className="max-w-7xl mx-auto py-12 px-8">
+        {/* Header & Tabs */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+          <div>
+            <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4">Subscription Bridge</h2>
+            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em]">Connect payment plans to your community</p>
+          </div>
+          
+          {/* Payment Provider Tabs */}
+          <div className="flex bg-[#111] p-1.5 rounded-2xl border border-white/5">
+            <button 
+              onClick={() => setActiveTab('stripe')} 
+              className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}
+            >
+              <CreditCard className="w-4 h-4" /> Stripe
             </button>
-        </header>
-        <div className="grid lg:grid-cols-2 gap-10">
-            <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 px-2">Crowds (Groups)</h3>
-                <div className="grid gap-4">
-                    {unaData.groups.length === 0 ? (
-                        <div className="bg-[#0a0a0a] border border-white/5 p-12 rounded-[2.5rem] text-center">
-                            <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest italic">No Crowds Found</p>
-                        </div>
-                    ) : (
-                        unaData.groups.map(group => (
-                            <div key={group.id} className="bg-[#0a0a0a] border border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[#9df01c]/40 transition-all">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-12 h-12 bg-black rounded-2xl border border-white/10 flex items-center justify-center">
-                                        <Link2 className="text-gray-700 group-hover:text-[#9df01c] w-5 h-5 transition-colors" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-black uppercase text-xs">{group.title}</h4>
-                                        <p className="text-[9px] text-gray-600 font-mono mt-1 uppercase">ID: {group.id}</p>
-                                    </div>
-                                </div>
-                                <Plus className="w-4 h-4 text-[#9df01c] opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                        ))
-                    )}
+            <button 
+              onClick={() => setActiveTab('paypal')} 
+              className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}
+            >
+              <Smartphone className="w-4 h-4" /> PayPal
+            </button>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-12 gap-8">
+          {/* LEFT COLUMN: Setup */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* API Setup Box */}
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
+                <Key className="w-4 h-4 text-[#9df01c]" /> Provider Setup
+              </h3>
+              
+              <div className="space-y-4 relative z-10">
+                <div>
+                  <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                    {activeTab === 'stripe' ? 'Stripe Restricted Key' : 'PayPal Client ID'}
+                  </label>
+                  <input 
+                    type="password" 
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={activeTab === 'stripe' ? 'rk_live_...' : 'Enter Client ID...'}
+                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors"
+                  />
                 </div>
+                <button className="w-full bg-white/5 hover:bg-white/10 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2">
+                  <Save className="w-3 h-3" /> Save Credentials
+                </button>
+              </div>
             </div>
-            <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 px-2">Spaces</h3>
-                <div className="grid gap-4">
-                    {unaData.spaces?.length === 0 ? (
-                        <div className="bg-[#0a0a0a] border border-white/5 p-12 rounded-[2.5rem] text-center">
-                            <p className="text-gray-700 text-[10px] font-black uppercase tracking-widest italic">No Spaces Found</p>
-                        </div>
-                    ) : (
-                        unaData.spaces?.map(space => (
-                            <div key={space.id} className="bg-[#0a0a0a] border border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[#9df01c]/40 transition-all">
-                                <div className="flex items-center gap-5">
-                                    <div className="w-12 h-12 bg-black rounded-2xl border border-white/10 flex items-center justify-center">
-                                        <ExternalLink className="text-gray-700 group-hover:text-[#9df01c] w-5 h-5 transition-colors" />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-black uppercase text-xs">{space.title}</h4>
-                                        <p className="text-[9px] text-gray-600 font-mono mt-1 uppercase">ID: {space.id}</p>
-                                    </div>
-                                </div>
-                                <Plus className="w-4 h-4 text-[#9df01c] opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                        ))
-                    )}
+
+            {/* Webhook Generator Box */}
+            <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c]">Bridge Webhook URL</h3>
+              <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
+              </p>
+              <div className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-copy">
+                <span className="text-xs font-mono text-gray-300 truncate mr-4">
+                  https://bridge.selloutcrowds.com/api/{activeTab}-webhook
+                </span>
+                <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+              </div>
+            </div>
+
+          </div>
+
+          {/* RIGHT COLUMN: Mappings */}
+          <div className="lg:col-span-8">
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter">Access Mappings</h3>
+                  <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Rule: If they buy [Product], grant access to [Community]</p>
                 </div>
+                <button 
+                  onClick={addMapping} 
+                  style={{ backgroundColor: brandColor }} 
+                  className="flex items-center gap-2 text-black font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Add Link
+                </button>
+              </div>
+
+              {/* Mappings List */}
+              <div className="space-y-4">
+                {mappings.length === 0 ? (
+                  <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center">
+                    <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
+                    <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Link" to connect a product to a Crowd or Space.</p>
+                  </div>
+                ) : (
+                  mappings.map((mapping) => (
+                    <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      
+                      {/* Product Selection */}
+                      <div className="flex-1 w-full">
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">{activeTab === 'stripe' ? 'Stripe Product' : 'PayPal Plan'}</label>
+                        <select className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]">
+                          <option value="">Select Product...</option>
+                          <option value="prod_mock1">Standard Membership</option>
+                          <option value="prod_mock2">VIP Access Pass</option>
+                        </select>
+                      </div>
+
+                      <div className="md:pt-5 hidden md:block">
+                        <Zap className="w-5 h-5 text-[#9df01c]" />
+                      </div>
+
+                      {/* UNA Asset Selection */}
+                      <div className="flex-1 w-full">
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
+                        <select className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]">
+                          <option value="">Select Crowd/Space...</option>
+                          
+                          {/* Real UNA Groups (Crowds) */}
+                          {unaData.groups.length > 0 && (
+                            <optgroup label="Crowds (Groups)" className="text-gray-500 font-black bg-black">
+                              {unaData.groups.map(g => (
+                                <option key={g.id} value={`bx_groups_${g.id}`} className="text-white font-medium">{g.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          
+                          {/* Real UNA Spaces */}
+                          {unaData.spaces.length > 0 && (
+                            <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
+                              {unaData.spaces.map(s => (
+                                <option key={s.id} value={`bx_spaces_${s.id}`} className="text-white font-medium">{s.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Delete Button */}
+                      <div className="md:pt-5 w-full md:w-auto">
+                        <button 
+                          onClick={() => removeMapping(mapping.id)} 
+                          className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
+          </div>
         </div>
       </main>
     </div>
