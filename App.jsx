@@ -17,7 +17,7 @@ export default function App() {
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   
   // STUDIO CONFIGURATION
-  const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
+  const UNA_STUDIO_URL = "https://studio.selloutcrowds.com/";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
