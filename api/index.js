@@ -1,7 +1,8 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Swapped out old "require" syntax for modern "import" syntax
- * to match the strict "type: module" requirement in your package.json.
+ * FIX: Updated module names to match site architecture.
+ * Crowds = bx_sites
+ * Spaces = bx_groups
  */
 
 import express from 'express';
@@ -9,13 +10,9 @@ import mysql from 'mysql2/promise';
 
 const app = express();
 
-// STUDIO URL CONFIGURATION
 const UNA_BASE_URL = "https://studio.selloutcrowds.com";
 const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
-
-// NEW: We are hardcoding your Client ID and Secret directly into the file
-// so we don't have to rely on Vercel's Environment Variables working perfectly.
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
@@ -28,20 +25,14 @@ const dbConfig = {
 
 app.use(express.json());
 
-/**
- * AUTH CALLBACK: The "Secret Handshake"
- */
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
 
     try {
         const params = new URLSearchParams();
         params.append('grant_type', 'authorization_code');
-        
-        // FIX: Use the hardcoded variables instead of process.env
         params.append('client_id', UNA_CLIENT_ID);
         params.append('client_secret', UNA_CLIENT_SECRET);
-        
         params.append('code', code);
         params.append('redirect_uri', redirect_uri); 
 
@@ -53,7 +44,6 @@ app.post('/api/auth/callback', async (req, res) => {
 
         const data = await response.json();
         
-        // If UNA sends back an error, pass it to the frontend so we can see it
         if (data.error) {
             console.error("UNA Error:", data);
             return res.status(400).json(data);
@@ -66,9 +56,6 @@ app.post('/api/auth/callback', async (req, res) => {
     }
 });
 
-/**
- * FETCH ASSETS: Gets your real Crowds and Spaces
- */
 app.get('/api/get-una-assets', async (req, res) => {
     const token = req.headers.authorization;
     try {
@@ -78,19 +65,8 @@ app.get('/api/get-una-assets', async (req, res) => {
         const meData = await meRes.json();
         const profileId = meData.id;
 
-        const groupsRes = await fetch(UNA_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module: 'bx_groups',
-                method: 'get_author_entries',
-                params: [profileId],
-                key: UNA_SECRET
-            })
-        });
-        const groupsData = await groupsRes.json();
-
-        const spacesRes = await fetch(UNA_API_URL, {
+        // FETCH CROWDS (UNA Module: bx_spaces)
+        const crowdsRes = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -100,12 +76,30 @@ app.get('/api/get-una-assets', async (req, res) => {
                 key: UNA_SECRET
             })
         });
+        const crowdsData = await crowdsRes.json();
+
+        // FETCH SPACES (UNA Module: bx_groups)
+        const spacesRes = await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: 'bx_groups',
+                method: 'get_author_entries',
+                params: [profileId],
+                key: UNA_SECRET
+            })
+        });
         const spacesData = await spacesRes.json();
 
         res.json({
             user: meData,
-            groups: groupsData.result || [],
-            spaces: spacesData.result || []
+            crowds: Array.isArray(crowdsData.result) ? crowdsData.result : [],
+            spaces: Array.isArray(spacesData.result) ? spacesData.result : [],
+            debug: {
+                profileIdUsed: profileId,
+                crowdsResponse: crowdsData,
+                spacesResponse: spacesData
+            }
         });
     } catch (error) {
         console.error("Asset Fetch Error:", error);
@@ -113,9 +107,6 @@ app.get('/api/get-una-assets', async (req, res) => {
     }
 });
 
-/**
- * STRIPE WEBHOOK: Adds members after payment
- */
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
 
@@ -159,5 +150,4 @@ async function grantCommunityAccess(email, module, contentId) {
     }
 }
 
-// FIX: Modern export to match ES Modules
 export default app;

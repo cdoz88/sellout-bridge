@@ -1,19 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key } from 'lucide-react';
 
-/**
- * App.jsx - THE RESTORED AUTHENTICATED DASHBOARD
- * Features: Working SSO + Full Mapping UI with Stripe/PayPal tabs.
- */
-
 export default function App() {
-  // SSO & Data State
   const [session, setSession] = useState(null);
-  const [unaData, setUnaData] = useState({ user: null, groups: [], spaces: [] });
+  const [unaData, setUnaData] = useState({ user: null, crowds: [], spaces: [], debug: null });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // UI State
   const [activeTab, setActiveTab] = useState('stripe');
   const [apiKey, setApiKey] = useState('');
   const [mappings, setMappings] = useState([]);
@@ -21,29 +14,21 @@ export default function App() {
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   
-  // STUDIO CONFIGURATION
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- 1. SSO LOGIN LOGIC (UNCHANGED & WORKING) ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-
-    if (code) {
-      handleCallback(code);
-    }
+    if (code) handleCallback(code);
   }, []);
 
   const handleCallback = async (code) => {
     setIsLoading(true);
     setError(null);
     try {
-      const redirectUri = window.location.origin.endsWith('/') 
-        ? window.location.origin 
-        : `${window.location.origin}/`;
-
+      const redirectUri = window.location.origin.endsWith('/') ? window.location.origin : `${window.location.origin}/`;
       const res = await fetch('/api/auth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,7 +42,6 @@ export default function App() {
       } else {
         setError(data.error_description || "Authentication failed.");
       }
-      
       window.history.replaceState({}, document.title, "/");
     } catch (err) {
       setError("The Bridge server is not responding.");
@@ -73,7 +57,12 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      setUnaData(data);
+      setUnaData({
+        user: data.user,
+        crowds: Array.isArray(data.crowds) ? data.crowds : [],
+        spaces: Array.isArray(data.spaces) ? data.spaces : [],
+        debug: data.debug || null
+      });
     } catch (err) {
       setError("Successfully logged in, but couldn't load your Crowds/Spaces.");
     } finally {
@@ -88,19 +77,9 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  // --- 2. MAPPING LOGIC ---
-  const addMapping = () => {
-    setMappings([...mappings, { id: Date.now(), productId: '', unaId: '' }]);
-  };
+  const addMapping = () => setMappings([...mappings, { id: Date.now(), productId: '', unaId: '' }]);
+  const removeMapping = (id) => setMappings(mappings.filter(m => m.id !== id));
 
-  const removeMapping = (id) => {
-    setMappings(mappings.filter(m => m.id !== id));
-  };
-
-
-  // --- 3. UI RENDERING ---
-
-  // LOADING SCREEN
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -110,7 +89,6 @@ export default function App() {
     );
   }
 
-  // LOGIN SCREEN
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -138,10 +116,8 @@ export default function App() {
     );
   }
 
-  // DASHBOARD SCREEN
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans">
-      {/* Navbar */}
       <nav className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-[#9df01c] flex items-center justify-center text-black">
@@ -158,53 +134,34 @@ export default function App() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-12 px-8">
-        {/* Header & Tabs */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4">Subscription Bridge</h2>
             <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em]">Connect payment plans to your community</p>
           </div>
-          
-          {/* Payment Provider Tabs */}
           <div className="flex bg-[#111] p-1.5 rounded-2xl border border-white/5">
-            <button 
-              onClick={() => setActiveTab('stripe')} 
-              className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('stripe')} className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}>
               <CreditCard className="w-4 h-4" /> Stripe
             </button>
-            <button 
-              onClick={() => setActiveTab('paypal')} 
-              className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}
-            >
+            <button onClick={() => setActiveTab('paypal')} className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}>
               <Smartphone className="w-4 h-4" /> PayPal
             </button>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8">
-          {/* LEFT COLUMN: Setup */}
           <div className="lg:col-span-4 space-y-6">
-            
-            {/* API Setup Box */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
               <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
                 <Key className="w-4 h-4 text-[#9df01c]" /> Provider Setup
               </h3>
-              
               <div className="space-y-4 relative z-10">
                 <div>
                   <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                     {activeTab === 'stripe' ? 'Stripe Restricted Key' : 'PayPal Client ID'}
                   </label>
-                  <input 
-                    type="password" 
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={activeTab === 'stripe' ? 'rk_live_...' : 'Enter Client ID...'}
-                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors"
-                  />
+                  <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={activeTab === 'stripe' ? 'rk_live_...' : 'Enter Client ID...'} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" />
                 </div>
                 <button className="w-full bg-white/5 hover:bg-white/10 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2">
                   <Save className="w-3 h-3" /> Save Credentials
@@ -212,7 +169,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Webhook Generator Box */}
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c]">Bridge Webhook URL</h3>
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
@@ -226,9 +182,21 @@ export default function App() {
               </div>
             </div>
 
+            {/* DIAGNOSTIC SCANNER: Only appears if fetching fails completely */}
+            {unaData.debug && unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
+              <div className="bg-[#111] rounded-[2rem] border border-yellow-500/30 p-8 shadow-2xl">
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-yellow-500">API Diagnostic</h3>
+                <p className="text-gray-400 text-[10px] font-bold leading-relaxed mb-4">
+                  It looks like the correct modules were queried, but no data came back. Paste this back to me:
+                </p>
+                <pre className="bg-black border border-yellow-500/20 rounded-xl p-4 text-[9px] font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(unaData.debug, null, 2)}
+                </pre>
+              </div>
+            )}
+
           </div>
 
-          {/* RIGHT COLUMN: Mappings */}
           <div className="lg:col-span-8">
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
@@ -236,16 +204,11 @@ export default function App() {
                   <h3 className="text-2xl font-black uppercase italic tracking-tighter">Access Mappings</h3>
                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Rule: If they buy [Product], grant access to [Community]</p>
                 </div>
-                <button 
-                  onClick={addMapping} 
-                  style={{ backgroundColor: brandColor }} 
-                  className="flex items-center gap-2 text-black font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all"
-                >
+                <button onClick={addMapping} style={{ backgroundColor: brandColor }} className="flex items-center gap-2 text-black font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
                   <Plus className="w-4 h-4" /> Add Link
                 </button>
               </div>
 
-              {/* Mappings List */}
               <div className="space-y-4">
                 {mappings.length === 0 ? (
                   <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center">
@@ -257,7 +220,6 @@ export default function App() {
                   mappings.map((mapping) => (
                     <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                       
-                      {/* Product Selection */}
                       <div className="flex-1 w-full">
                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">{activeTab === 'stripe' ? 'Stripe Product' : 'PayPal Plan'}</label>
                         <select className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]">
@@ -271,38 +233,33 @@ export default function App() {
                         <Zap className="w-5 h-5 text-[#9df01c]" />
                       </div>
 
-                      {/* UNA Asset Selection */}
                       <div className="flex-1 w-full">
                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
                         <select className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]">
                           <option value="">Select Crowd/Space...</option>
                           
-                          {/* Real UNA Groups (Crowds) */}
-                          {unaData.groups.length > 0 && (
-                            <optgroup label="Crowds (Groups)" className="text-gray-500 font-black bg-black">
-                              {unaData.groups.map(g => (
-                                <option key={g.id} value={`bx_groups_${g.id}`} className="text-white font-medium">{g.title}</option>
+                          {/* MAPPED CROWDS (bx_spaces) */}
+                          {unaData.crowds.length > 0 && (
+                            <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
+                              {unaData.crowds.map(c => (
+                                <option key={c.id} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>
                               ))}
                             </optgroup>
                           )}
-                          
-                          {/* Real UNA Spaces */}
+
+                          {/* MAPPED SPACES (bx_groups) */}
                           {unaData.spaces.length > 0 && (
                             <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
                               {unaData.spaces.map(s => (
-                                <option key={s.id} value={`bx_spaces_${s.id}`} className="text-white font-medium">{s.title}</option>
+                                <option key={s.id} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>
                               ))}
                             </optgroup>
                           )}
                         </select>
                       </div>
 
-                      {/* Delete Button */}
                       <div className="md:pt-5 w-full md:w-auto">
-                        <button 
-                          onClick={() => removeMapping(mapping.id)} 
-                          className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center"
-                        >
+                        <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
