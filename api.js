@@ -1,22 +1,18 @@
 /**
- * api.js - THE BACKEND ENGINE (UPDATED URL)
- * * WHAT THIS DOES:
- * 1. Exchanges OAuth codes for Access Tokens using the Studio URL.
- * 2. Fetches your real Crowds and Spaces from the Studio API.
- * 3. Listens for Stripe payments and adds members automatically.
+ * api.js - THE BACKEND ENGINE
+ * FIX: Ensuring the redirect_uri used during the code swap exactly matches 
+ * the one used during the initial login request, and pointing to the Studio URL.
  */
 
 const express = require('express');
 const mysql = require('mysql2/promise');
 const app = express();
 
-// 1. SELLOUT CROWDS CONFIGURATION
-// Updated to use the 'Studio' subdomain as per your screenshot instructions.
+// STUDIO URL CONFIGURATION
 const UNA_BASE_URL = "https://studio.selloutcrowds.com";
 const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 
-// 2. DATABASE CONFIGURATION
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
     user: process.env.DB_USER,
@@ -28,7 +24,6 @@ app.use(express.json());
 
 /**
  * AUTH CALLBACK: The "Secret Handshake"
- * Uses the studio URL to swap the code for a token.
  */
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
@@ -39,7 +34,7 @@ app.post('/api/auth/callback', async (req, res) => {
         params.append('client_id', process.env.UNA_CLIENT_ID);
         params.append('client_secret', process.env.UNA_CLIENT_SECRET);
         params.append('code', code);
-        params.append('redirect_uri', redirect_uri);
+        params.append('redirect_uri', redirect_uri); // Must be exactly the same string as the first step
 
         const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, {
             method: 'POST',
@@ -60,16 +55,13 @@ app.post('/api/auth/callback', async (req, res) => {
  */
 app.get('/api/get-una-assets', async (req, res) => {
     const token = req.headers.authorization;
-    
     try {
-        // Find the profile ID via the Studio API
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         const profileId = meData.id;
 
-        // Fetch Groups
         const groupsRes = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -82,7 +74,6 @@ app.get('/api/get-una-assets', async (req, res) => {
         });
         const groupsData = await groupsRes.json();
 
-        // Fetch Spaces
         const spacesRes = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
