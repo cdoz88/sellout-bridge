@@ -1,7 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added a bulletproof text parser to catch silent HTML errors 
- * from the UNA api.php file and pass them to the frontend diagnostic box.
+ * FIX: Switched from the default UNA api.php to the custom FSAN endpoint 
+ * discovered in the WordPress plugin (get-fields) to bypass 403 Access Denied errors.
  */
 
 import express from 'express';
@@ -14,6 +14,9 @@ const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
+
+// NEW: The custom endpoint used by your WordPress Plugin
+const FSAN_CUSTOM_API_URL = "https://fantasysportsadvice.network/m/fsan/wordpress/get-fields";
 
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
@@ -55,46 +58,56 @@ app.get('/api/get-una-assets', async (req, res) => {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
-        const profileId = meData.id;
+        
+        // Mimicking the WP plugin's `get_option('soc_profile_url')`
+        const profileUrl = meData.url || `https://selloutcrowds.com/profile/${meData.name || meData.id}`;
 
-        // NEW: Bulletproof fetcher to catch non-JSON errors
-        const fetchUnaModule = async (moduleName) => {
-            const response = await fetch(UNA_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    module: moduleName,
-                    method: 'get_author_entries',
-                    params: [profileId],
-                    key: UNA_SECRET
-                })
+        // Build the exact payload the WordPress functions.php sends
+        const formData = new URLSearchParams();
+        formData.append('api_key', UNA_SECRET);
+        formData.append('user', profileUrl);
+        formData.append('domain', 'https://bridge.selloutcrowds.com');
+
+        // Hit the custom FSAN endpoint
+        const customRes = await fetch(FSAN_CUSTOM_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        });
+
+        const text = await customRes.text();
+        let parsedData;
+        try {
+            parsedData = JSON.parse(text);
+        } catch (e) {
+            return res.json({
+                user: meData,
+                crowds: [], spaces: [],
+                debug: { error: "Custom endpoint returned non-JSON", rawText: text.substring(0, 500) }
             });
-            
-            const text = await response.text();
-            
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                // If UNA returns an HTML page or error string, we catch it here!
-                return { 
-                    error: "Parse failed - API returned HTML or Text", 
-                    status: response.status,
-                    rawText: text.substring(0, 500) + '...' // Get the first 500 chars of the error
-                };
-            }
-        };
+        }
 
-        const crowdsData = await fetchUnaModule('bx_spaces');
-        const spacesData = await fetchUnaModule('bx_groups');
+        // Translate the WP formatted data ('bx_spaces_123') into our Dashboard arrays
+        const crowds = [];
+        const spaces = [];
+        const options = parsedData?.allow_view_to?.values || [];
+
+        options.forEach(item => {
+            if (item.key.startsWith('bx_spaces_')) {
+                crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
+            } else if (item.key.startsWith('bx_groups_')) {
+                spaces.push({ id: item.key.replace('bx_groups_', ''), title: item.value });
+            }
+        });
 
         res.json({
             user: meData,
-            crowds: Array.isArray(crowdsData.result) ? crowdsData.result : [],
-            spaces: Array.isArray(spacesData.result) ? spacesData.result : [],
+            crowds: crowds,
+            spaces: spaces,
             debug: {
-                profileIdUsed: profileId,
-                crowdsResponse: crowdsData,
-                spacesResponse: spacesData
+                endpointUsed: FSAN_CUSTOM_API_URL,
+                profileUrlSent: profileUrl,
+                rawResponse: parsedData
             }
         });
     } catch (error) {
