@@ -1,51 +1,123 @@
 /**
- * api.js - THE BACKEND WORKER (THE BRAIN)
+ * api.js - THE BACKEND ENGINE
  * * WHAT THIS DOES:
- * 1. Listens for payment notifications (Webhooks) from Stripe or PayPal.
- * 2. Checks your cPanel Database to see which product belongs to which group.
- * 3. Tells your Sellout Crowds community site to add the member.
+ * 1. Exchanges OAuth codes for Access Tokens so you can log in.
+ * 2. Fetches your real Crowds (Groups) and Spaces from Sellout Crowds.
+ * 3. Listens for Stripe payments and adds members automatically.
  */
 
 const express = require('express');
 const mysql = require('mysql2/promise');
 const app = express();
 
-// 1. YOUR SELLOUT CROWDS SECRET KEYS
-const UNA_API_URL = "https://selloutcrowds.com/api.php";
+// 1. SELLOUT CROWDS CONFIGURATION
+const UNA_BASE_URL = "https://selloutcrowds.com";
+const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 
-// 2. DATABASE CONFIGURATION
-// We use 'process.env' so your real passwords stay hidden in Vercel's settings.
+// 2. DATABASE CONFIGURATION (Stored in Vercel Environment Variables)
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
-    user: process.env.DB_USER,      // This will be set in Vercel
-    password: process.env.DB_PASSWORD, // This will be set in Vercel
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
     database: 'una-bridge-35303839bd70'
 };
 
 app.use(express.json());
 
 /**
- * STRIPE WEBHOOK LISTENER
- * Stripe will "text" this address when someone pays you.
+ * AUTH CALLBACK: The "Secret Handshake"
+ * This swaps the temporary 'code' from the login screen for a real 'token'.
+ */
+app.post('/api/auth/callback', async (req, res) => {
+    const { code, redirect_uri } = req.body;
+
+    try {
+        const params = new URLSearchParams();
+        params.append('grant_type', 'authorization_code');
+        params.append('client_id', process.env.UNA_CLIENT_ID);
+        params.append('client_secret', process.env.UNA_CLIENT_SECRET);
+        params.append('code', code);
+        params.append('redirect_uri', redirect_uri);
+
+        const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params
+        });
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("Auth Exchange Error:", error);
+        res.status(500).json({ error: "Failed to exchange auth code" });
+    }
+});
+
+/**
+ * FETCH ASSETS: Gets your real Crowds and Spaces
+ * Uses your personal token to find your ID, then uses the Master Key to get the list.
+ */
+app.get('/api/get-una-assets', async (req, res) => {
+    const token = req.headers.authorization;
+    
+    try {
+        // Step A: Find out who is logged in
+        const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
+            headers: { 'Authorization': token }
+        });
+        const meData = await meRes.json();
+        const profileId = meData.id;
+
+        // Step B: Fetch their Groups (Crowds)
+        const groupsRes = await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: 'bx_groups',
+                method: 'get_author_entries',
+                params: [profileId],
+                key: UNA_SECRET
+            })
+        });
+        const groupsData = await groupsRes.json();
+
+        // Step C: Fetch their Spaces
+        const spacesRes = await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: 'bx_spaces',
+                method: 'get_author_entries',
+                params: [profileId],
+                key: UNA_SECRET
+            })
+        });
+        const spacesData = await spacesRes.json();
+
+        res.json({
+            user: meData,
+            groups: groupsData.result || [],
+            spaces: spacesData.result || []
+        });
+    } catch (error) {
+        console.error("Asset Fetch Error:", error);
+        res.status(500).json({ error: "Failed to fetch community assets" });
+    }
+});
+
+/**
+ * STRIPE WEBHOOK: Adds members after payment
  */
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
 
-    // Only do something if the payment was successful
     if (event.type === 'checkout.session.completed') {
         const customerEmail = event.data.object.customer_details.email;
-        
-        // We look for a "product_id" that you'll set in your Stripe dashboard metadata
         const stripeProductId = event.data.object.metadata.product_id;
 
-        console.log(`Payment success for ${customerEmail}. Product: ${stripeProductId}`);
-
         try {
-            // Open a connection to your cPanel Database
             const connection = await mysql.createConnection(dbConfig);
-            
-            // Look up which Group/Space is linked to this Stripe Product
             const [rows] = await connection.execute(
                 'SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ?', 
                 [stripeProductId]
@@ -53,51 +125,31 @@ app.post('/api/stripe-webhook', async (req, res) => {
 
             if (rows.length > 0) {
                 const { una_module, una_content_id } = rows[0];
-                
-                // Call the helper function below to actually add the member to the site
                 await grantCommunityAccess(customerEmail, una_module, una_content_id);
-                
-                // Record this event in your logs table
-                await connection.execute(
-                    'INSERT INTO bridge_logs (customer_email, action, details) VALUES (?, ?, ?)',
-                    [customerEmail, 'granted', `Added to ${una_module} ID ${una_content_id}`]
-                );
             }
-            
-            await connection.end(); // Close the database door
+            await connection.end();
         } catch (error) {
-            console.error('Database Error:', error);
+            console.error('Webhook Error:', error);
         }
     }
-    
-    // Always tell Stripe we got the message
     res.json({ received: true });
 });
 
-/**
- * HELPER: THE COMMAND TO SELLOUT CROWDS
- * This sends the secret request to your community site.
- */
 async function grantCommunityAccess(email, module, contentId) {
     try {
-        const response = await fetch(UNA_API_URL, {
+        await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                module: module,         // e.g., 'bx_groups'
+                module: module,
                 method: 'serviceAddMember',
                 params: [contentId, email],
                 key: UNA_SECRET
             })
         });
-
-        const result = await response.json();
-        return result.status === 'ok';
     } catch (err) {
-        console.error("Sellout Crowds API Error:", err);
-        return false;
+        console.error("Grant Access Error:", err);
     }
 }
 
-// Export this for Vercel to use
 module.exports = app;
