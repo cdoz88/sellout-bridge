@@ -20,6 +20,7 @@ export default function App() {
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
+  const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
   
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
@@ -202,7 +203,6 @@ export default function App() {
     );
   }
 
-  // --- LANDING PAGE UPDATES ARE HERE ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -211,7 +211,7 @@ export default function App() {
           <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
           <h1 className="text-2xl font-black mb-4 uppercase tracking-tight">Community Bridge</h1>
           <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed">
-            Login with your Sellout Crowds credentials and map your existing subscriptions to access your Private Communities
+            Login with your Sellout Crowds credentials and map your existing subscriptions to your SC communities
           </p>
           <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
             Connect to Bridge
@@ -225,12 +225,12 @@ export default function App() {
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-24">
       <nav className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[#9df01c] flex items-center justify-center text-black">
-                <ShieldCheck className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/10 flex items-center justify-center text-black overflow-hidden p-1.5">
+                <img src={iconUrl} alt="SC Icon" className="w-full h-full object-contain" />
             </div>
             <div>
                 <span className="block font-black uppercase tracking-tighter text-sm italic leading-none">{unaData.user?.name || 'Creator Portal'}</span>
-                <span className="text-[9px] text-[#9df01c] font-black uppercase tracking-[0.3em] mt-1 block">Studio Live Sync</span>
+                <span className="text-[9px] text-[#9df01c] font-black uppercase tracking-[0.2em] mt-1 block">Connect your subscribers to your community</span>
             </div>
         </div>
         <button onClick={handleLogout} className="bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all text-gray-500">
@@ -242,7 +242,6 @@ export default function App() {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
           <div>
             <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4">Subscription Bridge</h2>
-            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em]">Connect payment plans to your community</p>
           </div>
           <div className="flex bg-[#111] p-1.5 rounded-2xl border border-white/5">
             <button onClick={() => setActiveTab('stripe')} className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}>
@@ -270,9 +269,9 @@ export default function App() {
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
                 <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
-                    <RefreshCcw className="w-4 h-4 text-[#9df01c]" /> Sync Assets
+                    <RefreshCcw className="w-4 h-4 text-[#9df01c]" /> Sync Communities
                 </h3>
-                <p className="text-[10px] text-gray-500 font-medium mb-6 relative z-10">Pull your latest Spaces and Crowds from Sellout Crowds to begin mapping.</p>
+                <p className="text-[10px] text-gray-500 font-medium mb-6 relative z-10">Manually sync your latest Crowd(s) and Space(s)</p>
                 <button 
                   onClick={() => syncCommunities()}
                   className="w-full bg-[#9df01c] hover:bg-[#8ce015] text-black font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 shadow-lg shadow-[#9df01c]/20 relative z-10">
@@ -307,11 +306,11 @@ export default function App() {
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
-                  <h3 className="text-2xl font-black uppercase italic tracking-tighter">Access Mappings</h3>
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter">Subscription Mappings</h3>
                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Rule: If they buy [Product], grant access to [Community]</p>
                 </div>
                 <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
-                  <Plus className="w-4 h-4" /> Add Link
+                  <Plus className="w-4 h-4" /> Add Bridge
                 </button>
               </div>
 
@@ -320,7 +319,7 @@ export default function App() {
                   <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                     <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                     <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                    <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Link" to connect a product to a Crowd or Space.</p>
+                    <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a product to a Crowd or Space.</p>
                   </div>
                 ) : (
                   currentTabMappings.map((mapping) => (
