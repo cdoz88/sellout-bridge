@@ -1,7 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: We are now using the newly discovered FSAN module! 
- * This perfectly duplicates the working WordPress plugin's logic.
+ * FIX: Intelligently formats the Profile URL to ensure it matches the 
+ * main domain (selloutcrowds.com) to pass the FSAN module's strict regex validator.
  */
 
 import express from 'express';
@@ -63,8 +63,19 @@ app.get('/api/get-una-assets', async (req, res) => {
         });
         const meData = await meRes.json();
         
-        // Grab their profile URL (Fallback to their ID URL if standard URL is missing)
-        const profileUrl = meData.url || `${UNA_BASE_URL}/profile/${meData.id}`;
+        // ====================================================================
+        // URL FORMATTER FIX:
+        // The FSAN module rejects 'studio.selloutcrowds.com' and ID numbers.
+        // It wants the main site URL and the username (e.g., 'FSAN-Admin').
+        // ====================================================================
+        const MAIN_DOMAIN = "selloutcrowds.com";
+        // Convert "FSAN Admin" to "FSAN-Admin" just like UNA URL slugs do
+        const urlSlug = meData.name ? meData.name.replace(/\s+/g, '-') : meData.id;
+        
+        let profileUrl = meData.url || `https://${MAIN_DOMAIN}/profile/${urlSlug}`;
+        
+        // Force replace the 'studio' subdomain if it was provided by OAuth
+        profileUrl = profileUrl.replace('https://studio.selloutcrowds.com', `https://${MAIN_DOMAIN}`);
 
         // Step B: Replicate the exact $post_fields from your WordPress plugin
         const formData = new URLSearchParams();
@@ -109,7 +120,7 @@ app.get('/api/get-una-assets', async (req, res) => {
             spaces: spaces,
             debug: {
                 endpointUsed: FSAN_ENDPOINT,
-                profileUrlSent: profileUrl,
+                profileUrlSent: profileUrl, // We can check this in the yellow box if it fails again!
                 rawResponse: parsedData
             }
         });
