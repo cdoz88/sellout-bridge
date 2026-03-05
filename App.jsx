@@ -22,6 +22,10 @@ export default function App() {
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
   
+  // Custom Icons provided for the tabs
+  const stripeIcon = "https://static.wikia.nocookie.net/logopedia/images/7/75/Stripe_favicon_2025.svg/revision/latest/scale-to-width-down/250?cb=20251211214642";
+  const paypalIcon = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaft1EtwutCeXGzg0hfXfXubaH1jXMJeb-Rg&s";
+  
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
@@ -280,7 +284,11 @@ export default function App() {
             </div>
 
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c]">Bridge Webhook URL</h3>
+              {/* Dynamic Header with Icon */}
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c] flex items-center gap-2">
+                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                Bridge Webhook URL
+              </h3>
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                 Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
               </p>
@@ -306,7 +314,11 @@ export default function App() {
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
-                  <h3 className="text-2xl font-black uppercase italic tracking-tighter">Subscription Mappings</h3>
+                  {/* Dynamic Header with Icon */}
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
+                    <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
+                    Subscription Mappings
+                  </h3>
                   <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Rule: If they buy [Product], grant access to [Community]</p>
                 </div>
                 <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
