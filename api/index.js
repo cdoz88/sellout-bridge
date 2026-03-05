@@ -1,8 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Implemented secure "OAuth Profile Link" fetch.
- * It takes the user's verified OAuth identity and pulls their exact profile link
- * to test against the FSAN module.
+ * FIX: Added safety checks to the loop to prevent crashes if UNA returns empty keys.
  */
 
 import express from 'express';
@@ -87,13 +85,11 @@ app.get('/api/get-communities', async (req, res) => {
         let userProfileUrl = meData.profile_link;
 
         // Security / Routing safety: Ensure the URL matches your live frontend domain
-        // (Just in case the OAuth API returns the studio. domain instead of www.)
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
         userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
 
         // Step C: Send the single, verified URL to the FSAN module
         const formData = new URLSearchParams();
-        // We are keeping your original FSAN_TOKEN here to ensure it talks to your existing WordPress module correctly!
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
@@ -134,10 +130,13 @@ app.get('/api/get-communities', async (req, res) => {
         const options = parsedData.allow_view_to.values || [];
 
         options.forEach(item => {
-            if (item.key.startsWith('bx_spaces_')) {
-                crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
-            } else if (item.key.startsWith('bx_groups_')) {
-                spaces.push({ id: item.key.replace('bx_groups_', ''), title: item.value });
+            // SAFETY CHECK: Only try to read the key if it exists and is a text string!
+            if (item && typeof item.key === 'string') {
+                if (item.key.startsWith('bx_spaces_')) {
+                    crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
+                } else if (item.key.startsWith('bx_groups_')) {
+                    spaces.push({ id: item.key.replace('bx_groups_', ''), title: item.value });
+                }
             }
         });
 
