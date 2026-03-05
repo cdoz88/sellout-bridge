@@ -1,7 +1,8 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Intelligently formats the Profile URL to ensure it matches the 
- * main domain (selloutcrowds.com) to pass the FSAN module's strict regex validator.
+ * FIX: Separated the User Fetch from the Community Fetch.
+ * We now accept the exact Profile URL from the frontend, ensuring
+ * it perfectly mimics the successful WordPress plugin.
  */
 
 import express from 'express';
@@ -15,7 +16,6 @@ const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
-// --- THE NEW FSAN CONFIGURATION ---
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
@@ -53,51 +53,48 @@ app.post('/api/auth/callback', async (req, res) => {
     }
 });
 
-// 2. FETCH CROWDS & SPACES VIA THE FSAN MODULE
-app.get('/api/get-una-assets', async (req, res) => {
+// 2. GET USER NAME (This runs instantly on login)
+app.get('/api/get-user', async (req, res) => {
     const token = req.headers.authorization;
     try {
-        // Step A: Find out who is logged in via OAuth
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
-        
-        // ====================================================================
-        // URL FORMATTER FIX:
-        // The FSAN module rejects 'studio.selloutcrowds.com' and ID numbers.
-        // It wants the main site URL and the username (e.g., 'FSAN-Admin').
-        // ====================================================================
-        const MAIN_DOMAIN = "selloutcrowds.com";
-        // Convert "FSAN Admin" to "FSAN-Admin" just like UNA URL slugs do
-        const urlSlug = meData.name ? meData.name.replace(/\s+/g, '-') : meData.id;
-        
-        let profileUrl = meData.url || `https://${MAIN_DOMAIN}/profile/${urlSlug}`;
-        
-        // Force replace the 'studio' subdomain if it was provided by OAuth
-        profileUrl = profileUrl.replace('https://studio.selloutcrowds.com', `https://${MAIN_DOMAIN}`);
+        res.json({ user: meData });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch user data" });
+    }
+});
 
-        // Step B: Replicate the exact $post_fields from your WordPress plugin
+// 3. FETCH COMMUNITIES (This runs when you paste your URL and click Sync)
+app.post('/api/get-communities', async (req, res) => {
+    const { profileUrl } = req.body;
+
+    if (!profileUrl) {
+        return res.status(400).json({ error: "Profile URL is required" });
+    }
+
+    try {
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', profileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
 
-        // Step C: Ask the FSAN Module for the data!
-        const fsanRes = await fetch(FSAN_ENDPOINT, {
+        const customRes = await fetch(FSAN_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData
         });
 
-        const text = await fsanRes.text();
+        const text = await customRes.text();
         let parsedData;
         try {
             parsedData = JSON.parse(text);
         } catch (e) {
             return res.json({
-                user: meData, crowds: [], spaces: [],
-                debug: { error: "FSAN returned non-JSON", rawText: text.substring(0, 500) }
+                crowds: [], spaces: [],
+                debug: { error: "FSAN endpoint returned non-JSON", rawText: text.substring(0, 500) }
             });
         }
 
@@ -105,7 +102,6 @@ app.get('/api/get-una-assets', async (req, res) => {
         const spaces = [];
         const options = parsedData?.allow_view_to?.values || [];
 
-        // Step D: Translate the FSAN data into our Dashboard dropdown format
         options.forEach(item => {
             if (item.key.startsWith('bx_spaces_')) {
                 crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
@@ -115,22 +111,20 @@ app.get('/api/get-una-assets', async (req, res) => {
         });
 
         res.json({
-            user: meData,
             crowds: crowds,
             spaces: spaces,
             debug: {
                 endpointUsed: FSAN_ENDPOINT,
-                profileUrlSent: profileUrl, // We can check this in the yellow box if it fails again!
+                profileUrlSent: profileUrl,
                 rawResponse: parsedData
             }
         });
     } catch (error) {
-        console.error("Asset Fetch Error:", error);
         res.status(500).json({ error: "Failed to fetch community assets" });
     }
 });
 
-// 3. WEBHOOK HANDLER
+// 4. WEBHOOK HANDLER
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     if (event.type === 'checkout.session.completed') {
@@ -161,7 +155,7 @@ async function grantCommunityAccess(email, module, contentId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 module: module,
-                method: 'serviceAddMember', // This is verified and allowed for writing!
+                method: 'serviceAddMember',
                 params: [contentId, email],
                 key: UNA_SECRET
             })
