@@ -1,9 +1,10 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Plan C Implementation - Bypassing MySQL port restrictions by utilizing the PHP Courier script.
+ * FIX: Fully migrated to Vercel's Neon Serverless Postgres to bypass all third-party hosting firewalls!
  */
 
 import express from 'express';
+import { neon } from '@neondatabase/serverless';
 
 const app = express();
 
@@ -16,10 +17,8 @@ const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
-// PLAN C: The URL to the PHP file you uploaded to StackCP
-// UPDATE THIS LINE WITH YOUR REAL STACKCP TEMPORARY URL!
-const PHP_COURIER_URL = "http://betheremarketing-com.stackstaging.com//bridge-db.php";
-const PHP_SECRET = "bridge_secure_99";
+// Initialize the Neon Serverless Database connection
+const sql = neon(process.env.DATABASE_URL);
 
 app.use(express.json());
 
@@ -121,18 +120,15 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
-// 4. FETCH MAPPINGS VIA PHP COURIER
+// 4. FETCH MAPPINGS FROM NEON POSTGRES
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=get_mappings&user_id=${user.id}`);
-        const data = await fetchRes.json();
-
-        if (!data.success) throw new Error(data.error || "Unknown PHP error");
-
-        const mappedData = data.mappings.map(row => ({
+        const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
+        
+        const mappedData = rows.map(row => ({
             id: row.id,
             provider: row.provider,
             productId: row.stripe_product_id,
@@ -142,12 +138,12 @@ app.get('/api/get-mappings', async (req, res) => {
 
         res.json({ mappings: mappedData });
     } catch (error) {
-        console.error("PHP Fetch Error:", error.message || error);
-        res.status(500).json({ error: "Failed to fetch mappings via PHP" });
+        console.error("Neon DB Fetch Error:", error.message || error);
+        res.status(500).json({ error: "Failed to fetch mappings from database" });
     }
 });
 
-// 5. SAVE MAPPINGS VIA PHP COURIER
+// 5. SAVE MAPPINGS TO NEON POSTGRES
 app.post('/api/save-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -155,34 +151,42 @@ app.post('/api/save-mappings', async (req, res) => {
     const { mappings } = req.body;
 
     try {
-        const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=save_mappings`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id, mappings })
-        });
-        const data = await fetchRes.json();
+        // Clear old mappings
+        await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
 
-        if (!data.success) throw new Error(data.error || "Unknown PHP error");
+        // Insert new mappings
+        if (mappings && mappings.length > 0) {
+            for (const map of mappings) {
+                if (map.productId && map.unaModule && map.unaId) {
+                    const provider = map.provider || 'stripe';
+                    const contentId = parseInt(map.unaId);
+                    
+                    await sql`
+                        INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) 
+                        VALUES (${user.id}, ${user.id}, ${provider}, ${map.productId}, ${map.unaModule}, ${contentId})
+                    `;
+                }
+            }
+        }
 
         res.json({ success: true });
     } catch (error) {
-        console.error("PHP Save Error:", error.message || error);
-        res.status(500).json({ error: "Failed to save mappings via PHP" });
+        console.error("Neon DB Save Error:", error.message || error);
+        res.status(500).json({ error: "Failed to save mappings to database" });
     }
 });
 
-// 6. WEBHOOK HANDLER VIA PHP COURIER
+// 6. WEBHOOK HANDLER WITH NEON POSTGRES
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     if (event.type === 'checkout.session.completed') {
         const customerEmail = event.data.object.customer_details.email;
         const stripeProductId = event.data.object.metadata.product_id;
         try {
-            const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=webhook_lookup&product_id=${stripeProductId}`);
-            const data = await fetchRes.json();
-
-            if (data.success && data.rows && data.rows.length > 0) {
-                const { una_module, una_content_id } = data.rows[0];
+            const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+            
+            if (rows.length > 0) {
+                const { una_module, una_content_id } = rows[0];
                 await grantCommunityAccess(customerEmail, una_module, una_content_id);
             }
         } catch (error) {
