@@ -1,10 +1,11 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Fully migrated to Vercel's Neon Serverless Postgres to bypass all third-party hosting firewalls!
+ * ADDED: Secure endpoint to fetch Stripe products dynamically using the user's provided API key.
  */
 
 import express from 'express';
 import { neon } from '@neondatabase/serverless';
+import Stripe from 'stripe'; // Added Stripe package
 
 const app = express();
 
@@ -17,12 +18,10 @@ const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
-// Initialize the Neon Serverless Database connection
 const sql = neon(process.env.DATABASE_URL);
 
 app.use(express.json());
 
-// Helper function to verify user identity
 async function getAuthenticatedUser(token) {
     if (!token) return null;
     try {
@@ -37,7 +36,6 @@ async function getAuthenticatedUser(token) {
     }
 }
 
-// 1. OAUTH HANDSHAKE
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
     try {
@@ -62,14 +60,12 @@ app.post('/api/auth/callback', async (req, res) => {
     }
 });
 
-// 2. GET USER NAME
 app.get('/api/get-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     res.json({ user });
 });
 
-// 3. SECURELY SYNC COMMUNITIES
 app.get('/api/get-communities', async (req, res) => {
     const meData = await getAuthenticatedUser(req.headers.authorization);
     if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
@@ -120,7 +116,6 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
-// 4. FETCH MAPPINGS FROM NEON POSTGRES
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -143,7 +138,6 @@ app.get('/api/get-mappings', async (req, res) => {
     }
 });
 
-// 5. SAVE MAPPINGS TO NEON POSTGRES
 app.post('/api/save-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -151,10 +145,8 @@ app.post('/api/save-mappings', async (req, res) => {
     const { mappings } = req.body;
 
     try {
-        // Clear old mappings
         await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
 
-        // Insert new mappings
         if (mappings && mappings.length > 0) {
             for (const map of mappings) {
                 if (map.productId && map.unaModule && map.unaId) {
@@ -176,7 +168,32 @@ app.post('/api/save-mappings', async (req, res) => {
     }
 });
 
-// 6. WEBHOOK HANDLER WITH NEON POSTGRES
+// NEW: Fetch Stripe Products dynamically
+app.post('/api/get-stripe-products', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { apiKey } = req.body;
+    if (!apiKey) return res.status(400).json({ error: "No API key provided" });
+
+    try {
+        const stripe = new Stripe(apiKey);
+        const products = await stripe.products.list({ limit: 100, active: true });
+        
+        // Format the products to easily map into our dropdown
+        const formattedProducts = products.data.map(p => ({
+            id: p.id,
+            name: p.name
+        }));
+
+        res.json({ products: formattedProducts });
+    } catch (error) {
+        console.error("Stripe API Error:", error.message);
+        // If the key is invalid, Stripe throws an error. We return it safely so the UI can show it.
+        res.status(400).json({ error: "Invalid Stripe Key or connection failed." });
+    }
+});
+
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     if (event.type === 'checkout.session.completed') {

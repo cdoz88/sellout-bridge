@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
@@ -18,13 +18,18 @@ export default function App() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('stripe');
 
+  // State for Dynamic Products
+  const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [] });
+  const [isValidatingKey, setIsValidatingKey] = useState(false);
+  const [keySuccess, setKeySuccess] = useState(false);
+
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
   
-  // Custom Icons provided for the tabs
-  const stripeIcon = "https://static.wikia.nocookie.net/logopedia/images/7/75/Stripe_favicon_2025.svg/revision/latest/scale-to-width-down/250?cb=20251211214642";
-  const paypalIcon = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaft1EtwutCeXGzg0hfXfXubaH1jXMJeb-Rg&s";
+  // UPDATED: Custom Icons provided for the tabs
+  const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
+  const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
@@ -41,25 +46,61 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
   useEffect(() => { localStorage.setItem('bridge_apikey', apiKey); }, [apiKey]);
 
+  // Fetch products automatically if an API key exists when the app loads
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
       if (unaData.crowds.length === 0 && unaData.spaces.length === 0) {
         syncCommunities(session);
       }
+      if (apiKey) {
+        fetchProviderProducts(apiKey);
+      }
     }
   }, [session]);
 
   const fetchDatabaseMappings = async (token) => {
     try {
-      const res = await fetch('/api/get-mappings', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('/api/get-mappings', { headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
       if (data.mappings) setMappings(data.mappings);
     } catch (err) {
       console.error("Failed to load mappings from database.");
     }
+  };
+
+  const fetchProviderProducts = async (keyToTest) => {
+    if (!keyToTest) return;
+    setIsValidatingKey(true);
+    setError(null);
+    setKeySuccess(false);
+
+    if (activeTab === 'stripe') {
+      try {
+        const res = await fetch('/api/get-stripe-products', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${session}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({ apiKey: keyToTest })
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        setProviderProducts(prev => ({ ...prev, stripe: data.products }));
+        setKeySuccess(true);
+        setTimeout(() => setKeySuccess(false), 3000);
+      } catch (err) {
+        setError("Invalid Stripe Key. Check your provider settings.");
+        setProviderProducts(prev => ({ ...prev, stripe: [] }));
+      }
+    } else {
+       // PayPal logic will go here in the future
+       setIsValidatingKey(false);
+    }
+    setIsValidatingKey(false);
   };
 
   const saveMappingsToDatabase = async () => {
@@ -69,15 +110,10 @@ export default function App() {
     try {
       const res = await fetch('/api/save-mappings', {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${session}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings })
       });
-      
       if (!res.ok) throw new Error("Server rejected the save.");
-      
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -133,7 +169,6 @@ export default function App() {
   const syncCommunities = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
-    
     setIsLoading(true);
     setError(null);
     try {
@@ -142,11 +177,7 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' }
       });
       const data = await res.json();
-      setUnaData(prev => ({
-        ...prev,
-        crowds: data.crowds || [],
-        spaces: data.spaces || []
-      }));
+      setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
     } catch (err) {
       setError("Failed to sync communities from Sellout Crowds.");
     } finally {
@@ -162,15 +193,11 @@ export default function App() {
   };
 
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
-  
-  const updateMapping = (id, field, value) => {
-    setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
-  };
+  const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
     setMappings(newMappings);
-    
     try {
       await fetch('/api/save-mappings', {
         method: 'POST',
@@ -178,7 +205,7 @@ export default function App() {
         body: JSON.stringify({ mappings: newMappings })
       });
     } catch (err) {
-      console.error("Failed to delete mapping from database permanently.");
+      console.error("Failed to delete mapping.");
     }
   };
 
@@ -187,6 +214,7 @@ export default function App() {
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
     setMappings([]);
     setApiKey('');
+    setProviderProducts({ stripe: [], paypal: [] });
   };
 
   const copyWebhook = () => {
@@ -283,8 +311,34 @@ export default function App() {
                 </button>
             </div>
 
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
+                <Key className="w-4 h-4 text-[#9df01c]" /> Provider Setup
+              </h3>
+              <div className="space-y-5 relative z-10">
+                <div>
+                  <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                    {activeTab === 'stripe' ? 'Stripe Secret Key' : 'PayPal Secret Key'}
+                  </label>
+                  <input 
+                    type="password" 
+                    value={apiKey} 
+                    onChange={(e) => setApiKey(e.target.value)} 
+                    placeholder={activeTab === 'stripe' ? 'sk_live_... or rk_live_...' : 'Enter Secret Key...'} 
+                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" 
+                  />
+                </div>
+                <button 
+                  onClick={() => fetchProviderProducts(apiKey)}
+                  disabled={isValidatingKey || !apiKey}
+                  className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                  {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
+                  {keySuccess ? 'Connected' : 'Save & Sync Products'}
+                </button>
+              </div>
+            </div>
+
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
-              {/* Dynamic Header with Icon */}
               <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c] flex items-center gap-2">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Bridge Webhook URL
@@ -314,7 +368,6 @@ export default function App() {
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
-                  {/* Dynamic Header with Icon */}
                   <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
                     <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
                     Subscription Mappings
@@ -339,14 +392,20 @@ export default function App() {
                       
                       <div className="flex-1 w-full">
                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">{activeTab === 'stripe' ? 'Stripe Product' : 'PayPal Plan'}</label>
+                        
                         <select 
                            className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
                            value={mapping.productId}
                            onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
                         >
                           <option value="">Select Product...</option>
-                          <option value="prod_mock1">Standard Membership</option>
-                          <option value="prod_mock2">VIP Access Pass</option>
+                          {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
+                            providerProducts[activeTab].map(prod => (
+                                <option key={prod.id} value={prod.id}>{prod.name}</option>
+                            ))
+                          ) : (
+                            <option value="" disabled>No products found. Sync Credentials first.</option>
+                          )}
                         </select>
                       </div>
 
