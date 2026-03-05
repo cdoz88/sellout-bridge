@@ -1,6 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added MySQL integration for permanently saving and fetching user mappings.
+ * FIX: Included creator_id in the INSERT statement to satisfy MySQL strict mode, 
+ * and added detailed SQL error logging to Vercel.
  */
 
 import express from 'express';
@@ -137,7 +138,6 @@ app.get('/api/get-mappings', async (req, res) => {
         );
         await connection.end();
 
-        // Translate the database rows back into the format React expects
         const mappedData = rows.map(row => ({
             id: row.id,
             provider: row.provider,
@@ -163,17 +163,21 @@ app.post('/api/save-mappings', async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
         
-        // Clear old mappings for this user so we don't get duplicates
         await connection.execute('DELETE FROM bridge_mappings WHERE user_id = ?', [user.id]);
 
-        // Insert the new mappings
         if (mappings && mappings.length > 0) {
             for (const map of mappings) {
                 if (map.productId && map.unaModule && map.unaId) {
-                    await connection.execute(
-                        'INSERT INTO bridge_mappings (user_id, provider, stripe_product_id, una_module, una_content_id) VALUES (?, ?, ?, ?, ?)',
-                        [user.id, map.provider || 'stripe', map.productId, map.unaModule, parseInt(map.unaId)]
-                    );
+                    try {
+                        // FIX: Added creator_id = user.id to satisfy the database requirements
+                        await connection.execute(
+                            'INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) VALUES (?, ?, ?, ?, ?, ?)',
+                            [user.id, user.id, map.provider || 'stripe', map.productId, map.unaModule, parseInt(map.unaId)]
+                        );
+                    } catch (insertError) {
+                        console.error("CRITICAL SQL INSERT ERROR:", insertError.message);
+                        throw insertError; 
+                    }
                 }
             }
         }
@@ -181,7 +185,7 @@ app.post('/api/save-mappings', async (req, res) => {
         await connection.end();
         res.json({ success: true });
     } catch (error) {
-        console.error("DB Save Error:", error);
+        console.error("DB Save Error:", error.message || error);
         res.status(500).json({ error: "Failed to save mappings to database" });
     }
 });
