@@ -9,7 +9,6 @@ export default function App() {
   });
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('bridge_apikey') || '');
   
-  // Mappings are now handled directly by the database, so we start with an empty array
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -59,8 +58,9 @@ export default function App() {
   const saveMappingsToDatabase = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
+    setError(null);
     try {
-      await fetch('/api/save-mappings', {
+      const res = await fetch('/api/save-mappings', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session}`,
@@ -68,10 +68,16 @@ export default function App() {
         },
         body: JSON.stringify({ mappings })
       });
+      
+      // FIX: Check if the database actually accepted the save!
+      if (!res.ok) {
+        throw new Error("Server rejected the save. Check database columns.");
+      }
+      
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setError("Failed to save mappings to the database.");
+      setError("Failed to save mappings to the database. Make sure the provider column exists!");
     } finally {
       setIsSaving(false);
     }
@@ -147,14 +153,14 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  // Note: We now store which provider tab was active when the mapping was created
-  const addMapping = () => setMappings([...mappings, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
+  // FIX: Using "prev => prev.map" ensures React safely updates the state even if called rapidly
+  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
   
   const updateMapping = (id, field, value) => {
-    setMappings(mappings.map(m => m.id === id ? { ...m, [field]: value } : m));
+    setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   
-  const removeMapping = (id) => setMappings(mappings.filter(m => m.id !== id));
+  const removeMapping = (id) => setMappings(prev => prev.filter(m => m.id !== id));
 
   const handleLogout = () => {
     setSession(null);
@@ -163,7 +169,6 @@ export default function App() {
     setApiKey('');
   };
 
-  // Filter mappings to only show the ones for the currently selected tab (Stripe vs PayPal)
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
 
   if (isLoading) {
@@ -315,6 +320,8 @@ export default function App() {
                           onChange={(e) => {
                             const val = e.target.value;
                             if (!val) {
+                              // By calling these rapidly using the old method, they overwrote each other.
+                              // Our new "prev =>" method fixes this completely!
                               updateMapping(mapping.id, 'unaModule', '');
                               updateMapping(mapping.id, 'unaId', '');
                             } else {
