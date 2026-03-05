@@ -1,9 +1,8 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Implemented a secure "Auto-Discovery Loop".
- * It takes the user's verified OAuth identity and tests all valid URL 
- * combinations against the FSAN module until it finds the exact format 
- * the strict filter is looking for.
+ * FIX: Implemented secure "OAuth Profile Link" fetch.
+ * It takes the user's verified OAuth identity and pulls their exact profile link
+ * to test against the FSAN module.
  */
 
 import express from 'express';
@@ -68,90 +67,63 @@ app.get('/api/get-user', async (req, res) => {
     }
 });
 
-// 3. SECURELY SYNC COMMUNITIES VIA AUTO-DISCOVERY
+// 3. SECURELY SYNC COMMUNITIES VIA OAUTH PROFILE LINK
 app.get('/api/get-communities', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        // Step A: Guarantee identity via OAuth session
+        // Step A: Guarantee identity via OAuth session and get the user's data
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         
-        if (!meData || !meData.id) {
-            return res.status(401).json({ error: "Invalid OAuth session" });
+        if (!meData || !meData.id || !meData.profile_link) {
+            return res.status(401).json({ error: "Invalid OAuth session or missing profile link" });
         }
 
-        // Step B: Formulate the FRONTEND profile URLs (www.selloutcrowds.com)
-        // We use the account name (e.g. "SC Admin" -> "sc-admin")
-        const profileName = meData.name || "";
-        const id = meData.id;
-        
-        const slug1 = profileName.replace(/\s+/g, '-').toLowerCase(); // sc-admin (Most likely!)
-        const slug2 = profileName.replace(/\s+/g, '-'); // SC-ADMIN
-        const slug3 = profileName.replace(/\s+/g, '').toLowerCase(); // scadmin
-        const slug4 = id; // 1896
-        
-        const possibleSlugs = [slug1, slug2, slug3, slug4].filter(Boolean);
-        
-        // CRITICAL FIX: The API is studio., but the Profiles are www. !
-        const possibleDomains = [
-            'https://www.selloutcrowds.com',
-            'https://selloutcrowds.com'
-        ];
+        // Step B: Extract the official profile link provided directly by the server
+        let userProfileUrl = meData.profile_link;
 
-        // Build the master list of FRONTEND URLs to test against the BACKEND API
-        let possibleUrls = [];
+        // Security / Routing safety: Ensure the URL matches your live frontend domain
+        // (Just in case the OAuth API returns the studio. domain instead of www.)
+        userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
+        userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
 
-        for (const domain of possibleDomains) {
-            for (const slug of possibleSlugs) {
-                possibleUrls.push(`${domain}/profile/${slug}`);
-            }
-        }
+        // Step C: Send the single, verified URL to the FSAN module
+        const formData = new URLSearchParams();
+        // We are keeping your original FSAN_TOKEN here to ensure it talks to your existing WordPress module correctly!
+        formData.append('api_key', FSAN_TOKEN); 
+        formData.append('user', userProfileUrl);
+        formData.append('domain', 'https://bridge.selloutcrowds.com');
 
+        const fsanRes = await fetch(FSAN_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        });
+
+        const text = await fsanRes.text();
         let parsedData = null;
-        let successfulUrl = null;
-        let allResponses = {};
 
-        // Step C: The Auto-Discovery Loop
-        // Send the www. profile URLs to the studio. API endpoint
-        for (const testUrl of possibleUrls) {
-            const formData = new URLSearchParams();
-            formData.append('api_key', FSAN_TOKEN);
-            formData.append('user', testUrl);
-            formData.append('domain', 'https://bridge.selloutcrowds.com');
-
-            const fsanRes = await fetch(FSAN_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData
+        try {
+            parsedData = JSON.parse(text);
+        } catch (e) {
+            return res.json({
+                crowds: [], spaces: [],
+                debug: { error: "Non-JSON response from endpoint", rawResponse: text, urlUsed: userProfileUrl }
             });
-
-            const text = await fsanRes.text();
-            try {
-                const json = JSON.parse(text);
-                allResponses[testUrl] = json;
-
-                // If it returns the allow_view_to arrays, we passed the filter!
-                if (json && json.allow_view_to && json.allow_view_to.values) {
-                    parsedData = json;
-                    successfulUrl = testUrl;
-                    break; // Stop looking! We have the data!
-                }
-            } catch (e) {
-                allResponses[testUrl] = "Non-JSON response";
-            }
         }
 
-        // If ALL of them failed, print the master diagnostic so we can see exactly what happened
-        if (!parsedData) {
+        // Check if the FSAN endpoint accepted the URL and returned our fields
+        if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) {
             return res.json({
                 crowds: [], spaces: [],
                 debug: { 
-                    error: "FSAN endpoint rejected all www. profile URLs", 
-                    attemptedUrlsAndResponses: allResponses 
+                    error: "Endpoint rejected the verified profile URL.", 
+                    response: parsedData, 
+                    urlUsed: userProfileUrl 
                 }
             });
         }
@@ -174,7 +146,7 @@ app.get('/api/get-communities', async (req, res) => {
             spaces: spaces,
             debug: {
                 success: true,
-                winningUrl: successfulUrl,
+                winningUrl: userProfileUrl,
                 totalOptionsFound: options.length
             }
         });
