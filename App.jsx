@@ -12,6 +12,9 @@ export default function App() {
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // FIX: Added a state to track when the webhook is copied
+  const [webhookCopied, setWebhookCopied] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -40,7 +43,6 @@ export default function App() {
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
-      // FIX: If they log in and don't have communities loaded, auto-sync them instantly!
       if (unaData.crowds.length === 0 && unaData.spaces.length === 0) {
         syncCommunities(session);
       }
@@ -105,7 +107,6 @@ export default function App() {
       if (data.access_token) {
         setSession(data.access_token);
         fetchUser(data.access_token); 
-        // FIX: Auto-sync their communities the exact second they log in
         syncCommunities(data.access_token);
       } else {
         setError(data.error_description || "Authentication failed.");
@@ -165,7 +166,6 @@ export default function App() {
     setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   
-  // FIX: Instant Delete - removes from UI and auto-saves to the database immediately
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
     setMappings(newMappings);
@@ -186,6 +186,14 @@ export default function App() {
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
     setMappings([]);
     setApiKey('');
+  };
+
+  // FIX: Function to actually copy the webhook URL to the user's clipboard
+  const copyWebhook = () => {
+    const url = `https://bridge.selloutcrowds.com/api/${activeTab}-webhook`;
+    navigator.clipboard.writeText(url);
+    setWebhookCopied(true);
+    setTimeout(() => setWebhookCopied(false), 2000);
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
@@ -281,11 +289,20 @@ export default function App() {
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                 Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
               </p>
-              <div className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-copy">
+              
+              {/* FIX: Interactive copy button */}
+              <div 
+                onClick={copyWebhook} 
+                className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
+              >
                 <span className="text-xs font-mono text-gray-300 truncate mr-4">
                   https://bridge.selloutcrowds.com/api/{activeTab}-webhook
                 </span>
-                <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                {webhookCopied ? (
+                  <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
+                ) : (
+                  <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                )}
               </div>
             </div>
 
