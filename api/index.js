@@ -1,7 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Included creator_id in the INSERT statement to satisfy MySQL strict mode, 
- * and added detailed SQL error logging to Vercel.
+ * FIX: Updated dbConfig to use process.env.DB_HOST for external Vercel connections.
  */
 
 import express from 'express';
@@ -18,8 +17,9 @@ const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
+// FIX: Now looks for DB_HOST in Vercel to bypass internal network restrictions
 const dbConfig = {
-    host: 'sdb-82.hosting.stackcp.net',
+    host: process.env.DB_HOST || 'sdb-82.hosting.stackcp.net',
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: 'una-bridge-35303839bd70'
@@ -148,7 +148,7 @@ app.get('/api/get-mappings', async (req, res) => {
 
         res.json({ mappings: mappedData });
     } catch (error) {
-        console.error("DB Fetch Error:", error);
+        console.error("DB Fetch Error:", error.message || error);
         res.status(500).json({ error: "Failed to fetch mappings from database" });
     }
 });
@@ -169,7 +169,6 @@ app.post('/api/save-mappings', async (req, res) => {
             for (const map of mappings) {
                 if (map.productId && map.unaModule && map.unaId) {
                     try {
-                        // FIX: Added creator_id = user.id to satisfy the database requirements
                         await connection.execute(
                             'INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) VALUES (?, ?, ?, ?, ?, ?)',
                             [user.id, user.id, map.provider || 'stripe', map.productId, map.unaModule, parseInt(map.unaId)]
