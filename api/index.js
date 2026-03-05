@@ -74,7 +74,7 @@ app.get('/api/get-communities', async (req, res) => {
     if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        // Step A: Guarantee identity via OAuth session (100% secure, no manual input)
+        // Step A: Guarantee identity via OAuth session
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
@@ -84,27 +84,39 @@ app.get('/api/get-communities', async (req, res) => {
             return res.status(401).json({ error: "Invalid OAuth session" });
         }
 
-        // Step B: Extract the exact Profile Link from the OAuth response!
-        // You nailed it: the property is 'profile_link', not 'url'!
-        const nativeProfileLink = meData.profile_link || "";
+        // Step B: Formulate the FRONTEND profile URLs (www.selloutcrowds.com)
+        // We use the account name (e.g. "SC Admin" -> "sc-admin")
         const profileName = meData.name || "";
-        const profileSlug = profileName.replace(/\s+/g, '-');
+        const id = meData.id;
+        
+        const slug1 = profileName.replace(/\s+/g, '-').toLowerCase(); // sc-admin (Most likely!)
+        const slug2 = profileName.replace(/\s+/g, '-'); // SC-ADMIN
+        const slug3 = profileName.replace(/\s+/g, '').toLowerCase(); // scadmin
+        const slug4 = id; // 1896
+        
+        const possibleSlugs = [slug1, slug2, slug3, slug4].filter(Boolean);
+        
+        // CRITICAL FIX: The API is studio., but the Profiles are www. !
+        const possibleDomains = [
+            'https://www.selloutcrowds.com',
+            'https://selloutcrowds.com'
+        ];
 
-        // Generate all the valid formats the FSAN module might be strictly checking for
-        const possibleUrls = [
-            nativeProfileLink,
-            nativeProfileLink.replace('studio.selloutcrowds.com', 'www.selloutcrowds.com'),
-            nativeProfileLink.replace('studio.selloutcrowds.com', 'selloutcrowds.com'),
-            `https://www.selloutcrowds.com/profile/${profileSlug}`,
-            `https://selloutcrowds.com/profile/${profileSlug}`
-        ].filter(Boolean);
+        // Build the master list of FRONTEND URLs to test against the BACKEND API
+        let possibleUrls = [];
+
+        for (const domain of possibleDomains) {
+            for (const slug of possibleSlugs) {
+                possibleUrls.push(`${domain}/profile/${slug}`);
+            }
+        }
 
         let parsedData = null;
         let successfulUrl = null;
         let allResponses = {};
 
         // Step C: The Auto-Discovery Loop
-        // Test each URL format until the FSAN module accepts it
+        // Send the www. profile URLs to the studio. API endpoint
         for (const testUrl of possibleUrls) {
             const formData = new URLSearchParams();
             formData.append('api_key', FSAN_TOKEN);
@@ -138,8 +150,7 @@ app.get('/api/get-communities', async (req, res) => {
             return res.json({
                 crowds: [], spaces: [],
                 debug: { 
-                    error: "FSAN endpoint rejected all generated URLs", 
-                    meDataReceived: meData,
+                    error: "FSAN endpoint rejected all www. profile URLs", 
                     attemptedUrlsAndResponses: allResponses 
                 }
             });
