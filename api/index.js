@@ -1,10 +1,9 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Updated dbConfig to use process.env.DB_HOST for external Vercel connections.
+ * FIX: Plan C Implementation - Bypassing MySQL port restrictions by utilizing the PHP Courier script.
  */
 
 import express from 'express';
-import mysql from 'mysql2/promise';
 
 const app = express();
 
@@ -17,13 +16,10 @@ const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
-// FIX: Now looks for DB_HOST in Vercel to bypass internal network restrictions
-const dbConfig = {
-    host: process.env.DB_HOST || 'sdb-82.hosting.stackcp.net',
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: 'una-bridge-35303839bd70'
-};
+// PLAN C: The URL to the PHP file you uploaded to StackCP
+// UPDATE THIS LINE WITH YOUR REAL STACKCP TEMPORARY URL!
+const PHP_COURIER_URL = "http://betheremarketing-com.stackstaging.com//bridge-db.php";
+const PHP_SECRET = "bridge_secure_99";
 
 app.use(express.json());
 
@@ -125,20 +121,18 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
-// 4. FETCH MAPPINGS FROM MYSQL DATABASE
+// 4. FETCH MAPPINGS VIA PHP COURIER
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        const connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.execute(
-            'SELECT * FROM bridge_mappings WHERE user_id = ?', 
-            [user.id]
-        );
-        await connection.end();
+        const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=get_mappings&user_id=${user.id}`);
+        const data = await fetchRes.json();
 
-        const mappedData = rows.map(row => ({
+        if (!data.success) throw new Error(data.error || "Unknown PHP error");
+
+        const mappedData = data.mappings.map(row => ({
             id: row.id,
             provider: row.provider,
             productId: row.stripe_product_id,
@@ -148,12 +142,12 @@ app.get('/api/get-mappings', async (req, res) => {
 
         res.json({ mappings: mappedData });
     } catch (error) {
-        console.error("DB Fetch Error:", error.message || error);
-        res.status(500).json({ error: "Failed to fetch mappings from database" });
+        console.error("PHP Fetch Error:", error.message || error);
+        res.status(500).json({ error: "Failed to fetch mappings via PHP" });
     }
 });
 
-// 5. SAVE MAPPINGS TO MYSQL DATABASE
+// 5. SAVE MAPPINGS VIA PHP COURIER
 app.post('/api/save-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -161,51 +155,36 @@ app.post('/api/save-mappings', async (req, res) => {
     const { mappings } = req.body;
 
     try {
-        const connection = await mysql.createConnection(dbConfig);
-        
-        await connection.execute('DELETE FROM bridge_mappings WHERE user_id = ?', [user.id]);
+        const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=save_mappings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id, mappings })
+        });
+        const data = await fetchRes.json();
 
-        if (mappings && mappings.length > 0) {
-            for (const map of mappings) {
-                if (map.productId && map.unaModule && map.unaId) {
-                    try {
-                        await connection.execute(
-                            'INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) VALUES (?, ?, ?, ?, ?, ?)',
-                            [user.id, user.id, map.provider || 'stripe', map.productId, map.unaModule, parseInt(map.unaId)]
-                        );
-                    } catch (insertError) {
-                        console.error("CRITICAL SQL INSERT ERROR:", insertError.message);
-                        throw insertError; 
-                    }
-                }
-            }
-        }
+        if (!data.success) throw new Error(data.error || "Unknown PHP error");
 
-        await connection.end();
         res.json({ success: true });
     } catch (error) {
-        console.error("DB Save Error:", error.message || error);
-        res.status(500).json({ error: "Failed to save mappings to database" });
+        console.error("PHP Save Error:", error.message || error);
+        res.status(500).json({ error: "Failed to save mappings via PHP" });
     }
 });
 
-// 6. WEBHOOK HANDLER
+// 6. WEBHOOK HANDLER VIA PHP COURIER
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     if (event.type === 'checkout.session.completed') {
         const customerEmail = event.data.object.customer_details.email;
         const stripeProductId = event.data.object.metadata.product_id;
         try {
-            const connection = await mysql.createConnection(dbConfig);
-            const [rows] = await connection.execute(
-                'SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ?', 
-                [stripeProductId]
-            );
-            if (rows.length > 0) {
-                const { una_module, una_content_id } = rows[0];
+            const fetchRes = await fetch(`${PHP_COURIER_URL}?key=${PHP_SECRET}&action=webhook_lookup&product_id=${stripeProductId}`);
+            const data = await fetchRes.json();
+
+            if (data.success && data.rows && data.rows.length > 0) {
+                const { una_module, una_content_id } = data.rows[0];
                 await grantCommunityAccess(customerEmail, una_module, una_content_id);
             }
-            await connection.end();
         } catch (error) {
             console.error('Webhook Error:', error);
         }
