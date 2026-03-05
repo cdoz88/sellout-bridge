@@ -36,10 +36,14 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
   useEffect(() => { localStorage.setItem('bridge_apikey', apiKey); }, [apiKey]);
 
-  // FETCH MAPPINGS FROM DATABASE ON LOAD
+  // FETCH MAPPINGS & AUTO-SYNC ON LOAD
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
+      // FIX: If they log in and don't have communities loaded, auto-sync them instantly!
+      if (unaData.crowds.length === 0 && unaData.spaces.length === 0) {
+        syncCommunities(session);
+      }
     }
   }, [session]);
 
@@ -69,15 +73,12 @@ export default function App() {
         body: JSON.stringify({ mappings })
       });
       
-      // FIX: Check if the database actually accepted the save!
-      if (!res.ok) {
-        throw new Error("Server rejected the save. Check database columns.");
-      }
+      if (!res.ok) throw new Error("Server rejected the save.");
       
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setError("Failed to save mappings to the database. Make sure the provider column exists!");
+      setError("Failed to save mappings to the database.");
     } finally {
       setIsSaving(false);
     }
@@ -104,6 +105,8 @@ export default function App() {
       if (data.access_token) {
         setSession(data.access_token);
         fetchUser(data.access_token); 
+        // FIX: Auto-sync their communities the exact second they log in
+        syncCommunities(data.access_token);
       } else {
         setError(data.error_description || "Authentication failed.");
       }
@@ -125,13 +128,16 @@ export default function App() {
     }
   };
 
-  const syncCommunities = async () => {
+  const syncCommunities = async (overrideToken) => {
+    const activeToken = overrideToken || session;
+    if (!activeToken) return;
+    
     setIsLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/get-communities', {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       setUnaData(prev => ({
@@ -153,14 +159,27 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  // FIX: Using "prev => prev.map" ensures React safely updates the state even if called rapidly
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
   
   const updateMapping = (id, field, value) => {
     setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   
-  const removeMapping = (id) => setMappings(prev => prev.filter(m => m.id !== id));
+  // FIX: Instant Delete - removes from UI and auto-saves to the database immediately
+  const removeMapping = async (id) => {
+    const newMappings = mappings.filter(m => m.id !== id);
+    setMappings(newMappings);
+    
+    try {
+      await fetch('/api/save-mappings', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mappings: newMappings })
+      });
+    } catch (err) {
+      console.error("Failed to delete mapping from database permanently.");
+    }
+  };
 
   const handleLogout = () => {
     setSession(null);
@@ -251,7 +270,7 @@ export default function App() {
                 </h3>
                 <p className="text-[10px] text-gray-500 font-medium mb-6 relative z-10">Pull your latest Spaces and Crowds from Sellout Crowds to begin mapping.</p>
                 <button 
-                  onClick={syncCommunities}
+                  onClick={() => syncCommunities()}
                   className="w-full bg-[#9df01c] hover:bg-[#8ce015] text-black font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 shadow-lg shadow-[#9df01c]/20 relative z-10">
                   <RefreshCcw className="w-4 h-4" /> Sync My Communities
                 </button>
@@ -320,8 +339,6 @@ export default function App() {
                           onChange={(e) => {
                             const val = e.target.value;
                             if (!val) {
-                              // By calling these rapidly using the old method, they overwrote each other.
-                              // Our new "prev =>" method fixes this completely!
                               updateMapping(mapping.id, 'unaModule', '');
                               updateMapping(mapping.id, 'unaId', '');
                             } else {
