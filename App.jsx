@@ -12,8 +12,6 @@ export default function App() {
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  // FIX: Added a state to track when the webhook is copied
   const [webhookCopied, setWebhookCopied] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +25,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // Auto-save local storage items
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
     else {
@@ -39,7 +36,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
   useEffect(() => { localStorage.setItem('bridge_apikey', apiKey); }, [apiKey]);
 
-  // FETCH MAPPINGS & AUTO-SYNC ON LOAD
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
@@ -188,7 +184,6 @@ export default function App() {
     setApiKey('');
   };
 
-  // FIX: Function to actually copy the webhook URL to the user's clipboard
   const copyWebhook = () => {
     const url = `https://bridge.selloutcrowds.com/api/${activeTab}-webhook`;
     navigator.clipboard.writeText(url);
@@ -207,18 +202,19 @@ export default function App() {
     );
   }
 
+  // --- LANDING PAGE UPDATES ARE HERE ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
         <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
           <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
-          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight">Creator Bridge</h1>
+          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight">Community Bridge</h1>
           <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed">
-            Authorized access to your Studio assets. Connect your account to manage subscription mappings.
+            Login with your Sellout Crowds credentials and map your existing subscriptions to access your Private Communities
           </p>
           <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
-            Connect Studio Account
+            Connect to Bridge
           </button>
         </div>
       </div>
@@ -290,7 +286,6 @@ export default function App() {
                 Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
               </p>
               
-              {/* FIX: Interactive copy button */}
               <div 
                 onClick={copyWebhook} 
                 className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
