@@ -1,8 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Separated the User Fetch from the Community Fetch.
- * We now accept the exact Profile URL from the frontend, ensuring
- * it perfectly mimics the successful WordPress plugin.
+ * FIX: Securely Auto-Detects the logged-in user via OAuth and perfectly 
+ * formats their URL to bypass the FSAN module's security checks.
  */
 
 import express from 'express';
@@ -16,6 +15,7 @@ const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
+// --- THE NEW FSAN CONFIGURATION ---
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
@@ -53,7 +53,7 @@ app.post('/api/auth/callback', async (req, res) => {
     }
 });
 
-// 2. GET USER NAME (This runs instantly on login)
+// 2. GET USER NAME (Runs instantly on login)
 app.get('/api/get-user', async (req, res) => {
     const token = req.headers.authorization;
     try {
@@ -67,27 +67,48 @@ app.get('/api/get-user', async (req, res) => {
     }
 });
 
-// 3. FETCH COMMUNITIES (This runs when you paste your URL and click Sync)
-app.post('/api/get-communities', async (req, res) => {
-    const { profileUrl } = req.body;
-
-    if (!profileUrl) {
-        return res.status(400).json({ error: "Profile URL is required" });
-    }
+// 3. SECURELY SYNC COMMUNITIES (Triggered by the button)
+app.get('/api/get-communities', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     try {
+        // Step A: Guarantee identity via OAuth session
+        const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
+            headers: { 'Authorization': token }
+        });
+        const meData = await meRes.json();
+        
+        if (!meData || (!meData.id && !meData.url)) {
+            return res.status(401).json({ error: "Invalid OAuth session" });
+        }
+
+        // Step B: Format the URL exactly how FSAN expects it
+        // We isolate just their ID or Username (e.g. 'sc-admin' or '1896')
+        let profileIdentifier = meData.id; 
+        if (meData.url) {
+            const parts = meData.url.split('/profile/');
+            if (parts.length > 1) {
+                profileIdentifier = parts[1]; // strips away 'studio.selloutcrowds.com'
+            }
+        }
+        
+        // Construct the strict, clean URL that matches your frontend!
+        const cleanProfileUrl = `https://www.selloutcrowds.com/profile/${profileIdentifier}`;
+
+        // Step C: Hit the FSAN module with the clean URL
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', profileUrl);
+        formData.append('user', cleanProfileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
 
-        const customRes = await fetch(FSAN_ENDPOINT, {
+        const fsanRes = await fetch(FSAN_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData
         });
 
-        const text = await customRes.text();
+        const text = await fsanRes.text();
         let parsedData;
         try {
             parsedData = JSON.parse(text);
@@ -102,6 +123,7 @@ app.post('/api/get-communities', async (req, res) => {
         const spaces = [];
         const options = parsedData?.allow_view_to?.values || [];
 
+        // Translate the WP formatted data ('bx_spaces_123') into our dropdown arrays
         options.forEach(item => {
             if (item.key.startsWith('bx_spaces_')) {
                 crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
@@ -115,11 +137,12 @@ app.post('/api/get-communities', async (req, res) => {
             spaces: spaces,
             debug: {
                 endpointUsed: FSAN_ENDPOINT,
-                profileUrlSent: profileUrl,
+                profileUrlSent: cleanProfileUrl,
                 rawResponse: parsedData
             }
         });
     } catch (error) {
+        console.error("Asset Fetch Error:", error);
         res.status(500).json({ error: "Failed to fetch community assets" });
     }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -9,7 +9,6 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('stripe');
   const [apiKey, setApiKey] = useState('');
-  const [profileUrl, setProfileUrl] = useState(''); // Stores your manual Profile URL
   const [mappings, setMappings] = useState([]);
 
   const brandColor = '#9df01c';
@@ -39,7 +38,6 @@ export default function App() {
       
       if (data.access_token) {
         setSession(data.access_token);
-        // Only fetch the user's name automatically
         fetchUser(data.access_token); 
       } else {
         setError(data.error_description || "Authentication failed.");
@@ -64,20 +62,18 @@ export default function App() {
     }
   };
 
+  // SECURE SYNC: Relies entirely on the established OAuth token to prevent spoofing
   const syncCommunities = async () => {
-    if (!profileUrl) {
-      setError("Please enter your Profile URL to sync your communities.");
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
     
     try {
       const res = await fetch('/api/get-communities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileUrl })
+        method: 'GET',
+        headers: { 
+            'Authorization': `Bearer ${session}`,
+            'Content-Type': 'application/json' 
+        }
       });
       const data = await res.json();
       
@@ -101,7 +97,7 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  const addMapping = () => setMappings([...mappings, { id: Date.now(), productId: '', unaModule: 'bx_spaces', unaId: '' }]);
+  const addMapping = () => setMappings([...mappings, { id: Date.now(), productId: '', unaModule: '', unaId: '' }]);
   
   const updateMapping = (id, field, value) => {
     setMappings(mappings.map(m => m.id === id ? { ...m, [field]: value } : m));
@@ -163,7 +159,6 @@ export default function App() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-12 px-8">
-        {/* CLEARLY DISPLAY LOGGED IN USER */}
         <div className="flex items-center gap-3 bg-[#9df01c]/10 text-[#9df01c] px-5 py-3 rounded-xl border border-[#9df01c]/20 w-fit mb-8 shadow-lg shadow-[#9df01c]/5">
             <ShieldCheck className="w-5 h-5" />
             <span className="font-black uppercase tracking-widest text-xs">
@@ -198,29 +193,26 @@ export default function App() {
 
         <div className="grid lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-6">
+            
+            {/* NEW SYNC MODULE */}
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
+                    <RefreshCcw className="w-4 h-4 text-[#9df01c]" /> Sync Assets
+                </h3>
+                <p className="text-[10px] text-gray-500 font-medium mb-6 relative z-10">Pull your latest Spaces and Crowds from Sellout Crowds to begin mapping.</p>
+                <button 
+                  onClick={syncCommunities}
+                  className="w-full bg-[#9df01c] hover:bg-[#8ce015] text-black font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 shadow-lg shadow-[#9df01c]/20 relative z-10">
+                  <RefreshCcw className="w-4 h-4" /> Sync My Communities
+                </button>
+            </div>
+
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
               <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
                 <Key className="w-4 h-4 text-[#9df01c]" /> Provider Setup
               </h3>
-              
               <div className="space-y-5 relative z-10">
-                
-                {/* MANUAL PROFILE URL FIELD */}
-                <div>
-                  <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                    Your Profile URL
-                  </label>
-                  <input 
-                    type="url" 
-                    value={profileUrl} 
-                    onChange={(e) => setProfileUrl(e.target.value)} 
-                    placeholder="e.g. https://selloutcrowds.com/profile/FSAN-Admin" 
-                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" 
-                  />
-                  <p className="text-[9px] text-gray-500 mt-2 font-medium">Paste the exact profile URL that works in your WordPress plugin.</p>
-                </div>
-
                 <div>
                   <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                     {activeTab === 'stripe' ? 'Stripe Restricted Key' : 'PayPal Client ID'}
@@ -233,11 +225,8 @@ export default function App() {
                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" 
                   />
                 </div>
-
-                <button 
-                  onClick={syncCommunities}
-                  className="w-full bg-[#9df01c] hover:bg-[#8ce015] text-black font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 shadow-lg shadow-[#9df01c]/20">
-                  <Save className="w-4 h-4" /> Save & Sync Assets
+                <button className="w-full bg-white/5 hover:bg-white/10 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2">
+                  <Save className="w-3 h-3" /> Save Credentials
                 </button>
               </div>
             </div>
@@ -255,12 +244,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* ERROR DIAGNOSTIC - Only shows if there is a raw error message from the backend */}
+            {/* ERROR DIAGNOSTIC - Helps debug the FSAN connection */}
             {unaData.debug && (unaData.debug.error || unaData.debug.rawResponse?.msg) && (
               <div className="bg-[#111] rounded-[2rem] border border-yellow-500/30 p-8 shadow-2xl">
                 <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-yellow-500">API Diagnostic</h3>
                 <p className="text-gray-400 text-[10px] font-bold leading-relaxed mb-4">
-                  The endpoint rejected the request. Please verify your Profile URL:
+                  The endpoint rejected the request. Please send this back to me:
                 </p>
                 <pre className="bg-black border border-yellow-500/20 rounded-xl p-4 text-[9px] font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap">
                   {JSON.stringify(unaData.debug, null, 2)}
@@ -318,7 +307,6 @@ export default function App() {
                               updateMapping(mapping.id, 'unaModule', '');
                               updateMapping(mapping.id, 'unaId', '');
                             } else {
-                              // Auto-splits "bx_spaces_5" into module="bx_spaces" and id="5" behind the scenes!
                               const lastUnderscore = val.lastIndexOf('_');
                               const module = val.substring(0, lastUnderscore);
                               const id = val.substring(lastUnderscore + 1);
@@ -345,7 +333,6 @@ export default function App() {
                             </optgroup>
                           )}
 
-                          {/* Shows this message if the sync hasn't run yet or returned empty */}
                           {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
                             <option value="" disabled>No communities found. Please Sync Assets.</option>
                           )}
