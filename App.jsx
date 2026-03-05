@@ -27,7 +27,7 @@ export default function App() {
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
   
-  // UPDATED: Custom Icons provided for the tabs
+  // Custom Icons provided for the tabs
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   
@@ -265,9 +265,20 @@ export default function App() {
                 <span className="text-[9px] text-[#9df01c] font-black uppercase tracking-[0.2em] mt-1 block">Connect your subscribers to your community</span>
             </div>
         </div>
-        <button onClick={handleLogout} className="bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all text-gray-500">
-            <LogOut className="w-5 h-5" />
-        </button>
+        
+        {/* FIX: Sync Button moved to header next to logout */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => syncCommunities()}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all">
+            <RefreshCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> 
+            {isLoading ? 'Syncing...' : 'Sync Community List'}
+          </button>
+          <button onClick={handleLogout} className="bg-white/5 p-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all text-gray-500">
+              <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-12 px-8">
@@ -298,22 +309,11 @@ export default function App() {
         <div className="grid lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-6">
             
-            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/5 blur-[50px] rounded-full"></div>
-                <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
-                    <RefreshCcw className="w-4 h-4 text-[#9df01c]" /> Sync Communities
-                </h3>
-                <p className="text-[10px] text-gray-500 font-medium mb-6 relative z-10">Manually sync your latest Crowd(s) and Space(s)</p>
-                <button 
-                  onClick={() => syncCommunities()}
-                  className="w-full bg-[#9df01c] hover:bg-[#8ce015] text-black font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 shadow-lg shadow-[#9df01c]/20 relative z-10">
-                  <RefreshCcw className="w-4 h-4" /> Sync My Communities
-                </button>
-            </div>
-
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
-                <Key className="w-4 h-4 text-[#9df01c]" /> Provider Setup
+                {/* FIX: Replaced Key icon with Provider Icon */}
+                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                Provider Setup
               </h3>
               <div className="space-y-5 relative z-10">
                 <div>
