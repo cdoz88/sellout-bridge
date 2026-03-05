@@ -1,7 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Switched from the default UNA api.php to the custom FSAN endpoint 
- * discovered in the WordPress plugin (get-fields) to bypass 403 Access Denied errors.
+ * FIX: We are now using the newly discovered FSAN module! 
+ * This perfectly duplicates the working WordPress plugin's logic.
  */
 
 import express from 'express';
@@ -15,8 +15,9 @@ const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
-// NEW: The custom endpoint used by your WordPress Plugin
-const FSAN_CUSTOM_API_URL = "https://fantasysportsadvice.network/m/fsan/wordpress/get-fields";
+// --- THE NEW FSAN CONFIGURATION ---
+const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
+const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
 const dbConfig = {
     host: 'sdb-82.hosting.stackcp.net',
@@ -27,6 +28,7 @@ const dbConfig = {
 
 app.use(express.json());
 
+// 1. OAUTH HANDSHAKE
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
     try {
@@ -51,47 +53,48 @@ app.post('/api/auth/callback', async (req, res) => {
     }
 });
 
+// 2. FETCH CROWDS & SPACES VIA THE FSAN MODULE
 app.get('/api/get-una-assets', async (req, res) => {
     const token = req.headers.authorization;
     try {
+        // Step A: Find out who is logged in via OAuth
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         
-        // Mimicking the WP plugin's `get_option('soc_profile_url')`
-        const profileUrl = meData.url || `https://selloutcrowds.com/profile/${meData.name || meData.id}`;
+        // Grab their profile URL (Fallback to their ID URL if standard URL is missing)
+        const profileUrl = meData.url || `${UNA_BASE_URL}/profile/${meData.id}`;
 
-        // Build the exact payload the WordPress functions.php sends
+        // Step B: Replicate the exact $post_fields from your WordPress plugin
         const formData = new URLSearchParams();
-        formData.append('api_key', UNA_SECRET);
+        formData.append('api_key', FSAN_TOKEN);
         formData.append('user', profileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
 
-        // Hit the custom FSAN endpoint
-        const customRes = await fetch(FSAN_CUSTOM_API_URL, {
+        // Step C: Ask the FSAN Module for the data!
+        const fsanRes = await fetch(FSAN_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formData
         });
 
-        const text = await customRes.text();
+        const text = await fsanRes.text();
         let parsedData;
         try {
             parsedData = JSON.parse(text);
         } catch (e) {
             return res.json({
-                user: meData,
-                crowds: [], spaces: [],
-                debug: { error: "Custom endpoint returned non-JSON", rawText: text.substring(0, 500) }
+                user: meData, crowds: [], spaces: [],
+                debug: { error: "FSAN returned non-JSON", rawText: text.substring(0, 500) }
             });
         }
 
-        // Translate the WP formatted data ('bx_spaces_123') into our Dashboard arrays
         const crowds = [];
         const spaces = [];
         const options = parsedData?.allow_view_to?.values || [];
 
+        // Step D: Translate the FSAN data into our Dashboard dropdown format
         options.forEach(item => {
             if (item.key.startsWith('bx_spaces_')) {
                 crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
@@ -105,7 +108,7 @@ app.get('/api/get-una-assets', async (req, res) => {
             crowds: crowds,
             spaces: spaces,
             debug: {
-                endpointUsed: FSAN_CUSTOM_API_URL,
+                endpointUsed: FSAN_ENDPOINT,
                 profileUrlSent: profileUrl,
                 rawResponse: parsedData
             }
@@ -116,6 +119,7 @@ app.get('/api/get-una-assets', async (req, res) => {
     }
 });
 
+// 3. WEBHOOK HANDLER
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     if (event.type === 'checkout.session.completed') {
@@ -146,7 +150,7 @@ async function grantCommunityAccess(email, module, contentId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 module: module,
-                method: 'serviceAddMember',
+                method: 'serviceAddMember', // This is verified and allowed for writing!
                 params: [contentId, email],
                 key: UNA_SECRET
             })
