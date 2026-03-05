@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added safety checks to the loop to prevent crashes if UNA returns empty keys.
+ * FIX: Added aggressive Vercel console logging to diagnose the silent failure.
  */
 
 import express from 'express';
@@ -68,25 +68,38 @@ app.get('/api/get-user', async (req, res) => {
 // 3. SECURELY SYNC COMMUNITIES VIA OAUTH PROFILE LINK
 app.get('/api/get-communities', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "Not authenticated" });
+    if (!token) {
+        console.log("DIAGNOSTIC: No token provided in headers.");
+        return res.status(401).json({ error: "Not authenticated" });
+    }
 
     try {
-        // Step A: Guarantee identity via OAuth session and get the user's data
+        console.log("--- STARTING SYNC PROCESS ---");
+        
+        // Step A: Guarantee identity via OAuth session
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         
+        console.log("STEP 1: /me API Response Data:", JSON.stringify(meData));
+
         if (!meData || !meData.id || !meData.profile_link) {
+            console.log("DIAGNOSTIC: Invalid OAuth session or missing profile link.");
             return res.status(401).json({ error: "Invalid OAuth session or missing profile link" });
         }
 
         // Step B: Extract the official profile link provided directly by the server
         let userProfileUrl = meData.profile_link;
+        console.log("STEP 2: Original Profile Link:", userProfileUrl);
 
-        // Security / Routing safety: Ensure the URL matches your live frontend domain
+        // Security / Routing safety
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
-        userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
+        if (!userProfileUrl.includes('www.')) {
+             userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
+        }
+        
+        console.log("STEP 3: Adjusted Profile Link sent to FSAN:", userProfileUrl);
 
         // Step C: Send the single, verified URL to the FSAN module
         const formData = new URLSearchParams();
@@ -101,16 +114,20 @@ app.get('/api/get-communities', async (req, res) => {
         });
 
         const text = await fsanRes.text();
-        let parsedData = null;
+        console.log("STEP 4: RAW FSAN Response Text:", text);
 
+        let parsedData = null;
         try {
             parsedData = JSON.parse(text);
         } catch (e) {
+            console.log("STEP 5: Failed to parse FSAN response as JSON.");
             return res.json({
                 crowds: [], spaces: [],
                 debug: { error: "Non-JSON response from endpoint", rawResponse: text, urlUsed: userProfileUrl }
             });
         }
+
+        console.log("STEP 5: Successfully parsed JSON. Does allow_view_to exist?", !!(parsedData && parsedData.allow_view_to));
 
         // Check if the FSAN endpoint accepted the URL and returned our fields
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) {
@@ -130,7 +147,6 @@ app.get('/api/get-communities', async (req, res) => {
         const options = parsedData.allow_view_to.values || [];
 
         options.forEach(item => {
-            // SAFETY CHECK: Only try to read the key if it exists and is a text string!
             if (item && typeof item.key === 'string') {
                 if (item.key.startsWith('bx_spaces_')) {
                     crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
@@ -139,6 +155,8 @@ app.get('/api/get-communities', async (req, res) => {
                 }
             }
         });
+
+        console.log(`--- SYNC COMPLETE: Found ${crowds.length} crowds and ${spaces.length} spaces ---`);
 
         res.json({
             crowds: crowds,
