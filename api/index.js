@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added aggressive Vercel console logging to diagnose the silent failure.
+ * FIX: Implemented "Group Header" parsing to properly read UNA's negative-number context arrays.
  */
 
 import express from 'express';
@@ -65,41 +65,28 @@ app.get('/api/get-user', async (req, res) => {
     }
 });
 
-// 3. SECURELY SYNC COMMUNITIES VIA OAUTH PROFILE LINK
+// 3. SECURELY SYNC COMMUNITIES
 app.get('/api/get-communities', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) {
-        console.log("DIAGNOSTIC: No token provided in headers.");
-        return res.status(401).json({ error: "Not authenticated" });
-    }
+    if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        console.log("--- STARTING SYNC PROCESS ---");
-        
         // Step A: Guarantee identity via OAuth session
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         
-        console.log("STEP 1: /me API Response Data:", JSON.stringify(meData));
-
         if (!meData || !meData.id || !meData.profile_link) {
-            console.log("DIAGNOSTIC: Invalid OAuth session or missing profile link.");
             return res.status(401).json({ error: "Invalid OAuth session or missing profile link" });
         }
 
-        // Step B: Extract the official profile link provided directly by the server
+        // Step B: Extract and format the official profile link
         let userProfileUrl = meData.profile_link;
-        console.log("STEP 2: Original Profile Link:", userProfileUrl);
-
-        // Security / Routing safety
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
         if (!userProfileUrl.includes('www.')) {
              userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
-        
-        console.log("STEP 3: Adjusted Profile Link sent to FSAN:", userProfileUrl);
 
         // Step C: Send the single, verified URL to the FSAN module
         const formData = new URLSearchParams();
@@ -114,58 +101,52 @@ app.get('/api/get-communities', async (req, res) => {
         });
 
         const text = await fsanRes.text();
-        console.log("STEP 4: RAW FSAN Response Text:", text);
-
         let parsedData = null;
+
         try {
             parsedData = JSON.parse(text);
         } catch (e) {
-            console.log("STEP 5: Failed to parse FSAN response as JSON.");
-            return res.json({
-                crowds: [], spaces: [],
-                debug: { error: "Non-JSON response from endpoint", rawResponse: text, urlUsed: userProfileUrl }
-            });
+            return res.json({ crowds: [], spaces: [], debug: { error: "Non-JSON response" } });
         }
 
-        console.log("STEP 5: Successfully parsed JSON. Does allow_view_to exist?", !!(parsedData && parsedData.allow_view_to));
-
-        // Check if the FSAN endpoint accepted the URL and returned our fields
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) {
-            return res.json({
-                crowds: [], spaces: [],
-                debug: { 
-                    error: "Endpoint rejected the verified profile URL.", 
-                    response: parsedData, 
-                    urlUsed: userProfileUrl 
-                }
-            });
+            return res.json({ crowds: [], spaces: [], debug: { error: "Missing allow_view_to array" } });
         }
 
-        // Step D: Success! Translate the data into our dropdown formats
+        // Step D: Parse the Group Headers and Negative IDs
         const crowds = [];
         const spaces = [];
         const options = parsedData.allow_view_to.values || [];
 
+        let currentCategory = null;
+
         options.forEach(item => {
-            if (item && typeof item.key === 'string') {
-                if (item.key.startsWith('bx_spaces_')) {
-                    crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
-                } else if (item.key.startsWith('bx_groups_')) {
-                    spaces.push({ id: item.key.replace('bx_groups_', ''), title: item.value });
+            // Check if we hit a category header (CROWD or SPACE)
+            if (item.type === 'group_header') {
+                if (item.value === 'CROWD') currentCategory = 'CROWD';
+                if (item.value === 'SPACE') currentCategory = 'SPACE';
+            } 
+            // Check if we hit the end of a category
+            else if (item.type === 'group_end') {
+                currentCategory = null;
+            } 
+            // If it has a key (like -17), it's a community!
+            else if (item.key !== undefined && typeof item.key === 'number') {
+                // Remove the minus sign to get the true UNA ID
+                const trueId = Math.abs(item.key).toString();
+                
+                if (currentCategory === 'CROWD') {
+                    crowds.push({ id: trueId, title: item.value });
+                } else if (currentCategory === 'SPACE') {
+                    spaces.push({ id: trueId, title: item.value });
                 }
             }
         });
 
-        console.log(`--- SYNC COMPLETE: Found ${crowds.length} crowds and ${spaces.length} spaces ---`);
-
         res.json({
             crowds: crowds,
             spaces: spaces,
-            debug: {
-                success: true,
-                winningUrl: userProfileUrl,
-                totalOptionsFound: options.length
-            }
+            debug: { success: true }
         });
     } catch (error) {
         console.error("Asset Fetch Error:", error);
