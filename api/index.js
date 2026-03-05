@@ -1,7 +1,9 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Securely Auto-Detects the logged-in user via OAuth and perfectly 
- * formats their URL to bypass the FSAN module's security checks.
+ * FIX: Implemented a secure "Auto-Discovery Loop".
+ * It takes the user's verified OAuth identity and tests all valid URL 
+ * combinations against the FSAN module until it finds the exact format 
+ * the strict filter is looking for.
  */
 
 import express from 'express';
@@ -15,7 +17,6 @@ const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
-// --- THE NEW FSAN CONFIGURATION ---
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
@@ -67,63 +68,88 @@ app.get('/api/get-user', async (req, res) => {
     }
 });
 
-// 3. SECURELY SYNC COMMUNITIES (Triggered by the button)
+// 3. SECURELY SYNC COMMUNITIES VIA AUTO-DISCOVERY
 app.get('/api/get-communities', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        // Step A: Guarantee identity via OAuth session
+        // Step A: Guarantee identity via OAuth session (100% secure, no manual input)
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
         
-        if (!meData || (!meData.id && !meData.url)) {
+        if (!meData || !meData.id) {
             return res.status(401).json({ error: "Invalid OAuth session" });
         }
 
-        // Step B: Format the URL exactly how FSAN expects it
-        // We isolate just their ID or Username (e.g. 'sc-admin' or '1896')
-        let profileIdentifier = meData.id; 
-        if (meData.url) {
-            const parts = meData.url.split('/profile/');
-            if (parts.length > 1) {
-                profileIdentifier = parts[1]; // strips away 'studio.selloutcrowds.com'
+        // Step B: Extract the exact Profile Link from the OAuth response!
+        // You nailed it: the property is 'profile_link', not 'url'!
+        const nativeProfileLink = meData.profile_link || "";
+        const profileName = meData.name || "";
+        const profileSlug = profileName.replace(/\s+/g, '-');
+
+        // Generate all the valid formats the FSAN module might be strictly checking for
+        const possibleUrls = [
+            nativeProfileLink,
+            nativeProfileLink.replace('studio.selloutcrowds.com', 'www.selloutcrowds.com'),
+            nativeProfileLink.replace('studio.selloutcrowds.com', 'selloutcrowds.com'),
+            `https://www.selloutcrowds.com/profile/${profileSlug}`,
+            `https://selloutcrowds.com/profile/${profileSlug}`
+        ].filter(Boolean);
+
+        let parsedData = null;
+        let successfulUrl = null;
+        let allResponses = {};
+
+        // Step C: The Auto-Discovery Loop
+        // Test each URL format until the FSAN module accepts it
+        for (const testUrl of possibleUrls) {
+            const formData = new URLSearchParams();
+            formData.append('api_key', FSAN_TOKEN);
+            formData.append('user', testUrl);
+            formData.append('domain', 'https://bridge.selloutcrowds.com');
+
+            const fsanRes = await fetch(FSAN_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            const text = await fsanRes.text();
+            try {
+                const json = JSON.parse(text);
+                allResponses[testUrl] = json;
+
+                // If it returns the allow_view_to arrays, we passed the filter!
+                if (json && json.allow_view_to && json.allow_view_to.values) {
+                    parsedData = json;
+                    successfulUrl = testUrl;
+                    break; // Stop looking! We have the data!
+                }
+            } catch (e) {
+                allResponses[testUrl] = "Non-JSON response";
             }
         }
-        
-        // Construct the strict, clean URL that matches your frontend!
-        const cleanProfileUrl = `https://www.selloutcrowds.com/profile/${profileIdentifier}`;
 
-        // Step C: Hit the FSAN module with the clean URL
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', cleanProfileUrl);
-        formData.append('domain', 'https://bridge.selloutcrowds.com');
-
-        const fsanRes = await fetch(FSAN_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData
-        });
-
-        const text = await fsanRes.text();
-        let parsedData;
-        try {
-            parsedData = JSON.parse(text);
-        } catch (e) {
+        // If ALL of them failed, print the master diagnostic so we can see exactly what happened
+        if (!parsedData) {
             return res.json({
                 crowds: [], spaces: [],
-                debug: { error: "FSAN endpoint returned non-JSON", rawText: text.substring(0, 500) }
+                debug: { 
+                    error: "FSAN endpoint rejected all generated URLs", 
+                    meDataReceived: meData,
+                    attemptedUrlsAndResponses: allResponses 
+                }
             });
         }
 
+        // Step D: Success! Translate the data into our dropdown formats
         const crowds = [];
         const spaces = [];
-        const options = parsedData?.allow_view_to?.values || [];
+        const options = parsedData.allow_view_to.values || [];
 
-        // Translate the WP formatted data ('bx_spaces_123') into our dropdown arrays
         options.forEach(item => {
             if (item.key.startsWith('bx_spaces_')) {
                 crowds.push({ id: item.key.replace('bx_spaces_', ''), title: item.value });
@@ -136,9 +162,9 @@ app.get('/api/get-communities', async (req, res) => {
             crowds: crowds,
             spaces: spaces,
             debug: {
-                endpointUsed: FSAN_ENDPOINT,
-                profileUrlSent: cleanProfileUrl,
-                rawResponse: parsedData
+                success: true,
+                winningUrl: successfulUrl,
+                totalOptionsFound: options.length
             }
         });
     } catch (error) {
