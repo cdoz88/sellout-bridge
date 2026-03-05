@@ -145,8 +145,6 @@ export default function App() {
     );
   }
 
-  const useManualEntry = unaData.crowds.length === 0 && unaData.spaces.length === 0;
-
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans">
       <nav className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]/80 backdrop-blur-xl sticky top-0 z-50">
@@ -311,45 +309,47 @@ export default function App() {
                       <div className="flex-1 w-full">
                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
                         
-                        {useManualEntry ? (
-                          // FALLBACK: Manual Entry (Visible before Syncing or if Sync fails)
-                          <div className="flex gap-2">
-                             <select 
-                               className="w-1/2 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                               value={mapping.unaModule}
-                               onChange={(e) => updateMapping(mapping.id, 'unaModule', e.target.value)}
-                             >
-                                <option value="bx_spaces">Crowd</option>
-                                <option value="bx_groups">Space</option>
-                             </select>
-                             <input 
-                               type="text" 
-                               placeholder="ID (e.g. 5)" 
-                               value={mapping.unaId}
-                               onChange={(e) => updateMapping(mapping.id, 'unaId', e.target.value)}
-                               className="w-1/2 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]" 
-                             />
-                          </div>
-                        ) : (
-                          // POPULATED DROPDOWN (Visible after successful Sync)
-                          <select className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]">
-                            <option value="">Select Crowd/Space...</option>
-                            {unaData.crowds.length > 0 && (
-                              <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
-                                {unaData.crowds.map(c => (
-                                  <option key={c.id} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            {unaData.spaces.length > 0 && (
-                              <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
-                                {unaData.spaces.map(s => (
-                                  <option key={s.id} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </select>
-                        )}
+                        <select 
+                          className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
+                          value={mapping.unaId ? `${mapping.unaModule}_${mapping.unaId}` : ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              updateMapping(mapping.id, 'unaModule', '');
+                              updateMapping(mapping.id, 'unaId', '');
+                            } else {
+                              // Auto-splits "bx_spaces_5" into module="bx_spaces" and id="5" behind the scenes!
+                              const lastUnderscore = val.lastIndexOf('_');
+                              const module = val.substring(0, lastUnderscore);
+                              const id = val.substring(lastUnderscore + 1);
+                              updateMapping(mapping.id, 'unaModule', module);
+                              updateMapping(mapping.id, 'unaId', id);
+                            }
+                          }}
+                        >
+                          <option value="">Select Crowd/Space...</option>
+                          
+                          {unaData.crowds.length > 0 && (
+                            <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
+                              {unaData.crowds.map(c => (
+                                <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+
+                          {unaData.spaces.length > 0 && (
+                            <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
+                              {unaData.spaces.map(s => (
+                                <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>
+                              ))}
+                            </optgroup>
+                          )}
+
+                          {/* Shows this message if the sync hasn't run yet or returned empty */}
+                          {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
+                            <option value="" disabled>No communities found. Please Sync Assets.</option>
+                          )}
+                        </select>
                       </div>
 
                       <div className="md:pt-5 w-full md:w-auto">
