@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Switched to Bearer Token Auth & snake_case method formatting for UNA API
+ * FIX: Moved the module/method routing into the URL query string as required by UNA.
  */
 
 import express from 'express';
@@ -40,17 +40,17 @@ async function getAuthenticatedUser(token) {
 
 async function grantCommunityAccess(email, module, contentId) {
     try {
-        const response = await fetch(UNA_API_URL, {
+        // FIX: Construct the strict URL routing UNA expects
+        const url = `${UNA_API_URL}?r=${module}/add_member`;
+        
+        const response = await fetch(url, {
             method: 'POST',
-            // FIX: UNA API requires the key as a Bearer Token in the Header!
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
             body: JSON.stringify({
-                module: module,
-                method: 'add_member', // FIX: UNA API requires snake_case for methods
-                params: [contentId, email]
+                params: [parseInt(contentId), email]
             })
         });
         
@@ -64,17 +64,17 @@ async function grantCommunityAccess(email, module, contentId) {
 
 async function revokeCommunityAccess(email, module, contentId) {
     try {
-        const response = await fetch(UNA_API_URL, {
+        // FIX: Construct the strict URL routing UNA expects
+        const url = `${UNA_API_URL}?r=${module}/remove_member`;
+        
+        const response = await fetch(url, {
             method: 'POST',
-            // FIX: UNA API requires the key as a Bearer Token in the Header!
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
             body: JSON.stringify({
-                module: module,
-                method: 'remove_member', // FIX: UNA API requires snake_case for methods
-                params: [contentId, email]
+                params: [parseInt(contentId), email]
             })
         });
         
