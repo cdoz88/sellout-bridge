@@ -7,7 +7,7 @@ export default function App() {
     const saved = localStorage.getItem('bridge_unadata');
     return saved ? JSON.parse(saved) : { user: null, crowds: [], spaces: [], debug: null };
   });
-  const [apiKey, setApiKey] = useState(''); // Removed localStorage usage, relying on DB now
+  const [apiKey, setApiKey] = useState(''); 
   
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,8 +42,9 @@ export default function App() {
   }, [session]);
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
+  
+  // NOTE: The conflicting localStorage effect for 'bridge_apikey' was completely removed!
 
-  // ON INITIAL LOGIN: Fetch Mappings, Settings, and Sync Data
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
@@ -54,14 +55,12 @@ export default function App() {
     }
   }, [session]);
 
-  // NEW: Fetch Database Settings
   const fetchDatabaseSettings = async (token) => {
     try {
       const res = await fetch('/api/get-settings', { headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
       if (data.settings && data.settings.stripe_secret_key) {
         setApiKey(data.settings.stripe_secret_key);
-        // Automatically fetch products if we have the saved key!
         fetchProviderProducts(data.settings.stripe_secret_key, token);
       }
     } catch (err) {
@@ -105,12 +104,17 @@ export default function App() {
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
 
-        // SECURE SAVE: Now that we know the key works, save it permanently to the database
-        await fetch('/api/save-settings', {
+        // SECURE SAVE: Explicitly catch errors if the database refuses the save command
+        const saveRes = await fetch('/api/save-settings', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ stripeKey: keyToTest })
         });
+        
+        if (!saveRes.ok) {
+            const errorPayload = await saveRes.json();
+            throw new Error(errorPayload.error || "Products loaded, but database failed to save the key!");
+        }
 
       } catch (err) {
         setError(err.message || "Invalid Stripe Key. Check your provider settings.");

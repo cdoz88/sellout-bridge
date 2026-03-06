@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Secure API Key Storage in Database
+ * FIX: Strict Postgres Syntax for Settings Table Upsert
  */
 
 import express from 'express';
@@ -23,6 +23,7 @@ const sql = neon(process.env.DATABASE_URL);
 app.use(express.json());
 
 // --- HELPER FUNCTIONS ---
+
 async function getAuthenticatedUser(token) {
     if (!token) return null;
     try {
@@ -153,35 +154,42 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
-// NEW: Fetch saved API keys
+// GET SAVED API KEYS
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        const { rows } = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        const userId = parseInt(user.id);
+        const { rows } = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) {
-        res.status(500).json({ error: "Failed to fetch settings" });
+        console.error("Settings Fetch Error:", error);
+        res.status(500).json({ error: "Failed to fetch settings from database." });
     }
 });
 
-// NEW: Save API keys
+// SAVE API KEYS
 app.post('/api/save-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     const { stripeKey } = req.body;
     try {
+        const userId = parseInt(user.id);
+        const cleanKey = stripeKey ? stripeKey.trim() : '';
+        
+        // Strict Postgres syntax for inserting or updating records securely
         await sql`
             INSERT INTO bridge_settings (user_id, stripe_secret_key) 
-            VALUES (${user.id}, ${stripeKey})
+            VALUES (${userId}, ${cleanKey})
             ON CONFLICT (user_id) 
-            DO UPDATE SET stripe_secret_key = ${stripeKey}
+            DO UPDATE SET stripe_secret_key = EXCLUDED.stripe_secret_key
         `;
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: "Failed to save settings" });
+        console.error("Settings Save Error:", error);
+        res.status(500).json({ error: "Failed to save settings to Postgres database." });
     }
 });
 
