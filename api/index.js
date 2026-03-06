@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Removed Vercel { rows } destructuring to match Neon's direct array returns.
+ * FIX: Added strict response logging to see exactly why UNA rejects the command.
  */
 
 import express from 'express';
@@ -40,7 +40,7 @@ async function getAuthenticatedUser(token) {
 
 async function grantCommunityAccess(email, module, contentId) {
     try {
-        await fetch(UNA_API_URL, {
+        const response = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -50,7 +50,11 @@ async function grantCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
-        console.log(`[SUCCESS] Access GRANTED for ${email} to ${module}_${contentId}`);
+        
+        // FIX: Grab the actual response from UNA
+        const responseData = await response.text(); 
+        console.log(`[UNA API RESPONSE - GRANT] for ${email}:`, responseData);
+        
     } catch (err) {
         console.error("[ERROR] Grant Access:", err);
     }
@@ -58,7 +62,7 @@ async function grantCommunityAccess(email, module, contentId) {
 
 async function revokeCommunityAccess(email, module, contentId) {
     try {
-        await fetch(UNA_API_URL, {
+        const response = await fetch(UNA_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -68,7 +72,11 @@ async function revokeCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
-        console.log(`[REVOKED] Access REMOVED for ${email} from ${module}_${contentId}`);
+        
+        // FIX: Grab the actual response from UNA
+        const responseData = await response.text();
+        console.log(`[UNA API RESPONSE - REVOKE] for ${email}:`, responseData);
+        
     } catch (err) {
         console.error("[ERROR] Revoke Access:", err);
     }
@@ -163,7 +171,6 @@ app.get('/api/get-settings', async (req, res) => {
 
     try {
         const userId = parseInt(user.id);
-        // FIX: Removed { rows } destructuring because Neon returns the array directly
         const rows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) {
@@ -200,7 +207,6 @@ app.get('/api/get-mappings', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        // FIX: Removed { rows } destructuring
         const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
         const mappedData = rows.map(row => ({
             id: row.id,
@@ -281,7 +287,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
             }
 
             if (stripeProductId && customerEmail) {
-                // FIX: Removed { rows } destructuring
                 const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                 if (rows.length > 0) {
                     const { una_module, una_content_id } = rows[0];
@@ -296,13 +301,10 @@ app.post('/api/stripe-webhook', async (req, res) => {
             const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
             if (customerId && stripeProductId) {
-                // FIX: Removed { rows: customerRows } destructuring
                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                 
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    
-                    // FIX: Removed { rows: mappingRows } destructuring
                     const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                     
                     if (mappingRows.length > 0) {
@@ -320,13 +322,10 @@ app.post('/api/stripe-webhook', async (req, res) => {
              const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
              if (customerId && stripeProductId) {
-                 // FIX: Removed { rows: customerRows } destructuring
                  const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                  
                  if (customerRows.length > 0) {
                      const customerEmail = customerRows[0].email;
-                     
-                     // FIX: Removed { rows: mappingRows } destructuring
                      const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                      
                      if (mappingRows.length > 0) {
