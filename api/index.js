@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added strict response logging to see exactly why UNA rejects the command.
+ * FIX: Switched to Bearer Token Auth & snake_case method formatting for UNA API
  */
 
 import express from 'express';
@@ -42,16 +42,18 @@ async function grantCommunityAccess(email, module, contentId) {
     try {
         const response = await fetch(UNA_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // FIX: UNA API requires the key as a Bearer Token in the Header!
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${UNA_SECRET}`
+            },
             body: JSON.stringify({
                 module: module,
-                method: 'serviceAddMember',
-                params: [contentId, email],
-                key: UNA_SECRET
+                method: 'add_member', // FIX: UNA API requires snake_case for methods
+                params: [contentId, email]
             })
         });
         
-        // FIX: Grab the actual response from UNA
         const responseData = await response.text(); 
         console.log(`[UNA API RESPONSE - GRANT] for ${email}:`, responseData);
         
@@ -64,16 +66,18 @@ async function revokeCommunityAccess(email, module, contentId) {
     try {
         const response = await fetch(UNA_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // FIX: UNA API requires the key as a Bearer Token in the Header!
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${UNA_SECRET}`
+            },
             body: JSON.stringify({
                 module: module,
-                method: 'serviceRemoveMember', 
-                params: [contentId, email],
-                key: UNA_SECRET
+                method: 'remove_member', // FIX: UNA API requires snake_case for methods
+                params: [contentId, email]
             })
         });
         
-        // FIX: Grab the actual response from UNA
         const responseData = await response.text();
         console.log(`[UNA API RESPONSE - REVOKE] for ${email}:`, responseData);
         
