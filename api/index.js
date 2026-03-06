@@ -1,11 +1,11 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Secure endpoint to fetch Stripe products dynamically using the user's provided API key.
+ * ADDED: Full Subscription Lifecycle Management (Granting and Revoking Access)
  */
 
 import express from 'express';
 import { neon } from '@neondatabase/serverless';
-import Stripe from 'stripe'; // Added Stripe package
+import Stripe from 'stripe'; 
 
 const app = express();
 
@@ -22,6 +22,8 @@ const sql = neon(process.env.DATABASE_URL);
 
 app.use(express.json());
 
+// --- HELPER FUNCTIONS ---
+
 async function getAuthenticatedUser(token) {
     if (!token) return null;
     try {
@@ -35,6 +37,45 @@ async function getAuthenticatedUser(token) {
         return null;
     }
 }
+
+async function grantCommunityAccess(email, module, contentId) {
+    try {
+        await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: module,
+                method: 'serviceAddMember',
+                params: [contentId, email],
+                key: UNA_SECRET
+            })
+        });
+        console.log(`[SUCCESS] Access GRANTED for ${email} to ${module}_${contentId}`);
+    } catch (err) {
+        console.error("[ERROR] Grant Access:", err);
+    }
+}
+
+async function revokeCommunityAccess(email, module, contentId) {
+    try {
+        await fetch(UNA_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                module: module,
+                // Note: UNA's standard removal method is usually serviceRemoveMember or serviceDeleteMember
+                method: 'serviceRemoveMember', 
+                params: [contentId, email],
+                key: UNA_SECRET
+            })
+        });
+        console.log(`[REVOKED] Access REMOVED for ${email} from ${module}_${contentId}`);
+    } catch (err) {
+        console.error("[ERROR] Revoke Access:", err);
+    }
+}
+
+// --- API ENDPOINTS ---
 
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
@@ -121,8 +162,7 @@ app.get('/api/get-mappings', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
-        
+        const { rows } = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
         const mappedData = rows.map(row => ({
             id: row.id,
             provider: row.provider,
@@ -130,10 +170,8 @@ app.get('/api/get-mappings', async (req, res) => {
             unaModule: row.una_module,
             unaId: row.una_content_id.toString()
         }));
-
         res.json({ mappings: mappedData });
     } catch (error) {
-        console.error("Neon DB Fetch Error:", error.message || error);
         res.status(500).json({ error: "Failed to fetch mappings from database" });
     }
 });
@@ -146,13 +184,11 @@ app.post('/api/save-mappings', async (req, res) => {
 
     try {
         await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
-
         if (mappings && mappings.length > 0) {
             for (const map of mappings) {
                 if (map.productId && map.unaModule && map.unaId) {
                     const provider = map.provider || 'stripe';
                     const contentId = parseInt(map.unaId);
-                    
                     await sql`
                         INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) 
                         VALUES (${user.id}, ${user.id}, ${provider}, ${map.productId}, ${map.unaModule}, ${contentId})
@@ -160,15 +196,12 @@ app.post('/api/save-mappings', async (req, res) => {
                 }
             }
         }
-
         res.json({ success: true });
     } catch (error) {
-        console.error("Neon DB Save Error:", error.message || error);
         res.status(500).json({ error: "Failed to save mappings to database" });
     }
 });
 
-// NEW: Fetch Stripe Products dynamically
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -179,55 +212,107 @@ app.post('/api/get-stripe-products', async (req, res) => {
     try {
         const stripe = new Stripe(apiKey);
         const products = await stripe.products.list({ limit: 100, active: true });
-        
-        // Format the products to easily map into our dropdown
-        const formattedProducts = products.data.map(p => ({
-            id: p.id,
-            name: p.name
-        }));
-
+        const formattedProducts = products.data.map(p => ({ id: p.id, name: p.name }));
         res.json({ products: formattedProducts });
     } catch (error) {
-        console.error("Stripe API Error:", error.message);
-        // If the key is invalid, Stripe throws an error. We return it safely so the UI can show it.
         res.status(400).json({ error: "Invalid Stripe Key or connection failed." });
     }
 });
 
+// --- THE SMART WEBHOOK HANDLER ---
+
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
-    if (event.type === 'checkout.session.completed') {
-        const customerEmail = event.data.object.customer_details.email;
-        const stripeProductId = event.data.object.metadata.product_id;
-        try {
-            const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
-            
-            if (rows.length > 0) {
-                const { una_module, una_content_id } = rows[0];
-                await grantCommunityAccess(customerEmail, una_module, una_content_id);
+    
+    try {
+        // SCENARIO 1: A user successfully checks out and pays
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const customerEmail = session.customer_details?.email;
+            const customerId = session.customer; // eg. cus_Nq...
+            const stripeProductId = session.metadata?.product_id;
+
+            // 1. Save this person to our Customer Phonebook so we can find them later!
+            if (customerId && customerEmail) {
+                await sql`
+                    INSERT INTO bridge_customers (stripe_customer_id, email) 
+                    VALUES (${customerId}, ${customerEmail})
+                    ON CONFLICT (stripe_customer_id) 
+                    DO UPDATE SET email = ${customerEmail}
+                `;
             }
-        } catch (error) {
-            console.error('Webhook Error:', error);
+
+            // 2. Grant them access to the community
+            if (stripeProductId && customerEmail) {
+                const { rows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                if (rows.length > 0) {
+                    const { una_module, una_content_id } = rows[0];
+                    await grantCommunityAccess(customerEmail, una_module, una_content_id);
+                }
+            }
+        } 
+        
+        // SCENARIO 2: A user cancels their subscription (or it expires)
+        else if (event.type === 'customer.subscription.deleted') {
+            const subscription = event.data.object;
+            const customerId = subscription.customer;
+            // Get the product ID attached to this canceled subscription
+            const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
+
+            if (customerId && stripeProductId) {
+                // 1. Check our phonebook to find the email attached to this customerId
+                const { rows: customerRows } = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                
+                if (customerRows.length > 0) {
+                    const customerEmail = customerRows[0].email;
+                    
+                    // 2. Check which community they are supposed to be kicked out of
+                    const { rows: mappingRows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    
+                    if (mappingRows.length > 0) {
+                        const { una_module, una_content_id } = mappingRows[0];
+                        await revokeCommunityAccess(customerEmail, una_module, una_content_id);
+                    }
+                }
+            }
         }
+
+        // SCENARIO 3: A subscription status changes (Failed payments, paused, etc.)
+        else if (event.type === 'customer.subscription.updated') {
+             const subscription = event.data.object;
+             const status = subscription.status; // active, past_due, unpaid, canceled
+             const customerId = subscription.customer;
+             const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
+
+             if (customerId && stripeProductId) {
+                 const { rows: customerRows } = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                 
+                 if (customerRows.length > 0) {
+                     const customerEmail = customerRows[0].email;
+                     const { rows: mappingRows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     
+                     if (mappingRows.length > 0) {
+                         const { una_module, una_content_id } = mappingRows[0];
+                         
+                         // If they stopped paying, kick them out
+                         if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
+                             await revokeCommunityAccess(customerEmail, una_module, una_content_id);
+                         } 
+                         // If they updated their card and it went back to active, let them back in!
+                         else if (status === 'active') {
+                             await grantCommunityAccess(customerEmail, una_module, una_content_id);
+                         }
+                     }
+                 }
+             }
+        }
+
+    } catch (error) {
+        console.error('Webhook Error Processing:', error);
     }
+    
+    // Always respond quickly to Stripe so they know we got the message
     res.json({ received: true });
 });
-
-async function grantCommunityAccess(email, module, contentId) {
-    try {
-        await fetch(UNA_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                module: module,
-                method: 'serviceAddMember',
-                params: [contentId, email],
-                key: UNA_SECRET
-            })
-        });
-    } catch (err) {
-        console.error("Grant Access Error:", err);
-    }
-}
 
 export default app;
