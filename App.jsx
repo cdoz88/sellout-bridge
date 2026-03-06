@@ -18,7 +18,6 @@ export default function App() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('stripe');
 
-  // State for Dynamic Products
   const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [] });
   const [isValidatingKey, setIsValidatingKey] = useState(false);
   const [keySuccess, setKeySuccess] = useState(false);
@@ -27,7 +26,6 @@ export default function App() {
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
   
-  // Custom Icons provided for the tabs
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   
@@ -46,7 +44,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
   useEffect(() => { localStorage.setItem('bridge_apikey', apiKey); }, [apiKey]);
 
-  // Fetch products automatically if an API key exists when the app loads
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
@@ -93,11 +90,11 @@ export default function App() {
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
       } catch (err) {
-        setError("Invalid Stripe Key. Check your provider settings.");
+        // FIX: Now displays the exact error message from Stripe!
+        setError(err.message || "Invalid Stripe Key. Check your provider settings.");
         setProviderProducts(prev => ({ ...prev, stripe: [] }));
       }
     } else {
-       // PayPal logic will go here in the future
        setIsValidatingKey(false);
     }
     setIsValidatingKey(false);
@@ -266,7 +263,6 @@ export default function App() {
             </div>
         </div>
         
-        {/* FIX: Sync Button moved to header next to logout */}
         <div className="flex items-center gap-3">
           <button 
             onClick={() => syncCommunities()}
@@ -311,7 +307,6 @@ export default function App() {
             
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
-                {/* FIX: Replaced Key icon with Provider Icon */}
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Provider Setup
               </h3>

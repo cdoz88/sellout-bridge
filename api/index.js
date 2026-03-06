@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Full Subscription Lifecycle Management (Granting and Revoking Access)
+ * ADDED: Full Subscription Lifecycle Management & Better Error Reporting
  */
 
 import express from 'express';
@@ -63,7 +63,6 @@ async function revokeCommunityAccess(email, module, contentId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 module: module,
-                // Note: UNA's standard removal method is usually serviceRemoveMember or serviceDeleteMember
                 method: 'serviceRemoveMember', 
                 params: [contentId, email],
                 key: UNA_SECRET
@@ -210,12 +209,16 @@ app.post('/api/get-stripe-products', async (req, res) => {
     if (!apiKey) return res.status(400).json({ error: "No API key provided" });
 
     try {
-        const stripe = new Stripe(apiKey);
+        // Automatically delete accidental blank spaces from the key
+        const cleanKey = apiKey.trim(); 
+        const stripe = new Stripe(cleanKey);
         const products = await stripe.products.list({ limit: 100, active: true });
         const formattedProducts = products.data.map(p => ({ id: p.id, name: p.name }));
         res.json({ products: formattedProducts });
     } catch (error) {
-        res.status(400).json({ error: "Invalid Stripe Key or connection failed." });
+        console.error("Stripe API Error:", error.message);
+        // Pass the EXACT Stripe error message to the frontend!
+        res.status(400).json({ error: `Stripe says: ${error.message}` });
     }
 });
 
@@ -225,14 +228,12 @@ app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     
     try {
-        // SCENARIO 1: A user successfully checks out and pays
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
             const customerEmail = session.customer_details?.email;
-            const customerId = session.customer; // eg. cus_Nq...
+            const customerId = session.customer; 
             const stripeProductId = session.metadata?.product_id;
 
-            // 1. Save this person to our Customer Phonebook so we can find them later!
             if (customerId && customerEmail) {
                 await sql`
                     INSERT INTO bridge_customers (stripe_customer_id, email) 
@@ -242,7 +243,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
                 `;
             }
 
-            // 2. Grant them access to the community
             if (stripeProductId && customerEmail) {
                 const { rows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                 if (rows.length > 0) {
@@ -252,21 +252,16 @@ app.post('/api/stripe-webhook', async (req, res) => {
             }
         } 
         
-        // SCENARIO 2: A user cancels their subscription (or it expires)
         else if (event.type === 'customer.subscription.deleted') {
             const subscription = event.data.object;
             const customerId = subscription.customer;
-            // Get the product ID attached to this canceled subscription
             const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
             if (customerId && stripeProductId) {
-                // 1. Check our phonebook to find the email attached to this customerId
                 const { rows: customerRows } = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                 
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    
-                    // 2. Check which community they are supposed to be kicked out of
                     const { rows: mappingRows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                     
                     if (mappingRows.length > 0) {
@@ -277,10 +272,9 @@ app.post('/api/stripe-webhook', async (req, res) => {
             }
         }
 
-        // SCENARIO 3: A subscription status changes (Failed payments, paused, etc.)
         else if (event.type === 'customer.subscription.updated') {
              const subscription = event.data.object;
-             const status = subscription.status; // active, past_due, unpaid, canceled
+             const status = subscription.status; 
              const customerId = subscription.customer;
              const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
@@ -294,11 +288,9 @@ app.post('/api/stripe-webhook', async (req, res) => {
                      if (mappingRows.length > 0) {
                          const { una_module, una_content_id } = mappingRows[0];
                          
-                         // If they stopped paying, kick them out
                          if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
                              await revokeCommunityAccess(customerEmail, una_module, una_content_id);
                          } 
-                         // If they updated their card and it went back to active, let them back in!
                          else if (status === 'active') {
                              await grantCommunityAccess(customerEmail, una_module, una_content_id);
                          }
@@ -311,7 +303,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
         console.error('Webhook Error Processing:', error);
     }
     
-    // Always respond quickly to Stripe so they know we got the message
     res.json({ received: true });
 });
 
