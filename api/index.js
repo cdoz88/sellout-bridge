@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Strict Postgres Syntax for Settings Table Upsert
+ * FIX: Removed Vercel { rows } destructuring to match Neon's direct array returns.
  */
 
 import express from 'express';
@@ -50,6 +50,7 @@ async function grantCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
+        console.log(`[SUCCESS] Access GRANTED for ${email} to ${module}_${contentId}`);
     } catch (err) {
         console.error("[ERROR] Grant Access:", err);
     }
@@ -67,6 +68,7 @@ async function revokeCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
+        console.log(`[REVOKED] Access REMOVED for ${email} from ${module}_${contentId}`);
     } catch (err) {
         console.error("[ERROR] Revoke Access:", err);
     }
@@ -161,7 +163,8 @@ app.get('/api/get-settings', async (req, res) => {
 
     try {
         const userId = parseInt(user.id);
-        const { rows } = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
+        // FIX: Removed { rows } destructuring because Neon returns the array directly
+        const rows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) {
         console.error("Settings Fetch Error:", error);
@@ -179,7 +182,6 @@ app.post('/api/save-settings', async (req, res) => {
         const userId = parseInt(user.id);
         const cleanKey = stripeKey ? stripeKey.trim() : '';
         
-        // Strict Postgres syntax for inserting or updating records securely
         await sql`
             INSERT INTO bridge_settings (user_id, stripe_secret_key) 
             VALUES (${userId}, ${cleanKey})
@@ -198,7 +200,8 @@ app.get('/api/get-mappings', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        const { rows } = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
+        // FIX: Removed { rows } destructuring
+        const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
         const mappedData = rows.map(row => ({
             id: row.id,
             provider: row.provider,
@@ -278,7 +281,8 @@ app.post('/api/stripe-webhook', async (req, res) => {
             }
 
             if (stripeProductId && customerEmail) {
-                const { rows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                // FIX: Removed { rows } destructuring
+                const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                 if (rows.length > 0) {
                     const { una_module, una_content_id } = rows[0];
                     await grantCommunityAccess(customerEmail, una_module, una_content_id);
@@ -292,11 +296,14 @@ app.post('/api/stripe-webhook', async (req, res) => {
             const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
             if (customerId && stripeProductId) {
-                const { rows: customerRows } = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                // FIX: Removed { rows: customerRows } destructuring
+                const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                 
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    const { rows: mappingRows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    
+                    // FIX: Removed { rows: mappingRows } destructuring
+                    const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                     
                     if (mappingRows.length > 0) {
                         const { una_module, una_content_id } = mappingRows[0];
@@ -313,11 +320,14 @@ app.post('/api/stripe-webhook', async (req, res) => {
              const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
 
              if (customerId && stripeProductId) {
-                 const { rows: customerRows } = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                 // FIX: Removed { rows: customerRows } destructuring
+                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                  
                  if (customerRows.length > 0) {
                      const customerEmail = customerRows[0].email;
-                     const { rows: mappingRows } = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     
+                     // FIX: Removed { rows: mappingRows } destructuring
+                     const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                      
                      if (mappingRows.length > 0) {
                          const { una_module, una_content_id } = mappingRows[0];
