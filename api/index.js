@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Full Subscription Lifecycle Management & Better Error Reporting
+ * ADDED: Secure API Key Storage in Database
  */
 
 import express from 'express';
@@ -23,7 +23,6 @@ const sql = neon(process.env.DATABASE_URL);
 app.use(express.json());
 
 // --- HELPER FUNCTIONS ---
-
 async function getAuthenticatedUser(token) {
     if (!token) return null;
     try {
@@ -50,7 +49,6 @@ async function grantCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
-        console.log(`[SUCCESS] Access GRANTED for ${email} to ${module}_${contentId}`);
     } catch (err) {
         console.error("[ERROR] Grant Access:", err);
     }
@@ -68,7 +66,6 @@ async function revokeCommunityAccess(email, module, contentId) {
                 key: UNA_SECRET
             })
         });
-        console.log(`[REVOKED] Access REMOVED for ${email} from ${module}_${contentId}`);
     } catch (err) {
         console.error("[ERROR] Revoke Access:", err);
     }
@@ -156,6 +153,38 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
+// NEW: Fetch saved API keys
+app.get('/api/get-settings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    try {
+        const { rows } = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        res.json({ settings: rows[0] || {} });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch settings" });
+    }
+});
+
+// NEW: Save API keys
+app.post('/api/save-settings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { stripeKey } = req.body;
+    try {
+        await sql`
+            INSERT INTO bridge_settings (user_id, stripe_secret_key) 
+            VALUES (${user.id}, ${stripeKey})
+            ON CONFLICT (user_id) 
+            DO UPDATE SET stripe_secret_key = ${stripeKey}
+        `;
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to save settings" });
+    }
+});
+
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -209,15 +238,12 @@ app.post('/api/get-stripe-products', async (req, res) => {
     if (!apiKey) return res.status(400).json({ error: "No API key provided" });
 
     try {
-        // Automatically delete accidental blank spaces from the key
         const cleanKey = apiKey.trim(); 
         const stripe = new Stripe(cleanKey);
         const products = await stripe.products.list({ limit: 100, active: true });
         const formattedProducts = products.data.map(p => ({ id: p.id, name: p.name }));
         res.json({ products: formattedProducts });
     } catch (error) {
-        console.error("Stripe API Error:", error.message);
-        // Pass the EXACT Stripe error message to the frontend!
         res.status(400).json({ error: `Stripe says: ${error.message}` });
     }
 });

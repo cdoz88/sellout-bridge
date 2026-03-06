@@ -7,7 +7,7 @@ export default function App() {
     const saved = localStorage.getItem('bridge_unadata');
     return saved ? JSON.parse(saved) : { user: null, crowds: [], spaces: [], debug: null };
   });
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('bridge_apikey') || '');
+  const [apiKey, setApiKey] = useState(''); // Removed localStorage usage, relying on DB now
   
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,19 +42,32 @@ export default function App() {
   }, [session]);
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
-  useEffect(() => { localStorage.setItem('bridge_apikey', apiKey); }, [apiKey]);
 
+  // ON INITIAL LOGIN: Fetch Mappings, Settings, and Sync Data
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
+      fetchDatabaseSettings(session);
       if (unaData.crowds.length === 0 && unaData.spaces.length === 0) {
         syncCommunities(session);
       }
-      if (apiKey) {
-        fetchProviderProducts(apiKey);
-      }
     }
   }, [session]);
+
+  // NEW: Fetch Database Settings
+  const fetchDatabaseSettings = async (token) => {
+    try {
+      const res = await fetch('/api/get-settings', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.settings && data.settings.stripe_secret_key) {
+        setApiKey(data.settings.stripe_secret_key);
+        // Automatically fetch products if we have the saved key!
+        fetchProviderProducts(data.settings.stripe_secret_key, token);
+      }
+    } catch (err) {
+      console.error("Failed to load settings from database.");
+    }
+  };
 
   const fetchDatabaseMappings = async (token) => {
     try {
@@ -66,8 +79,10 @@ export default function App() {
     }
   };
 
-  const fetchProviderProducts = async (keyToTest) => {
-    if (!keyToTest) return;
+  const fetchProviderProducts = async (keyToTest, overrideToken) => {
+    const activeToken = overrideToken || session;
+    if (!keyToTest || !activeToken) return;
+    
     setIsValidatingKey(true);
     setError(null);
     setKeySuccess(false);
@@ -77,7 +92,7 @@ export default function App() {
         const res = await fetch('/api/get-stripe-products', {
           method: 'POST',
           headers: { 
-            'Authorization': `Bearer ${session}`,
+            'Authorization': `Bearer ${activeToken}`,
             'Content-Type': 'application/json' 
           },
           body: JSON.stringify({ apiKey: keyToTest })
@@ -89,8 +104,15 @@ export default function App() {
         setProviderProducts(prev => ({ ...prev, stripe: data.products }));
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
+
+        // SECURE SAVE: Now that we know the key works, save it permanently to the database
+        await fetch('/api/save-settings', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stripeKey: keyToTest })
+        });
+
       } catch (err) {
-        // FIX: Now displays the exact error message from Stripe!
         setError(err.message || "Invalid Stripe Key. Check your provider settings.");
         setProviderProducts(prev => ({ ...prev, stripe: [] }));
       }
