@@ -41,7 +41,7 @@ async function getAuthenticatedUser(token) {
 async function grantCommunityAccess(email, module, contentId) {
     try {
         // FIX: Construct the strict URL routing UNA expects
-        const url = `${UNA_API_URL}?r=${module}/add_member`;
+        const url = `${UNA_API_URL}?r=${module}/add_fan`;
         
         const response = await fetch(url, {
             method: 'POST',
@@ -65,7 +65,7 @@ async function grantCommunityAccess(email, module, contentId) {
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         // FIX: Construct the strict URL routing UNA expects
-        const url = `${UNA_API_URL}?r=${module}/remove_member`;
+        const url = `${UNA_API_URL}?r=${module}/remove_fan`;
         
         const response = await fetch(url, {
             method: 'POST',
