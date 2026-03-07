@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Moved the module/method routing into the URL query string as required by UNA.
+ * FIX: Pointing grant/revoke functions to the new bridge-connector.php micro-API
  */
 
 import express from 'express';
@@ -10,7 +10,6 @@ import Stripe from 'stripe';
 const app = express();
 
 const UNA_BASE_URL = "https://studio.selloutcrowds.com";
-const UNA_API_URL = `${UNA_BASE_URL}/api.php`;
 const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
 const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
@@ -40,8 +39,7 @@ async function getAuthenticatedUser(token) {
 
 async function grantCommunityAccess(email, module, contentId) {
     try {
-        // FIX: Construct the strict URL routing UNA expects
-        const url = `${UNA_API_URL}?r=${module}/add_fan`;
+        const url = `${UNA_BASE_URL}/bridge-connector.php`;
         
         const response = await fetch(url, {
             method: 'POST',
@@ -50,12 +48,14 @@ async function grantCommunityAccess(email, module, contentId) {
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
             body: JSON.stringify({
-                params: [parseInt(contentId), email]
+                email: email,
+                space_id: contentId,
+                action: 'add'
             })
         });
         
         const responseData = await response.text(); 
-        console.log(`[UNA API RESPONSE - GRANT] for ${email}:`, responseData);
+        console.log(`[BRIDGE CONNECTOR - GRANT] for ${email}:`, responseData);
         
     } catch (err) {
         console.error("[ERROR] Grant Access:", err);
@@ -64,8 +64,7 @@ async function grantCommunityAccess(email, module, contentId) {
 
 async function revokeCommunityAccess(email, module, contentId) {
     try {
-        // FIX: Construct the strict URL routing UNA expects
-        const url = `${UNA_API_URL}?r=${module}/remove_fan`;
+        const url = `${UNA_BASE_URL}/bridge-connector.php`;
         
         const response = await fetch(url, {
             method: 'POST',
@@ -74,12 +73,14 @@ async function revokeCommunityAccess(email, module, contentId) {
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
             body: JSON.stringify({
-                params: [parseInt(contentId), email]
+                email: email,
+                space_id: contentId,
+                action: 'remove'
             })
         });
         
         const responseData = await response.text();
-        console.log(`[UNA API RESPONSE - REVOKE] for ${email}:`, responseData);
+        console.log(`[BRIDGE CONNECTOR - REVOKE] for ${email}:`, responseData);
         
     } catch (err) {
         console.error("[ERROR] Revoke Access:", err);
