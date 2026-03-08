@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users, UserX, UserCheck } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
@@ -25,10 +25,10 @@ export default function App() {
   const [isSyncingSubs, setIsSyncingSubs] = useState(false);
   const [syncSubsResult, setSyncSubsResult] = useState(null);
 
-  // --- NEW: AUDIENCE STATS STATE ---
   const [audienceStats, setAudienceStats] = useState([]);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
-  const [modalData, setModalData] = useState(null); // Holds the product data when modal is open
+  const [modalData, setModalData] = useState(null); 
+  const [processingUser, setProcessingUser] = useState(null); // Tracks row loading state during revoke
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
@@ -68,7 +68,7 @@ export default function App() {
       if (data.settings && data.settings.stripe_secret_key) {
         setApiKey(data.settings.stripe_secret_key);
         fetchProviderProducts(data.settings.stripe_secret_key, token);
-        fetchAudienceStats(token); // Fetch stats immediately on load if key exists
+        fetchAudienceStats(token); 
       }
     } catch (err) {
       console.error("Failed to load settings from database.");
@@ -111,30 +111,22 @@ export default function App() {
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
 
-        const saveRes = await fetch('/api/save-settings', {
+        await fetch('/api/save-settings', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ stripeKey: keyToTest })
         });
-        
-        if (!saveRes.ok) {
-            const errorPayload = await saveRes.json();
-            throw new Error(errorPayload.error || "Products loaded, but database failed to save the key!");
-        }
 
-        fetchAudienceStats(activeToken); // Refresh stats with new key
+        fetchAudienceStats(activeToken); 
 
       } catch (err) {
         setError(err.message || "Invalid Stripe Key. Check your provider settings.");
         setProviderProducts(prev => ({ ...prev, stripe: [] }));
       }
-    } else {
-       setIsValidatingKey(false);
     }
     setIsValidatingKey(false);
   };
 
-  // --- NEW: FETCH AUDIENCE DATA ---
   const fetchAudienceStats = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
@@ -142,7 +134,11 @@ export default function App() {
     try {
         const res = await fetch('/api/get-subscribers', { headers: { 'Authorization': `Bearer ${activeToken}` } });
         const data = await res.json();
-        if (data.stats) setAudienceStats(data.stats);
+        if (data.stats) {
+            setAudienceStats(data.stats);
+            // If modal is open, silently update its data
+            setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
+        }
     } catch (err) {
         console.error("Failed to load audience stats");
     } finally {
@@ -164,7 +160,7 @@ export default function App() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       
-      fetchAudienceStats(); // Refresh stats so newly mapped products update!
+      fetchAudienceStats(); 
 
     } catch (err) {
       setError("Failed to save mappings to the database.");
@@ -191,7 +187,7 @@ export default function App() {
       setSyncSubsResult({ success: true, count: data.count });
       setTimeout(() => setSyncSubsResult(null), 5000);
       
-      fetchAudienceStats(); // Refresh stats after importing new users!
+      fetchAudienceStats(); 
       
     } catch (err) {
       setError(err.message || "Failed to sync subscribers.");
@@ -200,13 +196,25 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    if (code) handleCallback(code);
-  }, []);
+  // --- NEW: TOGGLE ACCESS FUNCTION ---
+  const toggleUserAccess = async (email, action) => {
+      setProcessingUser(email);
+      try {
+          await fetch('/api/toggle-user-access', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, productId: modalData.productId, action })
+          });
+          await fetchAudienceStats(); // This reloads the stats and silently updates the modal data!
+      } catch (err) {
+          console.error("Failed to toggle access.");
+      } finally {
+          setProcessingUser(null);
+      }
+  };
 
   const handleCallback = async (code) => {
+    // ... same ...
     setIsLoading(true);
     setError(null);
     try {
@@ -281,7 +289,7 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings: newMappings })
       });
-      fetchAudienceStats(); // Refresh stats so the mapped labels update
+      fetchAudienceStats(); 
     } catch (err) {
       console.error("Failed to delete mapping.");
     }
@@ -474,7 +482,10 @@ export default function App() {
                         className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-3 flex justify-between items-center cursor-pointer transition-colors group"
                       >
                         <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
-                        <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.count} Users</span>
+                        <div className="flex flex-col items-end">
+                            <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
+                            <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -593,7 +604,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- AUDIENCE MODAL --- */}
+      {/* --- AUDIENCE MODAL WITH ACCURATE STATUS & REVOKE --- */}
       {modalData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -602,7 +613,7 @@ export default function App() {
               <div>
                 <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">{modalData.productName}</h3>
                 <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
-                  {modalData.count} Total Subscribers
+                  {modalData.bridgedCount} Active on SC / {modalData.totalCount} Total Subs
                 </p>
               </div>
               <button onClick={() => setModalData(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
@@ -614,28 +625,37 @@ export default function App() {
               {modalData.users.length === 0 ? (
                   <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
               ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                       {modalData.users.map((user, i) => (
-                          <div key={i} className="bg-black border border-white/5 rounded-xl p-4 flex justify-between items-center">
+                          <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
                               <div>
-                                  <p className="text-sm font-bold text-white">{user.name}</p>
+                                  <p className="text-sm font-bold text-white flex items-center gap-2">
+                                      {user.name} 
+                                      {user.isRevoked && <UserX className="w-4 h-4 text-red-500" />}
+                                      {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c]" />}
+                                  </p>
                                   <p className="text-xs text-gray-500 font-mono mt-0.5">{user.email}</p>
                               </div>
-                              <div>
-                                  <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${user.status === 'Bridged' ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'}`}>
+                              
+                              <div className="flex items-center gap-3 w-full sm:w-auto">
+                                  {/* ACCURATE STATUS BADGES */}
+                                  <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg flex-1 text-center sm:flex-none
+                                      ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
+                                        user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
+                                        'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
                                       {user.status}
                                   </span>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-            </div>
-            
-          </div>
-        </div>
-      )}
 
-    </div>
-  );
-}
+                                  {/* REVOKE / RESTORE ACTION BUTTON */}
+                                  {user.isRevoked ? (
+                                      <button 
+                                          onClick={() => toggleUserAccess(user.email, 'restore')}
+                                          disabled={processingUser === user.email}
+                                          className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
+                                          title="Restore Access">
+                                          {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                                      </button>
+                                  ) : (
+                                      <button 
+                                          onClick={() => toggleUserAccess(user.email, 'revoke')}
+                                          disabled={processingUser === user.email}

@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: The /api/get-subscribers endpoint for the Audience Modal.
+ * ADDED: Accurate Bridge Status tracking and Manual Revoke/Restore controls.
  */
 
 import express from 'express';
@@ -23,6 +23,15 @@ app.use(express.json());
 
 // --- HELPER FUNCTIONS ---
 
+// Safely upgrades the database to track accurate statuses
+async function ensureSchema() {
+    try {
+        await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
+    } catch (e) {
+        console.error("Schema check notice:", e.message);
+    }
+}
+
 async function getAuthenticatedUser(token) {
     if (!token) return null;
     try {
@@ -40,50 +49,48 @@ async function getAuthenticatedUser(token) {
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        
         const response = await fetch(url, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
-            body: JSON.stringify({
-                email: email,
-                space_id: contentId,
-                action: 'add'
-            })
+            body: JSON.stringify({ email: email, space_id: contentId, action: 'add' })
         });
         
-        const responseData = await response.text(); 
-        console.log(`[BRIDGE CONNECTOR - GRANT] for ${email}:`, responseData);
-        
+        const responseText = await response.text();
+        try {
+            const data = JSON.parse(responseText);
+            console.log(`[GRANT] ${email}:`, data);
+            return data; // Returns {success: true} or {error: "..."}
+        } catch (e) {
+            return { error: responseText };
+        }
     } catch (err) {
-        console.error("[ERROR] Grant Access:", err);
+        return { error: err.message };
     }
 }
 
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        
         const response = await fetch(url, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${UNA_SECRET}`
             },
-            body: JSON.stringify({
-                email: email,
-                space_id: contentId,
-                action: 'remove'
-            })
+            body: JSON.stringify({ email: email, space_id: contentId, action: 'remove' })
         });
         
-        const responseData = await response.text();
-        console.log(`[BRIDGE CONNECTOR - REVOKE] for ${email}:`, responseData);
-        
+        const responseText = await response.text();
+        try {
+            return JSON.parse(responseText);
+        } catch (e) {
+            return { error: responseText };
+        }
     } catch (err) {
-        console.error("[ERROR] Revoke Access:", err);
+        return { error: err.message };
     }
 }
 
@@ -266,30 +273,31 @@ app.post('/api/get-stripe-products', async (req, res) => {
     }
 });
 
-// --- NEW ENDPOINT: GET AUDIENCE STATS ---
+// --- GET AUDIENCE STATS (UPDATED FOR ACCURACY) ---
 app.get('/api/get-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
+        await ensureSchema();
+
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
-        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) {
-            return res.json({ stats: [] });
-        }
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) return res.json({ stats: [] });
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
 
-        // Get currently mapped products to label them correctly
         const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id}`;
         const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
 
-        // Get Product Names
         const products = await stripe.products.list({ active: true, limit: 100 });
         const productMap = {};
         products.data.forEach(p => productMap[p.id] = p.name);
 
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const statusMap = {};
+        customersDb.forEach(c => statusMap[c.email] = c.bridge_status || 'pending');
+
         const stats = {};
 
-        // Loop through active Stripe subscriptions and group them
         for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
             const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
             if (!productId) continue;
@@ -299,16 +307,39 @@ app.get('/api/get-subscribers', async (req, res) => {
                     productId: productId,
                     productName: productMap[productId] || 'Unknown Product',
                     isMapped: mappedProductIds.has(productId),
-                    count: 0,
+                    totalCount: 0,
+                    bridgedCount: 0,
                     users: []
                 };
             }
 
-            stats[productId].count++;
+            stats[productId].totalCount++;
+            const email = sub.customer?.email || 'No email';
+            
+            let displayStatus = 'Stripe Only';
+            let isRevoked = false;
+            let isBridged = false;
+
+            if (mappedProductIds.has(productId)) {
+                const dbStatus = statusMap[email];
+                if (dbStatus === 'revoked') {
+                    displayStatus = 'Access Revoked';
+                    isRevoked = true;
+                } else if (dbStatus === 'bridged') {
+                    displayStatus = 'Active on SC';
+                    isBridged = true;
+                    stats[productId].bridgedCount++;
+                } else {
+                    displayStatus = 'Pending SC Account';
+                }
+            }
+
             stats[productId].users.push({
                 name: sub.customer?.name || 'Customer',
-                email: sub.customer?.email || 'No email provided',
-                status: mappedProductIds.has(productId) ? 'Bridged' : 'Stripe Only'
+                email: email,
+                status: displayStatus,
+                isRevoked: isRevoked,
+                isBridged: isBridged
             });
         }
 
@@ -319,27 +350,25 @@ app.get('/api/get-subscribers', async (req, res) => {
     }
 });
 
-// --- MASS SYNC ENDPOINT ---
+// --- MASS SYNC ENDPOINT (UPDATED TO RESPECT REVOKES) ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
+        await ensureSchema();
+        
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
-        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) {
-            return res.status(400).json({ error: "Stripe key not found. Please save your API key first." });
-        }
+        if (settingsRows.length === 0) return res.status(400).json({ error: "Stripe key not found." });
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
 
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id}`;
-        if (mappingRows.length === 0) {
-            return res.status(400).json({ error: "No mappings found. Please create a mapping rule first." });
-        }
-
         const mappingsMap = {};
-        mappingRows.forEach(row => {
-            mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id };
-        });
+        mappingRows.forEach(row => mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id });
+
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const statusMap = {};
+        customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
 
         let syncCount = 0;
 
@@ -348,99 +377,131 @@ app.post('/api/sync-subscribers', async (req, res) => {
             const customerEmail = sub.customer?.email;
 
             if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
+                // IMPORTANT: If they were manually revoked, skip them so it survives the resync!
+                if (statusMap[customerEmail] === 'revoked') continue;
+
                 const { module, id } = mappingsMap[stripeProductId];
+                const result = await grantCommunityAccess(customerEmail, module, id);
+                const newStatus = result.success ? 'bridged' : 'pending';
                 
                 await sql`
-                    INSERT INTO bridge_customers (stripe_customer_id, email) 
-                    VALUES (${sub.customer.id}, ${customerEmail})
+                    INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) 
+                    VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus})
                     ON CONFLICT (stripe_customer_id) 
-                    DO UPDATE SET email = ${customerEmail}
+                    DO UPDATE SET email = ${customerEmail}, bridge_status = ${newStatus}
                 `;
 
-                await grantCommunityAccess(customerEmail, module, id);
-                syncCount++;
+                if (result.success) syncCount++;
             }
         }
-
         res.json({ success: true, count: syncCount });
-
     } catch (error) {
         console.error("Sync Error:", error);
         res.status(500).json({ error: "Failed to sync subscribers." });
     }
 });
 
-// --- THE SMART WEBHOOK HANDLER ---
+// --- NEW ENDPOINT: TOGGLE USER ACCESS ---
+app.post('/api/toggle-user-access', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { email, productId, action } = req.body; // action: 'revoke' or 'restore'
+    try {
+        await ensureSchema();
+        const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND stripe_product_id = ${productId}`;
+        if (mappingRows.length === 0) return res.status(400).json({ error: "Mapping not found." });
+        
+        const { una_module, una_content_id } = mappingRows[0];
+
+        if (action === 'revoke') {
+            await revokeCommunityAccess(email, una_module, una_content_id);
+            await sql`UPDATE bridge_customers SET bridge_status = 'revoked' WHERE email = ${email}`;
+        } else {
+            const result = await grantCommunityAccess(email, una_module, una_content_id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+            await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${email}`;
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to toggle access." });
+    }
+});
+
+// --- THE SMART WEBHOOK HANDLER (UPDATED) ---
 
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
-    
     try {
+        await ensureSchema();
+
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
             const customerEmail = session.customer_details?.email;
             const customerId = session.customer; 
             const stripeProductId = session.metadata?.product_id;
 
-            if (customerId && customerEmail) {
-                await sql`
-                    INSERT INTO bridge_customers (stripe_customer_id, email) 
-                    VALUES (${customerId}, ${customerEmail})
-                    ON CONFLICT (stripe_customer_id) 
-                    DO UPDATE SET email = ${customerEmail}
-                `;
-            }
-
+            let bridgeStatus = 'pending';
             if (stripeProductId && customerEmail) {
                 const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                 if (rows.length > 0) {
-                    const { una_module, una_content_id } = rows[0];
-                    await grantCommunityAccess(customerEmail, una_module, una_content_id);
+                    const result = await grantCommunityAccess(customerEmail, rows[0].una_module, rows[0].una_content_id);
+                    bridgeStatus = result.success ? 'bridged' : 'pending';
                 }
+            }
+
+            if (customerId && customerEmail) {
+                await sql`
+                    INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) 
+                    VALUES (${customerId}, ${customerEmail}, ${bridgeStatus})
+                    ON CONFLICT (stripe_customer_id) 
+                    DO UPDATE SET email = ${customerEmail}, bridge_status = ${bridgeStatus}
+                `;
             }
         } 
         
         else if (event.type === 'customer.subscription.deleted') {
-            const subscription = event.data.object;
-            const customerId = subscription.customer;
-            const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
+            const sub = event.data.object;
+            const customerId = sub.customer;
+            const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
 
             if (customerId && stripeProductId) {
                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
-                
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
-                    
-                    if (mappingRows.length > 0) {
-                        const { una_module, una_content_id } = mappingRows[0];
-                        await revokeCommunityAccess(customerEmail, una_module, una_content_id);
+                    const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    if (mapRows.length > 0) {
+                        await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                        await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
                     }
                 }
             }
         }
 
         else if (event.type === 'customer.subscription.updated') {
-             const subscription = event.data.object;
-             const status = subscription.status; 
-             const customerId = subscription.customer;
-             const stripeProductId = subscription.plan?.product || subscription.items?.data[0]?.price?.product;
+             const sub = event.data.object;
+             const status = sub.status; 
+             const customerId = sub.customer;
+             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
 
              if (customerId && stripeProductId) {
                  const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
-                 
                  if (customerRows.length > 0) {
                      const customerEmail = customerRows[0].email;
-                     const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                      
-                     if (mappingRows.length > 0) {
-                         const { una_module, una_content_id } = mappingRows[0];
-                         
-                         if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
-                             await revokeCommunityAccess(customerEmail, una_module, una_content_id);
-                         } 
-                         else if (status === 'active') {
-                             await grantCommunityAccess(customerEmail, una_module, una_content_id);
+                     if (mapRows.length > 0) {
+                         // Important: Make sure we aren't overriding a manual revoke via webhook!
+                         const currentStatus = customerRows[0].bridge_status;
+                         if (currentStatus !== 'revoked') {
+                             if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
+                                 await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                             } else if (status === 'active') {
+                                 const result = await grantCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 const newStatus = result.success ? 'bridged' : 'pending';
+                                 await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${customerEmail}`;
+                             }
                          }
                      }
                  }
@@ -450,7 +511,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
     } catch (error) {
         console.error('Webhook Error Processing:', error);
     }
-    
     res.json({ received: true });
 });
 
