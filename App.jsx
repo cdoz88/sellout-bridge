@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2 } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
@@ -22,9 +22,13 @@ export default function App() {
   const [isValidatingKey, setIsValidatingKey] = useState(false);
   const [keySuccess, setKeySuccess] = useState(false);
 
-  // --- NEW SYNC STATE VARIABLES ---
   const [isSyncingSubs, setIsSyncingSubs] = useState(false);
   const [syncSubsResult, setSyncSubsResult] = useState(null);
+
+  // --- NEW: AUDIENCE STATS STATE ---
+  const [audienceStats, setAudienceStats] = useState([]);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [modalData, setModalData] = useState(null); // Holds the product data when modal is open
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
@@ -64,6 +68,7 @@ export default function App() {
       if (data.settings && data.settings.stripe_secret_key) {
         setApiKey(data.settings.stripe_secret_key);
         fetchProviderProducts(data.settings.stripe_secret_key, token);
+        fetchAudienceStats(token); // Fetch stats immediately on load if key exists
       }
     } catch (err) {
       console.error("Failed to load settings from database.");
@@ -117,6 +122,8 @@ export default function App() {
             throw new Error(errorPayload.error || "Products loaded, but database failed to save the key!");
         }
 
+        fetchAudienceStats(activeToken); // Refresh stats with new key
+
       } catch (err) {
         setError(err.message || "Invalid Stripe Key. Check your provider settings.");
         setProviderProducts(prev => ({ ...prev, stripe: [] }));
@@ -125,6 +132,22 @@ export default function App() {
        setIsValidatingKey(false);
     }
     setIsValidatingKey(false);
+  };
+
+  // --- NEW: FETCH AUDIENCE DATA ---
+  const fetchAudienceStats = async (overrideToken) => {
+    const activeToken = overrideToken || session;
+    if (!activeToken) return;
+    setIsStatsLoading(true);
+    try {
+        const res = await fetch('/api/get-subscribers', { headers: { 'Authorization': `Bearer ${activeToken}` } });
+        const data = await res.json();
+        if (data.stats) setAudienceStats(data.stats);
+    } catch (err) {
+        console.error("Failed to load audience stats");
+    } finally {
+        setIsStatsLoading(false);
+    }
   };
 
   const saveMappingsToDatabase = async () => {
@@ -140,6 +163,9 @@ export default function App() {
       if (!res.ok) throw new Error("Server rejected the save.");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      
+      fetchAudienceStats(); // Refresh stats so newly mapped products update!
+
     } catch (err) {
       setError("Failed to save mappings to the database.");
     } finally {
@@ -147,7 +173,6 @@ export default function App() {
     }
   };
 
-  // --- NEW: MASS SYNC FUNCTION ---
   const syncExistingSubscribers = async () => {
     setIsSyncingSubs(true);
     setSyncSubsResult(null);
@@ -164,9 +189,9 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       setSyncSubsResult({ success: true, count: data.count });
-      
-      // Clear the success message after 5 seconds
       setTimeout(() => setSyncSubsResult(null), 5000);
+      
+      fetchAudienceStats(); // Refresh stats after importing new users!
       
     } catch (err) {
       setError(err.message || "Failed to sync subscribers.");
@@ -256,6 +281,7 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings: newMappings })
       });
+      fetchAudienceStats(); // Refresh stats so the mapped labels update
     } catch (err) {
       console.error("Failed to delete mapping.");
     }
@@ -267,6 +293,7 @@ export default function App() {
     setMappings([]);
     setApiKey('');
     setProviderProducts({ stripe: [], paypal: [] });
+    setAudienceStats([]);
   };
 
   const copyWebhook = () => {
@@ -431,6 +458,29 @@ export default function App() {
                 {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
                 {syncSubsResult?.success ? `Synced ${syncSubsResult.count} Users!` : 'Sync Existing Users'}
               </button>
+
+              {/* AUDIENCE STATS LIST */}
+              {audienceStats.filter(stat => stat.isMapped).length > 0 && (
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
+                    <span>Bridged Products</span>
+                    {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                  </p>
+                  <div className="space-y-2">
+                    {audienceStats.filter(stat => stat.isMapped).map(stat => (
+                      <div 
+                        key={stat.productId} 
+                        onClick={() => setModalData(stat)}
+                        className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-3 flex justify-between items-center cursor-pointer transition-colors group"
+                      >
+                        <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
+                        <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.count} Users</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-gray-600 mt-3 text-center italic">Click a product to view subscribers</p>
+                </div>
+              )}
             </div>
 
           </div>
@@ -542,6 +592,50 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* --- AUDIENCE MODAL --- */}
+      {modalData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
+              <div>
+                <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">{modalData.productName}</h3>
+                <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
+                  {modalData.count} Total Subscribers
+                </p>
+              </div>
+              <button onClick={() => setModalData(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              {modalData.users.length === 0 ? (
+                  <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
+              ) : (
+                  <div className="space-y-2">
+                      {modalData.users.map((user, i) => (
+                          <div key={i} className="bg-black border border-white/5 rounded-xl p-4 flex justify-between items-center">
+                              <div>
+                                  <p className="text-sm font-bold text-white">{user.name}</p>
+                                  <p className="text-xs text-gray-500 font-mono mt-0.5">{user.email}</p>
+                              </div>
+                              <div>
+                                  <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg ${user.status === 'Bridged' ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'}`}>
+                                      {user.status}
+                                  </span>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

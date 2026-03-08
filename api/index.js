@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: The /api/sync-subscribers endpoint for mass-importing historical users.
+ * ADDED: The /api/get-subscribers endpoint for the Audience Modal.
  */
 
 import express from 'express';
@@ -266,26 +266,76 @@ app.post('/api/get-stripe-products', async (req, res) => {
     }
 });
 
-// --- NEW MASS SYNC ENDPOINT ---
+// --- NEW ENDPOINT: GET AUDIENCE STATS ---
+app.get('/api/get-subscribers', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    try {
+        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) {
+            return res.json({ stats: [] });
+        }
+        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+
+        // Get currently mapped products to label them correctly
+        const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
+
+        // Get Product Names
+        const products = await stripe.products.list({ active: true, limit: 100 });
+        const productMap = {};
+        products.data.forEach(p => productMap[p.id] = p.name);
+
+        const stats = {};
+
+        // Loop through active Stripe subscriptions and group them
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+            const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            if (!productId) continue;
+
+            if (!stats[productId]) {
+                stats[productId] = {
+                    productId: productId,
+                    productName: productMap[productId] || 'Unknown Product',
+                    isMapped: mappedProductIds.has(productId),
+                    count: 0,
+                    users: []
+                };
+            }
+
+            stats[productId].count++;
+            stats[productId].users.push({
+                name: sub.customer?.name || 'Customer',
+                email: sub.customer?.email || 'No email provided',
+                status: mappedProductIds.has(productId) ? 'Bridged' : 'Stripe Only'
+            });
+        }
+
+        res.json({ stats: Object.values(stats) });
+    } catch (error) {
+        console.error("Stats Fetch Error:", error);
+        res.status(500).json({ error: "Failed to fetch subscriber stats." });
+    }
+});
+
+// --- MASS SYNC ENDPOINT ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
     try {
-        // 1. Get the Stripe Key
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
         if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) {
             return res.status(400).json({ error: "Stripe key not found. Please save your API key first." });
         }
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
 
-        // 2. Get the active mappings
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id}`;
         if (mappingRows.length === 0) {
             return res.status(400).json({ error: "No mappings found. Please create a mapping rule first." });
         }
 
-        // Create a quick dictionary for matching products
         const mappingsMap = {};
         mappingRows.forEach(row => {
             mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id };
@@ -293,13 +343,10 @@ app.post('/api/sync-subscribers', async (req, res) => {
 
         let syncCount = 0;
 
-        // 3. Fetch active subscriptions and loop through them
-        // Note: Using expand grabs the actual email address instead of just the customer ID number
         for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
             const customerEmail = sub.customer?.email;
 
-            // If we have a matching rule for this product, sync them!
             if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
                 const { module, id } = mappingsMap[stripeProductId];
                 
@@ -310,7 +357,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
                     DO UPDATE SET email = ${customerEmail}
                 `;
 
-                // Fire the connector script on your server
                 await grantCommunityAccess(customerEmail, module, id);
                 syncCount++;
             }
