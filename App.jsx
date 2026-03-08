@@ -659,3 +659,22 @@ export default function App() {
                                       <button 
                                           onClick={() => toggleUserAccess(user.email, 'revoke')}
                                           disabled={processingUser === user.email}
+                                          className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
+                                          title="Revoke Access (Survives Sync)">
+                                          {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                      </button>
+                                  )}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
