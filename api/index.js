@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Pointing grant/revoke functions to the new bridge-connector.php micro-API
+ * ADDED: The /api/sync-subscribers endpoint for mass-importing historical users.
  */
 
 import express from 'express';
@@ -169,7 +169,6 @@ app.get('/api/get-communities', async (req, res) => {
     }
 });
 
-// GET SAVED API KEYS
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -179,12 +178,10 @@ app.get('/api/get-settings', async (req, res) => {
         const rows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) {
-        console.error("Settings Fetch Error:", error);
         res.status(500).json({ error: "Failed to fetch settings from database." });
     }
 });
 
-// SAVE API KEYS
 app.post('/api/save-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -202,7 +199,6 @@ app.post('/api/save-settings', async (req, res) => {
         `;
         res.json({ success: true });
     } catch (error) {
-        console.error("Settings Save Error:", error);
         res.status(500).json({ error: "Failed to save settings to Postgres database." });
     }
 });
@@ -267,6 +263,64 @@ app.post('/api/get-stripe-products', async (req, res) => {
         res.json({ products: formattedProducts });
     } catch (error) {
         res.status(400).json({ error: `Stripe says: ${error.message}` });
+    }
+});
+
+// --- NEW MASS SYNC ENDPOINT ---
+app.post('/api/sync-subscribers', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    try {
+        // 1. Get the Stripe Key
+        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) {
+            return res.status(400).json({ error: "Stripe key not found. Please save your API key first." });
+        }
+        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+
+        // 2. Get the active mappings
+        const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        if (mappingRows.length === 0) {
+            return res.status(400).json({ error: "No mappings found. Please create a mapping rule first." });
+        }
+
+        // Create a quick dictionary for matching products
+        const mappingsMap = {};
+        mappingRows.forEach(row => {
+            mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id };
+        });
+
+        let syncCount = 0;
+
+        // 3. Fetch active subscriptions and loop through them
+        // Note: Using expand grabs the actual email address instead of just the customer ID number
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+            const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            const customerEmail = sub.customer?.email;
+
+            // If we have a matching rule for this product, sync them!
+            if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
+                const { module, id } = mappingsMap[stripeProductId];
+                
+                await sql`
+                    INSERT INTO bridge_customers (stripe_customer_id, email) 
+                    VALUES (${sub.customer.id}, ${customerEmail})
+                    ON CONFLICT (stripe_customer_id) 
+                    DO UPDATE SET email = ${customerEmail}
+                `;
+
+                // Fire the connector script on your server
+                await grantCommunityAccess(customerEmail, module, id);
+                syncCount++;
+            }
+        }
+
+        res.json({ success: true, count: syncCount });
+
+    } catch (error) {
+        console.error("Sync Error:", error);
+        res.status(500).json({ error: "Failed to sync subscribers." });
     }
 });
 

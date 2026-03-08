@@ -22,6 +22,10 @@ export default function App() {
   const [isValidatingKey, setIsValidatingKey] = useState(false);
   const [keySuccess, setKeySuccess] = useState(false);
 
+  // --- NEW SYNC STATE VARIABLES ---
+  const [isSyncingSubs, setIsSyncingSubs] = useState(false);
+  const [syncSubsResult, setSyncSubsResult] = useState(null);
+
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
   const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
@@ -42,8 +46,6 @@ export default function App() {
   }, [session]);
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
-  
-  // NOTE: The conflicting localStorage effect for 'bridge_apikey' was completely removed!
 
   useEffect(() => {
     if (session) {
@@ -104,7 +106,6 @@ export default function App() {
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
 
-        // SECURE SAVE: Explicitly catch errors if the database refuses the save command
         const saveRes = await fetch('/api/save-settings', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
@@ -143,6 +144,34 @@ export default function App() {
       setError("Failed to save mappings to the database.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // --- NEW: MASS SYNC FUNCTION ---
+  const syncExistingSubscribers = async () => {
+    setIsSyncingSubs(true);
+    setSyncSubsResult(null);
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/sync-subscribers', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
+      
+      setSyncSubsResult({ success: true, count: data.count });
+      
+      // Clear the success message after 5 seconds
+      setTimeout(() => setSyncSubsResult(null), 5000);
+      
+    } catch (err) {
+      setError(err.message || "Failed to sync subscribers.");
+    } finally {
+      setIsSyncingSubs(false);
     }
   };
 
@@ -331,6 +360,7 @@ export default function App() {
         <div className="grid lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-6">
             
+            {/* STEP 1: KEYS */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
@@ -359,6 +389,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* STEP 2: WEBHOOK */}
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c] flex items-center gap-2">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
@@ -381,6 +412,25 @@ export default function App() {
                   <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
                 )}
               </div>
+            </div>
+
+            {/* STEP 3: SYNC HISTORICAL SUBSCRIBERS */}
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
+                <RefreshCcw className="w-5 h-5 text-gray-400" />
+                Sync Subscribers
+              </h3>
+              <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                Pull in your existing historical {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access based on your mapping rules.
+              </p>
+              
+              <button 
+                onClick={syncExistingSubscribers}
+                disabled={isSyncingSubs}
+                className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}`}>
+                {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
+                {syncSubsResult?.success ? `Synced ${syncSubsResult.count} Users!` : 'Sync Existing Users'}
+              </button>
             </div>
 
           </div>
