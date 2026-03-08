@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users, UserX, UserCheck } from 'lucide-react';
 
 export default function App() {
@@ -29,6 +29,9 @@ export default function App() {
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [modalData, setModalData] = useState(null); 
   const [processingUser, setProcessingUser] = useState(null); 
+
+  // --- NEW: Lock to prevent double-firing OAuth ---
+  const hasAttemptedLogin = useRef(false);
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
@@ -211,6 +214,16 @@ export default function App() {
       }
   };
 
+  // --- FIX: Safely trigger login once ---
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code && !hasAttemptedLogin.current) {
+      hasAttemptedLogin.current = true;
+      handleCallback(code);
+    }
+  }, []);
+
   const handleCallback = async (code) => {
     setIsLoading(true);
     setError(null);
@@ -228,11 +241,11 @@ export default function App() {
         fetchUser(data.access_token); 
         syncCommunities(data.access_token);
       } else {
-        setError(data.error_description || "Authentication failed.");
+        setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
       }
       window.history.replaceState({}, document.title, "/");
     } catch (err) {
-      setError("The Bridge server is not responding.");
+      setError("The Bridge server is not responding. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -324,9 +337,21 @@ export default function App() {
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
         <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
+          
+          {/* --- FIX: Added Error Banner so you can actually see what fails! --- */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-start gap-3 relative z-10 text-left">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="mb-1">Authentication Error</p>
+                <p className="text-xs font-medium opacity-80 normal-case tracking-normal">{error}</p>
+              </div>
+            </div>
+          )}
+
           <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
-          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight">Community Bridge</h1>
-          <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed">
+          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight relative z-10">Community Bridge</h1>
+          <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed relative z-10">
             Login with your Sellout Crowds credentials and map your existing subscriptions to your SC communities
           </p>
           <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
@@ -423,7 +448,7 @@ export default function App() {
 
             {/* STEP 2: WEBHOOK */}
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Bridge Webhook URL
               </h3>
@@ -448,7 +473,7 @@ export default function App() {
 
             {/* STEP 3: SYNC SUBSCRIBERS */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Sync Subscribers
               </h3>
