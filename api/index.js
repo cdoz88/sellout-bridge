@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Accurate Bridge Status tracking and Manual Revoke/Restore controls.
+ * FIX: Updated display statuses to "Active", "Inactive", and "Access Revoked"
  */
 
 import express from 'express';
@@ -23,7 +23,6 @@ app.use(express.json());
 
 // --- HELPER FUNCTIONS ---
 
-// Safely upgrades the database to track accurate statuses
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -62,7 +61,7 @@ async function grantCommunityAccess(email, module, contentId) {
         try {
             const data = JSON.parse(responseText);
             console.log(`[GRANT] ${email}:`, data);
-            return data; // Returns {success: true} or {error: "..."}
+            return data; 
         } catch (e) {
             return { error: responseText };
         }
@@ -273,7 +272,7 @@ app.post('/api/get-stripe-products', async (req, res) => {
     }
 });
 
-// --- GET AUDIENCE STATS (UPDATED FOR ACCURACY) ---
+// --- GET AUDIENCE STATS ---
 app.get('/api/get-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -322,15 +321,16 @@ app.get('/api/get-subscribers', async (req, res) => {
 
             if (mappedProductIds.has(productId)) {
                 const dbStatus = statusMap[email];
+                // FIX: Updated text exactly to "Access Revoked", "Active", and "Inactive"
                 if (dbStatus === 'revoked') {
                     displayStatus = 'Access Revoked';
                     isRevoked = true;
                 } else if (dbStatus === 'bridged') {
-                    displayStatus = 'Active on SC';
+                    displayStatus = 'Active'; 
                     isBridged = true;
                     stats[productId].bridgedCount++;
                 } else {
-                    displayStatus = 'Pending SC Account';
+                    displayStatus = 'Inactive'; 
                 }
             }
 
@@ -350,7 +350,6 @@ app.get('/api/get-subscribers', async (req, res) => {
     }
 });
 
-// --- MASS SYNC ENDPOINT (UPDATED TO RESPECT REVOKES) ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -377,7 +376,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
             const customerEmail = sub.customer?.email;
 
             if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
-                // IMPORTANT: If they were manually revoked, skip them so it survives the resync!
                 if (statusMap[customerEmail] === 'revoked') continue;
 
                 const { module, id } = mappingsMap[stripeProductId];
@@ -401,12 +399,11 @@ app.post('/api/sync-subscribers', async (req, res) => {
     }
 });
 
-// --- NEW ENDPOINT: TOGGLE USER ACCESS ---
 app.post('/api/toggle-user-access', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-    const { email, productId, action } = req.body; // action: 'revoke' or 'restore'
+    const { email, productId, action } = req.body; 
     try {
         await ensureSchema();
         const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND stripe_product_id = ${productId}`;
@@ -427,8 +424,6 @@ app.post('/api/toggle-user-access', async (req, res) => {
         res.status(500).json({ error: "Failed to toggle access." });
     }
 });
-
-// --- THE SMART WEBHOOK HANDLER (UPDATED) ---
 
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
@@ -491,7 +486,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
                      const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                      
                      if (mapRows.length > 0) {
-                         // Important: Make sure we aren't overriding a manual revoke via webhook!
                          const currentStatus = customerRows[0].bridge_status;
                          if (currentStatus !== 'revoked') {
                              if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {

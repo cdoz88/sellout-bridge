@@ -28,7 +28,7 @@ export default function App() {
   const [audienceStats, setAudienceStats] = useState([]);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [modalData, setModalData] = useState(null); 
-  const [processingUser, setProcessingUser] = useState(null); // Tracks row loading state during revoke
+  const [processingUser, setProcessingUser] = useState(null); 
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
@@ -136,7 +136,6 @@ export default function App() {
         const data = await res.json();
         if (data.stats) {
             setAudienceStats(data.stats);
-            // If modal is open, silently update its data
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
     } catch (err) {
@@ -196,7 +195,6 @@ export default function App() {
     }
   };
 
-  // --- NEW: TOGGLE ACCESS FUNCTION ---
   const toggleUserAccess = async (email, action) => {
       setProcessingUser(email);
       try {
@@ -205,7 +203,7 @@ export default function App() {
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ email, productId: modalData.productId, action })
           });
-          await fetchAudienceStats(); // This reloads the stats and silently updates the modal data!
+          await fetchAudienceStats(); 
       } catch (err) {
           console.error("Failed to toggle access.");
       } finally {
@@ -214,7 +212,6 @@ export default function App() {
   };
 
   const handleCallback = async (code) => {
-    // ... same ...
     setIsLoading(true);
     setError(null);
     try {
@@ -426,7 +423,7 @@ export default function App() {
 
             {/* STEP 2: WEBHOOK */}
             <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-[#9df01c] flex items-center gap-2">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
                 <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Bridge Webhook URL
               </h3>
@@ -449,14 +446,14 @@ export default function App() {
               </div>
             </div>
 
-            {/* STEP 3: SYNC HISTORICAL SUBSCRIBERS */}
+            {/* STEP 3: SYNC SUBSCRIBERS */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2">
-                <RefreshCcw className="w-5 h-5 text-gray-400" />
+                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                 Sync Subscribers
               </h3>
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                Pull in your existing historical {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access based on your mapping rules.
+                Pull in your existing {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access based on your mapping rules.
               </p>
               
               <button 
@@ -604,7 +601,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- AUDIENCE MODAL WITH ACCURATE STATUS & REVOKE --- */}
+      {/* --- AUDIENCE MODAL WITH PROPER TABLE HEADERS --- */}
       {modalData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -625,48 +622,59 @@ export default function App() {
               {modalData.users.length === 0 ? (
                   <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
               ) : (
-                  <div className="space-y-3">
-                      {modalData.users.map((user, i) => (
-                          <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
-                              <div>
-                                  <p className="text-sm font-bold text-white flex items-center gap-2">
-                                      {user.name} 
-                                      {user.isRevoked && <UserX className="w-4 h-4 text-red-500" />}
-                                      {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c]" />}
-                                  </p>
-                                  <p className="text-xs text-gray-500 font-mono mt-0.5">{user.email}</p>
-                              </div>
-                              
-                              <div className="flex items-center gap-3 w-full sm:w-auto">
-                                  {/* ACCURATE STATUS BADGES */}
-                                  <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg flex-1 text-center sm:flex-none
-                                      ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
-                                        user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
-                                        'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
-                                      {user.status}
-                                  </span>
+                  <div className="flex flex-col">
+                      {/* HEADER ROW */}
+                      <div className="hidden sm:flex justify-between items-center px-4 pb-3 mb-3 border-b border-white/10 text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                          <div className="flex-1">User</div>
+                          <div className="w-32 text-center">SC Status</div>
+                          <div className="w-24 text-right">Revoke Access</div>
+                      </div>
 
-                                  {/* REVOKE / RESTORE ACTION BUTTON */}
-                                  {user.isRevoked ? (
-                                      <button 
-                                          onClick={() => toggleUserAccess(user.email, 'restore')}
-                                          disabled={processingUser === user.email}
-                                          className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
-                                          title="Restore Access">
-                                          {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                                      </button>
-                                  ) : (
-                                      <button 
-                                          onClick={() => toggleUserAccess(user.email, 'revoke')}
-                                          disabled={processingUser === user.email}
-                                          className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
-                                          title="Revoke Access (Survives Sync)">
-                                          {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                                      </button>
-                                  )}
+                      <div className="space-y-3">
+                          {modalData.users.map((user, i) => (
+                              <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
+                                  <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                                          <span className="truncate">{user.name}</span>
+                                          {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
+                                          {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
+                                      </p>
+                                      <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.email}</p>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                                      <div className="w-full sm:w-32 flex justify-center">
+                                          <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg text-center w-full
+                                              ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
+                                                user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
+                                                'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                                              {user.status}
+                                          </span>
+                                      </div>
+
+                                      <div className="w-auto sm:w-24 flex justify-end">
+                                          {user.isRevoked ? (
+                                              <button 
+                                                  onClick={() => toggleUserAccess(user.email, 'restore')}
+                                                  disabled={processingUser === user.email}
+                                                  className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
+                                                  title="Restore Access">
+                                                  {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                                              </button>
+                                          ) : (
+                                              <button 
+                                                  onClick={() => toggleUserAccess(user.email, 'revoke')}
+                                                  disabled={processingUser === user.email}
+                                                  className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
+                                                  title="Revoke Access (Survives Sync)">
+                                                  {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                              </button>
+                                          )}
+                                      </div>
+                                  </div>
                               </div>
-                          </div>
-                      ))}
+                          ))}
+                      </div>
                   </div>
               )}
             </div>
