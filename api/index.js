@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Updated display statuses to "Active", "Inactive", and "Access Revoked"
+ * FIX: Added a 250ms throttle to the sync loop to prevent UNA rate-limiting.
  */
 
 import express from 'express';
@@ -60,7 +60,6 @@ async function grantCommunityAccess(email, module, contentId) {
         const responseText = await response.text();
         try {
             const data = JSON.parse(responseText);
-            console.log(`[GRANT] ${email}:`, data);
             return data; 
         } catch (e) {
             return { error: responseText };
@@ -321,7 +320,6 @@ app.get('/api/get-subscribers', async (req, res) => {
 
             if (mappedProductIds.has(productId)) {
                 const dbStatus = statusMap[email];
-                // FIX: Updated text exactly to "Access Revoked", "Active", and "Inactive"
                 if (dbStatus === 'revoked') {
                     displayStatus = 'Access Revoked';
                     isRevoked = true;
@@ -350,6 +348,7 @@ app.get('/api/get-subscribers', async (req, res) => {
     }
 });
 
+// --- MASS SYNC ENDPOINT WITH RATE LIMIT THROTTLE ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -386,10 +385,14 @@ app.post('/api/sync-subscribers', async (req, res) => {
                     INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) 
                     VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus})
                     ON CONFLICT (stripe_customer_id) 
-                    DO UPDATE SET email = ${customerEmail}, bridge_status = ${newStatus}
+                    DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status
                 `;
 
                 if (result.success) syncCount++;
+
+                // THE THROTTLE: Tell Vercel to pause for 250 milliseconds before syncing the next user
+                // This prevents your Sellout Crowds server from blocking us for spam!
+                await new Promise(resolve => setTimeout(resolve, 250));
             }
         }
         res.json({ success: true, count: syncCount });
@@ -450,7 +453,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
                     INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) 
                     VALUES (${customerId}, ${customerEmail}, ${bridgeStatus})
                     ON CONFLICT (stripe_customer_id) 
-                    DO UPDATE SET email = ${customerEmail}, bridge_status = ${bridgeStatus}
+                    DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status
                 `;
             }
         } 
