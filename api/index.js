@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Standalone Patreon CSV Import Endpoint with rate limiting.
+ * ADDED: Patreon "Smart Diff" engine to automatically revoke missing users.
  */
 
 import express from 'express';
@@ -26,6 +26,12 @@ app.use(express.json());
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
+        // NEW: Create a dedicated table to track Patreon imports for the Smart Diff!
+        await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (
+            email VARCHAR(255) PRIMARY KEY,
+            tier VARCHAR(255),
+            status VARCHAR(50)
+        )`;
     } catch (e) {
         console.error("Schema check notice:", e.message);
     }
@@ -271,7 +277,7 @@ app.post('/api/get-stripe-products', async (req, res) => {
     }
 });
 
-// --- NEW PATREON CSV IMPORT ENDPOINT ---
+// --- NEW PATREON CSV "SMART DIFF" ENDPOINT ---
 app.post('/api/patreon-import', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -283,33 +289,61 @@ app.post('/api/patreon-import', async (req, res) => {
     }
 
     try {
-        // Create a quick lookup dictionary for mapped tiers
+        await ensureSchema();
+
         const mappingsMap = {};
         mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
 
+        // 1. Get existing patreon users from our database tracker
+        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
+
+        // 2. Map the incoming users from the CSV (only keep those matching a mapped tier)
+        const incomingMap = {};
+        users.forEach(u => {
+            if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier;
+        });
+
         let importCount = 0;
+        let revokeCount = 0;
 
-        for (const u of users) {
-            // u.tier corresponds exactly to the parsed Tier name from the CSV
-            if (mappingsMap[u.tier]) {
-                const { module, id } = mappingsMap[u.tier];
-                
-                const result = await grantCommunityAccess(u.email, module, id);
-                if (result.success) importCount++;
-
-                // Prevent the UNA server from crashing with a 250ms delay
-                await new Promise(resolve => setTimeout(resolve, 250));
+        // 3. SMART DIFF PART 1: Revoke users missing from the new CSV
+        for (const dbUser of existingDb) {
+            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
+                // They were active in DB, but are NOT on the new CSV!
+                const oldMapping = mappingsMap[dbUser.tier];
+                if (oldMapping) {
+                    await revokeCommunityAccess(dbUser.email, oldMapping.module, oldMapping.id);
+                }
+                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
+                revokeCount++;
+                await new Promise(resolve => setTimeout(resolve, 250)); // Safety throttle
             }
         }
 
-        res.json({ success: true, count: importCount });
+        // 4. SMART DIFF PART 2: Grant access to users on the new CSV
+        for (const [email, tier] of Object.entries(incomingMap)) {
+            const { module, id } = mappingsMap[tier];
+            const result = await grantCommunityAccess(email, module, id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+
+            await sql`
+                INSERT INTO bridge_patreon_users (email, tier, status)
+                VALUES (${email}, ${tier}, ${newStatus})
+                ON CONFLICT (email)
+                DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status
+            `;
+
+            if (result.success) importCount++;
+            await new Promise(resolve => setTimeout(resolve, 250)); // Safety throttle
+        }
+
+        res.json({ success: true, added: importCount, revoked: revokeCount });
     } catch (error) {
         console.error("Patreon Import Error:", error);
         res.status(500).json({ error: "Failed to process Patreon import." });
     }
 });
 
-// --- GET AUDIENCE STATS (STRIPE) ---
 app.get('/api/get-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -386,7 +420,6 @@ app.get('/api/get-subscribers', async (req, res) => {
     }
 });
 
-// --- STRIPE MASS SYNC ENDPOINT WITH RATE LIMIT THROTTLE ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

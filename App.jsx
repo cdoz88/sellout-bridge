@@ -30,7 +30,6 @@ export default function App() {
   const [modalData, setModalData] = useState(null); 
   const [processingUser, setProcessingUser] = useState(null); 
 
-  // --- NEW PATREON STATE ---
   const [patreonUsers, setPatreonUsers] = useState([]);
 
   const hasAttemptedLogin = useRef(false);
@@ -133,7 +132,6 @@ export default function App() {
     setIsValidatingKey(false);
   };
 
-  // --- NEW: IN-BROWSER PATREON CSV PARSER ---
   const handlePatreonUpload = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -242,7 +240,7 @@ export default function App() {
       
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
-      setSyncSubsResult({ success: true, count: data.count });
+      setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
       setTimeout(() => setSyncSubsResult(null), 5000);
       
       fetchAudienceStats(); 
@@ -254,7 +252,7 @@ export default function App() {
     }
   };
 
-  // --- NEW: RUN PATREON IMPORT ---
+  // --- UPDATED: RUN PATREON IMPORT WITH SMART DIFF MESSAGING ---
   const runPatreonImport = async () => {
       setIsSyncingSubs(true);
       setSyncSubsResult(null);
@@ -273,7 +271,7 @@ export default function App() {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
           
-          setSyncSubsResult({ success: true, count: data.count });
+          setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
           setTimeout(() => setSyncSubsResult(null), 5000);
           
       } catch (err) {
@@ -474,7 +472,7 @@ export default function App() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-12 px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
           <div>
             <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4">Subscription Bridge</h2>
           </div>
@@ -490,6 +488,19 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* --- STRATEGIC WARNING BANNER FOR PATREON --- */}
+        {activeTab === 'patreon' && (
+          <div className="mb-8 p-5 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-400 text-left flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-black uppercase text-[10px] tracking-widest mb-1">Manual Migration Tool</p>
+              <p className="text-xs font-medium opacity-90 leading-relaxed">
+                Patreon restricts automatic syncing, meaning you must regularly upload a new CSV to add new patrons and automatically remove canceled ones. <strong>We highly recommend fully migrating your subscribers directly to Sellout Crowds</strong> to automate your community and avoid Patreon's high fees!
+              </p>
+            </div>
+          </div>
+        )}
 
         {error && (
             <div className="mb-8 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-left flex items-start gap-3">
@@ -604,7 +615,7 @@ export default function App() {
               </h3>
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                 {activeTab === 'patreon' 
-                  ? 'Process your uploaded Patreon CSV and automatically grant access based on your Tier mapping rules.'
+                  ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
                   : `Pull in your existing ${activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access.`}
               </p>
               
@@ -615,7 +626,7 @@ export default function App() {
                   ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                   ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
                 {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <UploadCloud className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
-                {syncSubsResult?.success ? `Imported ${syncSubsResult.count} Users!` : (activeTab === 'patreon' ? 'Run Import' : 'Sync Existing Users')}
+                {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
               </button>
 
               {/* AUDIENCE STATS LIST - (Hidden for Patreon since it is a static one-time import) */}
