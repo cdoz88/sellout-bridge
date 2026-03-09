@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added a 250ms throttle to the sync loop to prevent UNA rate-limiting.
+ * ADDED: Standalone Patreon CSV Import Endpoint with rate limiting.
  */
 
 import express from 'express';
@@ -271,7 +271,45 @@ app.post('/api/get-stripe-products', async (req, res) => {
     }
 });
 
-// --- GET AUDIENCE STATS ---
+// --- NEW PATREON CSV IMPORT ENDPOINT ---
+app.post('/api/patreon-import', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { users, mappings } = req.body; 
+    
+    if (!users || !mappings || !Array.isArray(users)) {
+        return res.status(400).json({ error: "Invalid data provided." });
+    }
+
+    try {
+        // Create a quick lookup dictionary for mapped tiers
+        const mappingsMap = {};
+        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+
+        let importCount = 0;
+
+        for (const u of users) {
+            // u.tier corresponds exactly to the parsed Tier name from the CSV
+            if (mappingsMap[u.tier]) {
+                const { module, id } = mappingsMap[u.tier];
+                
+                const result = await grantCommunityAccess(u.email, module, id);
+                if (result.success) importCount++;
+
+                // Prevent the UNA server from crashing with a 250ms delay
+                await new Promise(resolve => setTimeout(resolve, 250));
+            }
+        }
+
+        res.json({ success: true, count: importCount });
+    } catch (error) {
+        console.error("Patreon Import Error:", error);
+        res.status(500).json({ error: "Failed to process Patreon import." });
+    }
+});
+
+// --- GET AUDIENCE STATS (STRIPE) ---
 app.get('/api/get-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -348,7 +386,7 @@ app.get('/api/get-subscribers', async (req, res) => {
     }
 });
 
-// --- MASS SYNC ENDPOINT WITH RATE LIMIT THROTTLE ---
+// --- STRIPE MASS SYNC ENDPOINT WITH RATE LIMIT THROTTLE ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -389,9 +427,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
                 `;
 
                 if (result.success) syncCount++;
-
-                // THE THROTTLE: Tell Vercel to pause for 250 milliseconds before syncing the next user
-                // This prevents your Sellout Crowds server from blocking us for spam!
                 await new Promise(resolve => setTimeout(resolve, 250));
             }
         }

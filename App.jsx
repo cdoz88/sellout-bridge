@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users, UserX, UserCheck } from 'lucide-react';
+import { Settings, Plus, LogOut, ShieldCheck, Trash2, Loader2, Link2, ExternalLink, AlertCircle, CreditCard, Smartphone, Save, Zap, Key, RefreshCcw, CheckCircle2, X, Users, UserX, UserCheck, UploadCloud } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
@@ -18,7 +18,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('stripe');
 
-  const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [] });
+  const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [], patreon: [] });
   const [isValidatingKey, setIsValidatingKey] = useState(false);
   const [keySuccess, setKeySuccess] = useState(false);
 
@@ -30,7 +30,9 @@ export default function App() {
   const [modalData, setModalData] = useState(null); 
   const [processingUser, setProcessingUser] = useState(null); 
 
-  // --- NEW: Lock to prevent double-firing OAuth ---
+  // --- NEW PATREON STATE ---
+  const [patreonUsers, setPatreonUsers] = useState([]);
+
   const hasAttemptedLogin = useRef(false);
 
   const brandColor = '#9df01c';
@@ -39,6 +41,7 @@ export default function App() {
   
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
+  const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
   
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
@@ -130,6 +133,59 @@ export default function App() {
     setIsValidatingKey(false);
   };
 
+  // --- NEW: IN-BROWSER PATREON CSV PARSER ---
+  const handlePatreonUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const text = event.target.result;
+          const lines = text.split(/\r?\n/);
+          if (lines.length < 2) {
+              setError("CSV file appears to be empty.");
+              return;
+          }
+          
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+          const emailIdx = headers.findIndex(h => h.includes('email'));
+          const tierIdx = headers.findIndex(h => h.includes('tier'));
+          
+          if (emailIdx === -1 || tierIdx === -1) {
+              setError("Could not find 'Email' and 'Tier' columns. Are you sure this is a Patreon CSV?");
+              return;
+          }
+
+          const parsedUsers = [];
+          const uniqueTiers = new Set();
+
+          for (let i = 1; i < lines.length; i++) {
+              if (!lines[i].trim()) continue;
+              
+              const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+              const cleanRow = row.map(col => col.replace(/^"|"$/g, '').trim());
+              
+              const email = cleanRow[emailIdx];
+              const tier = cleanRow[tierIdx];
+              
+              if (email && email.includes('@') && tier) {
+                  parsedUsers.push({ email, tier });
+                  uniqueTiers.add(tier);
+              }
+          }
+
+          setPatreonUsers(parsedUsers);
+          setProviderProducts(prev => ({
+              ...prev,
+              patreon: Array.from(uniqueTiers).map(t => ({ id: t, name: t }))
+          }));
+          setKeySuccess(true);
+          setTimeout(() => setKeySuccess(false), 3000);
+          setError(null);
+      };
+      reader.readAsText(file);
+  };
+
   const fetchAudienceStats = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
@@ -162,7 +218,7 @@ export default function App() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       
-      fetchAudienceStats(); 
+      if (activeTab === 'stripe') fetchAudienceStats(); 
 
     } catch (err) {
       setError("Failed to save mappings to the database.");
@@ -198,6 +254,35 @@ export default function App() {
     }
   };
 
+  // --- NEW: RUN PATREON IMPORT ---
+  const runPatreonImport = async () => {
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
+      
+      try {
+          const patreonMappings = mappings.filter(m => m.provider === 'patreon');
+          if (patreonMappings.length === 0) throw new Error("Please map at least one Patreon Tier first.");
+          
+          const res = await fetch('/api/patreon-import', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: patreonUsers, mappings: patreonMappings })
+          });
+          
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
+          
+          setSyncSubsResult({ success: true, count: data.count });
+          setTimeout(() => setSyncSubsResult(null), 5000);
+          
+      } catch (err) {
+          setError(err.message || "Failed to import Patreon users.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
+  };
+
   const toggleUserAccess = async (email, action) => {
       setProcessingUser(email);
       try {
@@ -214,7 +299,6 @@ export default function App() {
       }
   };
 
-  // --- FIX: Safely trigger login once ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -299,7 +383,7 @@ export default function App() {
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings: newMappings })
       });
-      fetchAudienceStats(); 
+      if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
       console.error("Failed to delete mapping.");
     }
@@ -310,8 +394,9 @@ export default function App() {
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
     setMappings([]);
     setApiKey('');
-    setProviderProducts({ stripe: [], paypal: [] });
+    setProviderProducts({ stripe: [], paypal: [], patreon: [] });
     setAudienceStats([]);
+    setPatreonUsers([]);
   };
 
   const copyWebhook = () => {
@@ -338,7 +423,6 @@ export default function App() {
         <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
           
-          {/* --- FIX: Added Error Banner so you can actually see what fails! --- */}
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-start gap-3 relative z-10 text-left">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -401,6 +485,9 @@ export default function App() {
             <button onClick={() => setActiveTab('paypal')} className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}>
               <Smartphone className="w-4 h-4" /> PayPal
             </button>
+            <button onClick={() => setActiveTab('patreon')} className={`px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-500 hover:text-white'}`}>
+              <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
+            </button>
           </div>
         </div>
 
@@ -417,80 +504,122 @@ export default function App() {
         <div className="grid lg:grid-cols-12 gap-8">
           <div className="lg:col-span-4 space-y-6">
             
-            {/* STEP 1: KEYS */}
-            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
-                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
-                Provider Setup
-              </h3>
-              <div className="space-y-5 relative z-10">
-                <div>
-                  <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                    {activeTab === 'stripe' ? 'Stripe Secret Key' : 'PayPal Secret Key'}
-                  </label>
-                  <input 
-                    type="password" 
-                    value={apiKey} 
-                    onChange={(e) => setApiKey(e.target.value)} 
-                    placeholder={activeTab === 'stripe' ? 'sk_live_... or rk_live_...' : 'Enter Secret Key...'} 
-                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" 
-                  />
+            {/* STEP 1: DYNAMIC SETUP (KEYS OR CSV) */}
+            {activeTab === 'patreon' ? (
+              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
+                  <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
+                  Upload CSV
+                </h3>
+                <div className="space-y-5 relative z-10">
+                  <div>
+                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      Patreon Audience CSV
+                    </label>
+                    <input 
+                      type="file" 
+                      accept=".csv"
+                      onChange={handlePatreonUpload}
+                      className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#9df01c] transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:tracking-widest file:bg-[#9df01c]/10 file:text-[#9df01c] hover:file:bg-[#9df01c]/20 file:transition-colors cursor-pointer" 
+                    />
+                  </div>
+                  
+                  {keySuccess && (
+                    <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> Successfully parsed {patreonUsers.length} users
+                    </div>
+                  )}
+
+                  <div className="text-[10px] text-gray-500 font-medium leading-relaxed">
+                    Upload your Patreon "Relationship Manager" CSV. We will extract your unique Tiers so you can map them!
+                  </div>
                 </div>
-                <button 
-                  onClick={() => fetchProviderProducts(apiKey)}
-                  disabled={isValidatingKey || !apiKey}
-                  className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
-                  {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
-                  {keySuccess ? 'Connected' : 'Save & Sync Products'}
-                </button>
               </div>
-            </div>
-
-            {/* STEP 2: WEBHOOK */}
-            <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
-              <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
-                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
-                Bridge Webhook URL
-              </h3>
-              <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
-              </p>
-              
-              <div 
-                onClick={copyWebhook} 
-                className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
-              >
-                <span className="text-xs font-mono text-gray-300 truncate mr-4">
-                  https://bridge.selloutcrowds.com/api/{activeTab}-webhook
-                </span>
-                {webhookCopied ? (
-                  <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
-                ) : (
-                  <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
-                )}
+            ) : (
+              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2">
+                  <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                  Provider Setup
+                </h3>
+                <div className="space-y-5 relative z-10">
+                  <div>
+                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      {activeTab === 'stripe' ? 'Stripe Secret Key' : 'PayPal Secret Key'}
+                    </label>
+                    <input 
+                      type="password" 
+                      value={apiKey} 
+                      onChange={(e) => setApiKey(e.target.value)} 
+                      placeholder={activeTab === 'stripe' ? 'sk_live_... or rk_live_...' : 'Enter Secret Key...'} 
+                      className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors" 
+                    />
+                  </div>
+                  <button 
+                    onClick={() => fetchProviderProducts(apiKey)}
+                    disabled={isValidatingKey || !apiKey}
+                    className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                    {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
+                    {keySuccess ? 'Connected' : 'Save & Sync Products'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* STEP 3: SYNC SUBSCRIBERS */}
+            {/* STEP 2: WEBHOOK (HIDDEN FOR PATREON) */}
+            {activeTab !== 'patreon' && (
+              <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
+                <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
+                  <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                  Bridge Webhook URL
+                </h3>
+                <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                  Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
+                </p>
+                
+                <div 
+                  onClick={copyWebhook} 
+                  className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
+                >
+                  <span className="text-xs font-mono text-gray-300 truncate mr-4">
+                    https://bridge.selloutcrowds.com/api/{activeTab}-webhook
+                  </span>
+                  {webhookCopied ? (
+                    <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
+                  ) : (
+                    <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: SYNC / IMPORT */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
               <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
-                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
-                Sync Subscribers
+                {activeTab === 'patreon' ? (
+                   <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
+                ) : (
+                   <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                )}
+                {activeTab === 'patreon' ? 'Import CSV Data' : 'Sync Subscribers'}
               </h3>
               <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                Pull in your existing {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access based on your mapping rules.
+                {activeTab === 'patreon' 
+                  ? 'Process your uploaded Patreon CSV and automatically grant access based on your Tier mapping rules.'
+                  : `Pull in your existing ${activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access.`}
               </p>
               
               <button 
-                onClick={syncExistingSubscribers}
-                disabled={isSyncingSubs}
-                className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}`}>
-                {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                {syncSubsResult?.success ? `Synced ${syncSubsResult.count} Users!` : 'Sync Existing Users'}
+                onClick={activeTab === 'patreon' ? runPatreonImport : syncExistingSubscribers}
+                disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0)}
+                className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
+                  ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
+                  ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
+                {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <UploadCloud className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
+                {syncSubsResult?.success ? `Imported ${syncSubsResult.count} Users!` : (activeTab === 'patreon' ? 'Run Import' : 'Sync Existing Users')}
               </button>
 
-              {/* AUDIENCE STATS LIST */}
-              {audienceStats.filter(stat => stat.isMapped).length > 0 && (
+              {/* AUDIENCE STATS LIST - (Hidden for Patreon since it is a static one-time import) */}
+              {activeTab !== 'patreon' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
                 <div className="mt-6 pt-6 border-t border-white/10">
                   <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
                     <span>Bridged Products</span>
@@ -523,10 +652,16 @@ export default function App() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
                   <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
-                    <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
+                    {activeTab === 'patreon' ? (
+                        <img src={patreonIcon} alt="Patreon" className="w-6 h-6 object-contain" />
+                    ) : (
+                        <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
+                    )}
                     Subscription Mappings
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Rule: If they buy [Product], grant access to [Community]</p>
+                  <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                    Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Community]
+                  </p>
                 </div>
                 <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
                   <Plus className="w-4 h-4" /> Add Bridge
@@ -545,20 +680,24 @@ export default function App() {
                     <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                       
                       <div className="flex-1 w-full">
-                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">{activeTab === 'stripe' ? 'Stripe Product' : 'PayPal Plan'}</label>
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">
+                          {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
+                        </label>
                         
                         <select 
                            className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
                            value={mapping.productId}
                            onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
                         >
-                          <option value="">Select Product...</option>
+                          <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
                           {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
                             providerProducts[activeTab].map(prod => (
                                 <option key={prod.id} value={prod.id}>{prod.name}</option>
                             ))
                           ) : (
-                            <option value="" disabled>No products found. Sync Credentials first.</option>
+                            <option value="" disabled>
+                                {activeTab === 'patreon' ? 'Upload a CSV first to see Tiers.' : 'No products found. Sync Credentials first.'}
+                            </option>
                           )}
                         </select>
                       </div>
@@ -610,7 +749,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* SAVE CONFIGURATION BUTTON */}
               <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
                 <button 
                   onClick={saveMappingsToDatabase}
@@ -626,7 +764,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* --- AUDIENCE MODAL WITH PROPER TABLE HEADERS --- */}
+      {/* --- AUDIENCE MODAL --- */}
       {modalData && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -648,7 +786,6 @@ export default function App() {
                   <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
               ) : (
                   <div className="flex flex-col">
-                      {/* HEADER ROW */}
                       <div className="hidden sm:flex justify-between items-center px-4 pb-3 mb-3 border-b border-white/10 text-[10px] text-gray-500 font-black uppercase tracking-widest">
                           <div className="flex-1">User</div>
                           <div className="w-32 text-center">SC Status</div>
