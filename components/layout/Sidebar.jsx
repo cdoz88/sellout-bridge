@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw, Palette } from 'lucide-react';
+import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw, Palette, Users } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -55,7 +55,6 @@ export default function Sidebar({
                     </div>
                 )}
 
-                {/* UPDATED: BUSINESS CARD NAVIGATION */}
                 {currentApp === 'business-card' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
@@ -65,6 +64,9 @@ export default function Sidebar({
                             </button>
                             <button onClick={() => setActiveTab('design')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'design' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Palette size={16} /> Design & Theme
+                            </button>
+                            <button onClick={() => setActiveTab('address-book')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'address-book' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Users size={16} /> Address Book
                             </button>
                             <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'settings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Settings size={16} /> Settings

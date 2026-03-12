@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram } from 'lucide-react';
+
+// Custom SVG for TikTok since it is not in the standard Lucide library
+const TiktokIcon = ({ size=20, className="" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 2.24-.71 4.46-1.92 6.25-1.2 1.81-2.92 3.15-4.96 3.79-2.14.65-4.52.54-6.52-.3-2.02-.85-3.66-2.45-4.56-4.45-.9-2.01-1.02-4.43-.33-6.51.68-2.08 2.2-3.79 4.16-4.7 1.95-.92 4.29-1.14 6.36-.61V14.8c-1.02-.38-2.19-.34-3.13.18-.95.52-1.61 1.48-1.74 2.57-.15 1.09.17 2.22.87 3.03.7.81 1.78 1.22 2.87 1.13 1.09-.09 2.08-.66 2.65-1.54.58-.89.81-2 .76-3.05V0h4.22z"/>
+    </svg>
+);
 
 const DEFAULT_CARD = {
     name: "Your Name",
@@ -11,15 +18,22 @@ const DEFAULT_CARD = {
     sellout: "",
     twitter: "",
     linkedin: "",
+    facebook: "",
+    instagram: "",
+    youtube: "",
+    tiktok: "",
     avatarUrl: "",
-    coverUrl: "", // NEW: Cover Image
+    coverUrl: "",
     theme: "#9df01c",
     textColor: "#000000",
-    iconColor: "#FFFFFF" // NEW: Icon Light/Dark
+    iconColor: "#FFFFFF",
+    cardMode: "dark" // NEW: Light/Dark Mode
 };
 
 // --- THE PUBLIC CARD COMPONENT ---
 export const PublicCardView = ({ data }) => {
+    // Check if the card should render in Light Mode
+    const isLight = data.cardMode === 'light';
     
     const handleSaveContact = () => {
         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
@@ -47,20 +61,35 @@ export const PublicCardView = ({ data }) => {
         document.body.removeChild(link);
     };
 
-    // Use cover image if provided, otherwise fallback to the solid theme color
     const coverStyle = data.coverUrl 
         ? { backgroundImage: `url(${data.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
         : { backgroundColor: data.theme };
 
+    const overlayGradient = isLight 
+        ? "from-white via-white/40 to-transparent" 
+        : "from-[#111] via-black/20 to-transparent";
+
+    // Styling constants based on the card mode
+    const cardBgClass = isLight ? 'bg-white border-gray-200' : 'bg-[#111] border-white/5';
+    const avatarBorderClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#0a0a0a]';
+    const avatarFallbackClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#1a1a1a]';
+    const textNameClass = isLight ? 'text-gray-900' : 'text-white';
+    const textTitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
+    const linkWrapperClass = isLight ? 'bg-gray-50 hover:bg-gray-100 border border-gray-100' : 'bg-white/5 hover:bg-white/10';
+    const linkTextClass = isLight ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-300 group-hover:text-white';
+    const socialLinkClass = isLight 
+        ? "text-gray-500 hover:text-gray-900 transition-colors p-2 bg-gray-50 rounded-full hover:bg-gray-100 border border-gray-200" 
+        : "text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10";
+
     return (
-        <div className="w-full max-w-sm mx-auto bg-[#111] rounded-3xl shadow-2xl border border-white/5 overflow-hidden font-sans relative">
+        <div className={`w-full max-w-sm mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative ${cardBgClass}`}>
             <div className="relative h-36" style={coverStyle}>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-black/20 to-transparent"></div>
+                <div className={`absolute inset-0 bg-gradient-to-t ${overlayGradient}`}></div>
                 <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
                     {data.avatarUrl ? (
-                        <img src={data.avatarUrl} className="w-24 h-24 rounded-full border-4 border-[#111] object-cover bg-[#0a0a0a]" alt="Profile" />
+                        <img src={data.avatarUrl} className={`w-24 h-24 rounded-full border-4 object-cover ${avatarBorderClass}`} alt="Profile" />
                     ) : (
-                        <div className="w-24 h-24 rounded-full border-4 border-[#111] bg-[#1a1a1a] flex items-center justify-center text-3xl font-black" style={{ color: data.theme }}>
+                        <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center text-3xl font-black ${avatarFallbackClass}`} style={{ color: data.theme }}>
                             {data.name.charAt(0)}
                         </div>
                     )}
@@ -68,41 +97,45 @@ export const PublicCardView = ({ data }) => {
             </div>
             
             <div className="pt-16 pb-8 px-6 text-center">
-                <h1 className="text-2xl font-black text-white">{data.name}</h1>
-                <p className="text-sm font-medium text-gray-400 mt-1">{data.title}</p>
+                <h1 className={`text-2xl font-black ${textNameClass}`}>{data.name}</h1>
+                <p className={`text-sm font-medium mt-1 ${textTitleClass}`}>{data.title}</p>
                 <p className="text-sm font-bold mt-1" style={{ color: data.theme }}>{data.company}</p>
 
                 <div className="mt-8 space-y-3">
                     {data.phone && (
-                        <a href={`tel:${data.phone.replace(/\D/g, '')}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                        <a href={`tel:${data.phone.replace(/\D/g, '')}`} className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
                                 <Phone size={18} style={{ color: data.iconColor }} />
                             </div>
-                            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{data.phone}</span>
+                            <span className={`text-sm font-bold transition-colors ${linkTextClass}`}>{data.phone}</span>
                         </a>
                     )}
                     {data.email && (
-                        <a href={`mailto:${data.email}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                        <a href={`mailto:${data.email}`} className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
                                 <Mail size={18} style={{ color: data.iconColor }} />
                             </div>
-                            <span className="text-sm font-bold text-gray-300 truncate group-hover:text-white transition-colors">{data.email}</span>
+                            <span className={`text-sm font-bold truncate transition-colors ${linkTextClass}`}>{data.email}</span>
                         </a>
                     )}
                     {data.website && (
-                        <a href={`https://${data.website.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                        <a href={`https://${data.website.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
                                 <Globe size={18} style={{ color: data.iconColor }} />
                             </div>
-                            <span className="text-sm font-bold text-gray-300 truncate group-hover:text-white transition-colors">{data.website}</span>
+                            <span className={`text-sm font-bold truncate transition-colors ${linkTextClass}`}>{data.website}</span>
                         </a>
                     )}
                 </div>
 
-                <div className="mt-6 flex justify-center gap-5">
-                    {data.sellout && <a href={`https://${data.sellout.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Link2 size={20}/></a>}
-                    {data.linkedin && <a href={`https://${data.linkedin.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Linkedin size={20}/></a>}
-                    {data.twitter && <a href={`https://${data.twitter.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Twitter size={20}/></a>}
+                <div className="mt-6 flex justify-center gap-3 flex-wrap">
+                    {data.sellout && <a href={`https://${data.sellout.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Link2 size={18}/></a>}
+                    {data.instagram && <a href={`https://${data.instagram.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Instagram size={18}/></a>}
+                    {data.tiktok && <a href={`https://${data.tiktok.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><TiktokIcon size={18}/></a>}
+                    {data.youtube && <a href={`https://${data.youtube.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Youtube size={18}/></a>}
+                    {data.facebook && <a href={`https://${data.facebook.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Facebook size={18}/></a>}
+                    {data.twitter && <a href={`https://${data.twitter.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Twitter size={18}/></a>}
+                    {data.linkedin && <a href={`https://${data.linkedin.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Linkedin size={18}/></a>}
                 </div>
 
                 <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
@@ -126,7 +159,7 @@ export default function BusinessCardApp({ session, activeTab }) {
         fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
             .then(res => res.json())
             .then(data => {
-                if (data.card) setCardData({ ...DEFAULT_CARD, ...data.card }); // Merge to ensure new fields like coverUrl exist
+                if (data.card) setCardData({ ...DEFAULT_CARD, ...data.card }); 
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
@@ -147,13 +180,11 @@ export default function BusinessCardApp({ session, activeTab }) {
         }
     };
 
-    // Modified to accept a specific field name so it can handle both Avatar and Cover images
     const handleImageUpload = async (e, fieldName) => {
         const file = e.target.files[0];
         if (!file) return;
         
         setIsUploading(prev => ({ ...prev, [fieldName]: true }));
-        
         const formData = new FormData();
         formData.append('file', file);
         
@@ -244,10 +275,26 @@ export default function BusinessCardApp({ session, activeTab }) {
 
                             <div className="mt-8 pt-8 border-t border-white/5">
                                 <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Social Media</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="sm:col-span-2">
                                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Link2 size={10}/> Sellout Crowds URL</label>
                                         <input type="text" value={cardData.sellout} onChange={e => setCardData({...cardData, sellout: e.target.value})} placeholder="selloutcrowds.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Instagram size={10}/> Instagram URL</label>
+                                        <input type="text" value={cardData.instagram} onChange={e => setCardData({...cardData, instagram: e.target.value})} placeholder="instagram.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><TiktokIcon size={10}/> TikTok URL</label>
+                                        <input type="text" value={cardData.tiktok} onChange={e => setCardData({...cardData, tiktok: e.target.value})} placeholder="tiktok.com/@username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Youtube size={10}/> YouTube URL</label>
+                                        <input type="text" value={cardData.youtube} onChange={e => setCardData({...cardData, youtube: e.target.value})} placeholder="youtube.com/@channel" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Facebook size={10}/> Facebook URL</label>
+                                        <input type="text" value={cardData.facebook} onChange={e => setCardData({...cardData, facebook: e.target.value})} placeholder="facebook.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
                                     <div>
                                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Twitter size={10}/> X (Twitter) URL</label>
@@ -315,7 +362,14 @@ export default function BusinessCardApp({ session, activeTab }) {
 
                             <div className="pt-8 border-t border-white/5">
                                 <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Color Palette</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Card Theme Mode</label>
+                                        <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
+                                            <button onClick={() => setCardData({...cardData, cardMode: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardMode === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
+                                            <button onClick={() => setCardData({...cardData, cardMode: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardMode === 'dark' || !cardData.cardMode ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                        </div>
+                                    </div>
                                     <div>
                                         <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label>
                                         <input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />

@@ -219,11 +219,17 @@ export default function App() {
                 {currentApp === 'business-card' && (
                     (activeTab === 'builder' || activeTab === 'design') ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
+                    ) : activeTab === 'address-book' ? (
+                        <PlaceholderApp 
+                            title="Address Book" 
+                            icon={<LayoutDashboard size={64}/>} 
+                            description="Manage and export the contacts you collect from your digital business card." 
+                        />
                     ) : (
                         <PlaceholderApp 
                             title="Card Settings" 
                             icon={<LayoutDashboard size={64}/>} 
-                            description="Address book and analytics coming soon." 
+                            description="Analytics and custom domain settings coming soon." 
                         />
                     )
                 )}
