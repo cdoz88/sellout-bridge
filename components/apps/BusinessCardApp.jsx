@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone } from 'lucide-react';
+// FIX: Imported Settings, UploadCloud, and X icons!
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X } from 'lucide-react';
 
 const DEFAULT_CARD = {
     name: "Your Name",
