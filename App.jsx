@@ -15,6 +15,7 @@ export default function App() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
   // App Switcher State
@@ -86,9 +87,12 @@ export default function App() {
     } catch (err) { console.error("Could not load user data"); }
   };
 
+  // Restored the Sync Communities function with proper loading state
   const syncCommunities = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
+    
+    setIsSyncingCommunities(true);
     try {
       const res = await fetch('/api/get-communities', {
         method: 'GET',
@@ -96,7 +100,11 @@ export default function App() {
       });
       const data = await res.json();
       setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
-    } catch (err) { console.error("Failed to sync communities from Sellout Crowds."); }
+    } catch (err) { 
+        console.error("Failed to sync communities from Sellout Crowds."); 
+    } finally {
+        setIsSyncingCommunities(false);
+    }
   };
 
   const startLogin = () => {
@@ -168,6 +176,8 @@ export default function App() {
             activeTab={activeTab} 
             setActiveTab={setActiveTab} 
             unaData={unaData} 
+            syncCommunities={syncCommunities}
+            isSyncingCommunities={isSyncingCommunities}
         />
 
         {/* The Main Content Area */}

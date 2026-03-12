@@ -1,7 +1,10 @@
 import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud } from 'lucide-react';
+import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw } from 'lucide-react';
 
-export default function Sidebar({ currentApp, activeTab, setActiveTab, unaData }) {
+export default function Sidebar({ 
+    currentApp, activeTab, setActiveTab, unaData, 
+    syncCommunities, isSyncingCommunities 
+}) {
     const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
     const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
@@ -19,24 +22,44 @@ export default function Sidebar({ currentApp, activeTab, setActiveTab, unaData }
             </div>
 
             {/* Contextual App Menus */}
-            <div className="flex-1 overflow-y-auto py-6 space-y-8">
+            <div className="flex-1 overflow-y-auto py-6 space-y-8 custom-scrollbar">
+                
+                {/* BRIDGE NAVIGATION */}
                 {currentApp === 'bridge' && (
-                    <div className="px-4">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
-                        <div className="space-y-1">
-                            <button onClick={() => setActiveTab('stripe')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <CreditCard size={16} /> Stripe
+                    <div className="px-4 flex flex-col h-full">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
+                            <div className="space-y-1">
+                                <button onClick={() => setActiveTab('stripe')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <CreditCard size={16} /> Stripe
+                                </button>
+                                <button onClick={() => setActiveTab('paypal')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Smartphone size={16} /> PayPal
+                                </button>
+                                <button onClick={() => setActiveTab('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* RESTORED SYNC BUTTON */}
+                        <div className="mt-8 pt-8 border-t border-white/5">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Sellout Crowds</p>
+                            <button 
+                                onClick={() => syncCommunities()}
+                                disabled={isSyncingCommunities}
+                                className="w-full flex items-center justify-center gap-2 bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all">
+                                <RefreshCcw className={`w-4 h-4 ${isSyncingCommunities ? 'animate-spin' : ''}`} /> 
+                                {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
                             </button>
-                            <button onClick={() => setActiveTab('paypal')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Smartphone size={16} /> PayPal
-                            </button>
-                            <button onClick={() => setActiveTab('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
-                            </button>
+                            <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed">
+                                Click to refresh your Space and Crowd lists if you recently added a new one on the main site.
+                            </p>
                         </div>
                     </div>
                 )}
 
+                {/* BUSINESS CARD NAVIGATION */}
                 {currentApp === 'business-card' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
@@ -51,6 +74,7 @@ export default function Sidebar({ currentApp, activeTab, setActiveTab, unaData }
                     </div>
                 )}
 
+                {/* ASSETS NAVIGATION */}
                 {currentApp === 'assets' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Brand Kit</p>
@@ -64,6 +88,7 @@ export default function Sidebar({ currentApp, activeTab, setActiveTab, unaData }
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     );
