@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Imported Settings, UploadCloud, and X icons!
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin } from 'lucide-react';
 
 const DEFAULT_CARD = {
     name: "Your Name",
@@ -13,14 +12,15 @@ const DEFAULT_CARD = {
     twitter: "",
     linkedin: "",
     avatarUrl: "",
+    coverUrl: "", // NEW: Cover Image
     theme: "#9df01c",
-    textColor: "#000000"
+    textColor: "#000000",
+    iconColor: "#FFFFFF" // NEW: Icon Light/Dark
 };
 
-// --- THE PUBLIC CARD COMPONENT (Used for preview and public sharing) ---
+// --- THE PUBLIC CARD COMPONENT ---
 export const PublicCardView = ({ data }) => {
-    const isDarkText = data.textColor === '#000000';
-
+    
     const handleSaveContact = () => {
         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
         
@@ -47,10 +47,15 @@ export const PublicCardView = ({ data }) => {
         document.body.removeChild(link);
     };
 
+    // Use cover image if provided, otherwise fallback to the solid theme color
+    const coverStyle = data.coverUrl 
+        ? { backgroundImage: `url(${data.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
+        : { backgroundColor: data.theme };
+
     return (
-        <div className="w-full max-w-sm mx-auto bg-[#111] rounded-3xl shadow-2xl border border-white/5 overflow-hidden font-sans">
-            <div className="relative h-32" style={{ backgroundColor: data.theme }}>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+        <div className="w-full max-w-sm mx-auto bg-[#111] rounded-3xl shadow-2xl border border-white/5 overflow-hidden font-sans relative">
+            <div className="relative h-36" style={coverStyle}>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-black/20 to-transparent"></div>
                 <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
                     {data.avatarUrl ? (
                         <img src={data.avatarUrl} className="w-24 h-24 rounded-full border-4 border-[#111] object-cover bg-[#0a0a0a]" alt="Profile" />
@@ -69,29 +74,35 @@ export const PublicCardView = ({ data }) => {
 
                 <div className="mt-8 space-y-3">
                     {data.phone && (
-                        <a href={`tel:${data.phone.replace(/\D/g, '')}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme, color: data.textColor }}>📞</div>
-                            <span className="text-sm font-bold text-gray-300">{data.phone}</span>
+                        <a href={`tel:${data.phone.replace(/\D/g, '')}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
+                                <Phone size={18} style={{ color: data.iconColor }} />
+                            </div>
+                            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{data.phone}</span>
                         </a>
                     )}
                     {data.email && (
-                        <a href={`mailto:${data.email}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme, color: data.textColor }}>✉️</div>
-                            <span className="text-sm font-bold text-gray-300 truncate">{data.email}</span>
+                        <a href={`mailto:${data.email}`} className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
+                                <Mail size={18} style={{ color: data.iconColor }} />
+                            </div>
+                            <span className="text-sm font-bold text-gray-300 truncate group-hover:text-white transition-colors">{data.email}</span>
                         </a>
                     )}
                     {data.website && (
-                        <a href={`https://${data.website.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme, color: data.textColor }}>🌐</div>
-                            <span className="text-sm font-bold text-gray-300 truncate">{data.website}</span>
+                        <a href={`https://${data.website.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="flex items-center gap-4 bg-white/5 hover:bg-white/10 p-3 rounded-xl transition-colors group">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
+                                <Globe size={18} style={{ color: data.iconColor }} />
+                            </div>
+                            <span className="text-sm font-bold text-gray-300 truncate group-hover:text-white transition-colors">{data.website}</span>
                         </a>
                     )}
                 </div>
 
-                <div className="mt-6 flex justify-center gap-4">
-                    {data.sellout && <a href={`https://${data.sellout.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors"><Link2 size={24}/></a>}
-                    {data.linkedin && <a href={`https://${data.linkedin.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors"><Link2 size={24}/></a>}
-                    {data.twitter && <a href={`https://${data.twitter.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors"><Link2 size={24}/></a>}
+                <div className="mt-6 flex justify-center gap-5">
+                    {data.sellout && <a href={`https://${data.sellout.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Link2 size={20}/></a>}
+                    {data.linkedin && <a href={`https://${data.linkedin.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Linkedin size={20}/></a>}
+                    {data.twitter && <a href={`https://${data.twitter.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10"><Twitter size={20}/></a>}
                 </div>
 
                 <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
@@ -102,12 +113,12 @@ export const PublicCardView = ({ data }) => {
     );
 };
 
-// --- THE BUILDER APP (For the Creator Hub) ---
-export default function BusinessCardApp({ session }) {
+// --- THE BUILDER APP ---
+export default function BusinessCardApp({ session, activeTab }) {
     const [cardData, setCardData] = useState(DEFAULT_CARD);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
+    const [isUploading, setIsUploading] = useState({ avatar: false, cover: false });
     const [showQrModal, setShowQrModal] = useState(false);
 
     useEffect(() => {
@@ -115,7 +126,7 @@ export default function BusinessCardApp({ session }) {
         fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
             .then(res => res.json())
             .then(data => {
-                if (data.card) setCardData(data.card);
+                if (data.card) setCardData({ ...DEFAULT_CARD, ...data.card }); // Merge to ensure new fields like coverUrl exist
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
@@ -136,27 +147,28 @@ export default function BusinessCardApp({ session }) {
         }
     };
 
-    const handleImageUpload = async (e) => {
+    // Modified to accept a specific field name so it can handle both Avatar and Cover images
+    const handleImageUpload = async (e, fieldName) => {
         const file = e.target.files[0];
         if (!file) return;
-        setIsUploading(true);
+        
+        setIsUploading(prev => ({ ...prev, [fieldName]: true }));
         
         const formData = new FormData();
         formData.append('file', file);
         
         try {
-            // Using your identical FYT Solutions architecture for image hosting!
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.success) {
-                setCardData({ ...cardData, avatarUrl: result.url });
+                setCardData(prev => ({ ...prev, [fieldName]: result.url }));
             } else {
                 alert("Upload failed.");
             }
         } catch (err) {
             alert("Image server unreachable.");
         } finally {
-            setIsUploading(false);
+            setIsUploading(prev => ({ ...prev, [fieldName]: false }));
         }
     };
 
@@ -176,8 +188,12 @@ export default function BusinessCardApp({ session }) {
         <div className="max-w-7xl mx-auto py-12 px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
                 <div>
-                    <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white">Card Builder</h2>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Design your Digital Business Card.</p>
+                    <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white">
+                        {activeTab === 'design' ? 'Design & Theme' : 'Card Builder'}
+                    </h2>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : 'Update your contact and social information.'}
+                    </p>
                 </div>
                 <div className="flex gap-3">
                     <button onClick={() => setShowQrModal(true)} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
@@ -191,75 +207,144 @@ export default function BusinessCardApp({ session }) {
 
             <div className="grid lg:grid-cols-12 gap-8">
                 
-                {/* LEFT: THE FORM */}
+                {/* LEFT: THE FORMS */}
                 <div className="lg:col-span-7 space-y-6">
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
-                        <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Core Details</h3>
-                        
-                        <div className="flex items-center gap-6 mb-6">
-                            {cardData.avatarUrl ? (
-                                <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
-                            ) : (
-                                <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>
-                            )}
-                            <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                {isUploading ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
-                                {isUploading ? 'Uploading...' : 'Upload Headshot'}
-                                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                            </label>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label>
-                                <input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
-                                <input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
-                                <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
-                                <input type="tel" value={cardData.phone} onChange={e => setCardData({...cardData, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
-                                <input type="email" value={cardData.email} onChange={e => setCardData({...cardData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website URL</label>
-                                <input type="text" value={cardData.website} onChange={e => setCardData({...cardData, website: e.target.value})} placeholder="e.g. selloutcrowds.com" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-8 border-t border-white/5">
-                            <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Design & Theme</h4>
-                            <div className="grid grid-cols-2 gap-6">
+                    
+                    {/* TAB 1: BUILDER (CORE DETAILS) */}
+                    {activeTab === 'builder' && (
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 animate-in fade-in duration-300">
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Core Details</h3>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label>
-                                    <input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label>
+                                    <input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                 </div>
                                 <div>
-                                    <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Button Text Color</label>
-                                    <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                        <button onClick={() => setCardData({...cardData, textColor: '#FFFFFF'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#FFFFFF' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
-                                        <button onClick={() => setCardData({...cardData, textColor: '#000000'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#000000' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
+                                    <input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
+                                    <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
+                                    <input type="tel" value={cardData.phone} onChange={e => setCardData({...cardData, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
+                                    <input type="email" value={cardData.email} onChange={e => setCardData({...cardData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website URL</label>
+                                    <input type="text" value={cardData.website} onChange={e => setCardData({...cardData, website: e.target.value})} placeholder="e.g. selloutcrowds.com" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                            </div>
+
+                            <div className="mt-8 pt-8 border-t border-white/5">
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Social Media</h3>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Link2 size={10}/> Sellout Crowds URL</label>
+                                        <input type="text" value={cardData.sellout} onChange={e => setCardData({...cardData, sellout: e.target.value})} placeholder="selloutcrowds.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Twitter size={10}/> X (Twitter) URL</label>
+                                        <input type="text" value={cardData.twitter} onChange={e => setCardData({...cardData, twitter: e.target.value})} placeholder="x.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Linkedin size={10}/> LinkedIn URL</label>
+                                        <input type="text" value={cardData.linkedin} onChange={e => setCardData({...cardData, linkedin: e.target.value})} placeholder="linkedin.com/in/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                            <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                                {isSaving ? 'Saving...' : 'Save Card'}
-                            </button>
+                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                                    {isSaving ? 'Saving...' : 'Save Card'}
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {/* TAB 2: DESIGN & THEME */}
+                    {activeTab === 'design' && (
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 animate-in fade-in duration-300">
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Brand Imagery</h3>
+                            
+                            <div className="flex flex-col sm:flex-row gap-6 mb-8">
+                                {/* Profile Photo Upload */}
+                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                    <div className="mb-4">
+                                        {cardData.avatarUrl ? (
+                                            <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
+                                        ) : (
+                                            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>
+                                        )}
+                                    </div>
+                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
+                                    </label>
+                                </div>
+
+                                {/* Cover Image Upload */}
+                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                    <div className="mb-4 w-full">
+                                        {cardData.coverUrl ? (
+                                            <img src={cardData.coverUrl} alt="Cover" className="w-full h-20 rounded-xl object-cover border border-white/10 bg-[#0a0a0a]" />
+                                        ) : (
+                                            <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>
+                                        )}
+                                    </div>
+                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.cover ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading.cover ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.cover ? 'Uploading...' : 'Cover Image'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'coverUrl')} />
+                                    </label>
+                                    <div className="flex w-full justify-end mt-2">
+                                        {cardData.coverUrl && (
+                                            <button onClick={() => setCardData({...cardData, coverUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove Cover</button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-8 border-t border-white/5">
+                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Color Palette</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label>
+                                        <input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Button Text</label>
+                                        <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
+                                            <button onClick={() => setCardData({...cardData, textColor: '#FFFFFF'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#FFFFFF' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
+                                            <button onClick={() => setCardData({...cardData, textColor: '#000000'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#000000' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label>
+                                        <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
+                                            <button onClick={() => setCardData({...cardData, iconColor: '#FFFFFF'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.iconColor === '#FFFFFF' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
+                                            <button onClick={() => setCardData({...cardData, iconColor: '#000000'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.iconColor === '#000000' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                                    {isSaving ? 'Saving...' : 'Save Design'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* RIGHT: THE LIVE PREVIEW */}

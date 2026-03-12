@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw } from 'lucide-react';
+import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw, Palette } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -10,7 +10,6 @@ export default function Sidebar({
 
     return (
         <div className="w-64 bg-[#0a0a0a] border-r border-white/5 flex flex-col h-full shadow-xl flex-shrink-0 z-40 relative">
-            {/* User Profile Block */}
             <div className="p-5 border-b border-white/5 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/10 flex items-center justify-center text-black overflow-hidden p-1.5 flex-shrink-0">
                     <img src={iconUrl} alt="SC Icon" className="w-full h-full object-contain" />
@@ -21,10 +20,8 @@ export default function Sidebar({
                 </div>
             </div>
 
-            {/* Contextual App Menus */}
             <div className="flex-1 overflow-y-auto py-6 space-y-8 custom-scrollbar">
                 
-                {/* BRIDGE NAVIGATION */}
                 {currentApp === 'bridge' && (
                     <div className="px-4 flex flex-col h-full">
                         <div>
@@ -42,7 +39,6 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        {/* RESTORED SYNC BUTTON */}
                         <div className="mt-8 pt-8 border-t border-white/5">
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Sellout Crowds</p>
                             <button 
@@ -59,13 +55,16 @@ export default function Sidebar({
                     </div>
                 )}
 
-                {/* BUSINESS CARD NAVIGATION */}
+                {/* UPDATED: BUSINESS CARD NAVIGATION */}
                 {currentApp === 'business-card' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                         <div className="space-y-1">
                             <button onClick={() => setActiveTab('builder')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'builder' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <LayoutDashboard size={16} /> Builder
+                                <LayoutDashboard size={16} /> Card Builder
+                            </button>
+                            <button onClick={() => setActiveTab('design')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'design' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Palette size={16} /> Design & Theme
                             </button>
                             <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'settings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Settings size={16} /> Settings
@@ -74,7 +73,6 @@ export default function Sidebar({
                     </div>
                 )}
 
-                {/* ASSETS NAVIGATION */}
                 {currentApp === 'assets' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Brand Kit</p>

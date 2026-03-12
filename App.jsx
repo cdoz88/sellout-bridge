@@ -217,8 +217,8 @@ export default function App() {
                 {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'business-card' && (
-                    activeTab === 'builder' ? (
-                        <BusinessCardApp session={session} />
+                    (activeTab === 'builder' || activeTab === 'design') ? (
+                        <BusinessCardApp session={session} activeTab={activeTab} />
                     ) : (
                         <PlaceholderApp 
                             title="Card Settings" 
