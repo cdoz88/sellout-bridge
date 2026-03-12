@@ -5,9 +5,12 @@ import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText } from 'l
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
 import BridgeApp from './components/apps/BridgeApp';
+import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
+  const [publicCardData, setPublicCardData] = useState(null);
+
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
     const saved = localStorage.getItem('bridge_unadata');
@@ -18,7 +21,6 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
-  // App Switcher State
   const [currentApp, setCurrentApp] = useState('bridge');
   const [activeTab, setActiveTab] = useState('stripe'); 
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
@@ -27,10 +29,25 @@ export default function App() {
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
-  
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
+
+  // --- 1. CHECK FOR PUBLIC URL HASH BEFORE ANYTHING ELSE ---
+  useEffect(() => {
+    const hash = window.location.hash.substring(1);
+    if (hash && hash.length > 50) { 
+        try {
+            const decodedStr = atob(hash);
+            const decodedData = JSON.parse(decodedStr);
+            if (decodedData && decodedData.name) {
+                setPublicCardData(decodedData);
+            }
+        } catch (e) {
+            console.error("Invalid public card hash");
+        }
+    }
+  }, []);
 
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
@@ -42,7 +59,7 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
-  // Handle the OAuth login automatically on page load if code exists
+  // --- 2. OAUTH LOGIN ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -87,11 +104,9 @@ export default function App() {
     } catch (err) { console.error("Could not load user data"); }
   };
 
-  // Restored the Sync Communities function with proper loading state
   const syncCommunities = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
-    
     setIsSyncingCommunities(true);
     try {
       const res = await fetch('/api/get-communities', {
@@ -127,6 +142,18 @@ export default function App() {
       setIsAppSwitcherOpen(false);
   };
 
+  // --- RENDER 1: THE PUBLIC CARD VIEWER (No Login Required!) ---
+  if (publicCardData) {
+      return (
+          <div className="min-h-screen bg-[#050505] flex flex-col items-center py-12 px-4">
+              <PublicCardView data={publicCardData} />
+              <a href="https://selloutcrowds.com" className="mt-8 text-[10px] text-gray-500 font-bold uppercase tracking-widest hover:text-[#9df01c] transition-colors">
+                  Powered by Sellout Crowds
+              </a>
+          </div>
+      );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -136,7 +163,7 @@ export default function App() {
     );
   }
 
-  // --- THE LOGIN SCREEN ---
+  // --- RENDER 2: THE LOGIN SCREEN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -166,11 +193,9 @@ export default function App() {
     );
   }
 
-  // --- THE CREATOR HUB SHELL ---
+  // --- RENDER 3: THE CREATOR HUB SHELL ---
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row">
-        
-        {/* The Universal Sidebar */}
         <Sidebar 
             currentApp={currentApp} 
             activeTab={activeTab} 
@@ -179,8 +204,6 @@ export default function App() {
             syncCommunities={syncCommunities}
             isSyncingCommunities={isSyncingCommunities}
         />
-
-        {/* The Main Content Area */}
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
             <TopBar 
                 currentApp={currentApp}
@@ -191,45 +214,23 @@ export default function App() {
             />
 
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && (
-                    <BridgeApp 
-                        session={session} 
-                        unaData={unaData} 
-                        activeTab={activeTab} 
-                    />
-                )}
+                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'business-card' && (
-                    <PlaceholderApp 
-                        title="Digital Business Card" 
-                        icon={<LayoutDashboard size={64}/>} 
-                        description="Design and manage your custom digital business card to seamlessly network in real life." 
-                    />
+                    activeTab === 'builder' ? (
+                        <BusinessCardApp session={session} />
+                    ) : (
+                        <PlaceholderApp 
+                            title="Card Settings" 
+                            icon={<LayoutDashboard size={64}/>} 
+                            description="Address book and analytics coming soon." 
+                        />
+                    )
                 )}
                 
-                {currentApp === 'linktree' && (
-                    <PlaceholderApp 
-                        title="Link-in-Bio Tool" 
-                        icon={<Link2 size={64}/>} 
-                        description="Create your custom link tree for your social media bios to drive traffic to your community." 
-                    />
-                )}
-                
-                {currentApp === 'assets' && (
-                    <PlaceholderApp 
-                        title="Brand Assets" 
-                        icon={<Image size={64}/>} 
-                        description="Download official logos, graphics, and promotional materials to market your space." 
-                    />
-                )}
-                
-                {currentApp === 'guides' && (
-                    <PlaceholderApp 
-                        title="Creator Guides" 
-                        icon={<FileText size={64}/>} 
-                        description="Learn how to grow your community, maximize your revenue, and optimize your funnels." 
-                    />
-                )}
+                {currentApp === 'linktree' && <PlaceholderApp title="Link-in-Bio Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
+                {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<Image size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
+                {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
             </main>
         </div>
     </div>
