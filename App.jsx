@@ -9,8 +9,12 @@ import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardA
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
+  // Public View State
   const [publicCardData, setPublicCardData] = useState(null);
+  const [isPublicBio, setIsPublicBio] = useState(false);
+  const [publicBioError, setPublicBioError] = useState(false);
 
+  // Authenticated State
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
     const saved = localStorage.getItem('bridge_unadata');
@@ -33,22 +37,37 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- 1. CHECK FOR PUBLIC URL HASH BEFORE ANYTHING ELSE ---
+  // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
-    const hash = window.location.hash.substring(1);
-    if (hash && hash.length > 50) { 
-        try {
-            const decodedStr = atob(hash);
-            const decodedData = JSON.parse(decodedStr);
-            if (decodedData && decodedData.name) {
-                setPublicCardData(decodedData);
-            }
-        } catch (e) {
-            console.error("Invalid public card hash");
-        }
-    }
+      const hostname = window.location.hostname;
+      
+      // If we are on crowds.bio (or testing locally with a slash)
+      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
+          const pathSlug = window.location.pathname.substring(1); // remove the leading '/'
+          
+          if (pathSlug && pathSlug !== '') {
+              setIsPublicBio(true);
+              setIsLoading(true);
+              
+              fetch(`/api/public-card/${pathSlug}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.success && data.card) {
+                          setPublicCardData(data.card);
+                      } else {
+                          setPublicBioError(true);
+                      }
+                      setIsLoading(false);
+                  })
+                  .catch(() => {
+                      setPublicBioError(true);
+                      setIsLoading(false);
+                  });
+          }
+      }
   }, []);
 
+  // --- 2. OAUTH LOGIN LOGIC ---
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
     else {
@@ -59,15 +78,16 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
-  // --- 2. OAUTH LOGIN ---
   useEffect(() => {
+    if (isPublicBio) return; // Do not attempt OAuth if rendering a public card
+
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && !hasAttemptedLogin.current) {
       hasAttemptedLogin.current = true;
       handleCallback(code);
     }
-  }, []);
+  }, [isPublicBio]);
 
   const handleCallback = async (code) => {
     setIsLoading(true);
@@ -142,8 +162,28 @@ export default function App() {
       setIsAppSwitcherOpen(false);
   };
 
-  // --- RENDER 1: THE PUBLIC CARD VIEWER (No Login Required!) ---
-  if (publicCardData) {
+  // --- RENDER 1: THE PUBLIC CARD VIEWER (crowds.bio) ---
+  if (isPublicBio) {
+      if (isLoading) {
+          return (
+             <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
+                <Loader2 className="w-12 h-12 animate-spin mb-4" />
+                <span className="font-black uppercase tracking-[0.3em] text-[10px]">Loading Profile...</span>
+             </div>
+          );
+      }
+
+      if (publicBioError || !publicCardData) {
+          return (
+              <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white font-sans p-4 text-center">
+                  <AlertCircle size={48} className="text-red-500 mb-4" />
+                  <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Profile Not Found</h1>
+                  <p className="text-gray-500 font-medium">This crowds.bio link doesn't exist or has been changed.</p>
+                  <a href="https://selloutcrowds.com" className="mt-8 text-[#9df01c] font-black uppercase tracking-widest text-[10px] hover:underline">Go to Sellout Crowds</a>
+              </div>
+          );
+      }
+
       return (
           <div className="min-h-screen bg-[#050505] flex flex-col items-center py-12 px-4">
               <PublicCardView data={publicCardData} />
@@ -154,6 +194,7 @@ export default function App() {
       );
   }
 
+  // --- RENDER 2: LOADING ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -163,7 +204,7 @@ export default function App() {
     );
   }
 
-  // --- RENDER 2: THE LOGIN SCREEN ---
+  // --- RENDER 3: THE LOGIN SCREEN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -193,7 +234,7 @@ export default function App() {
     );
   }
 
-  // --- RENDER 3: THE CREATOR HUB SHELL ---
+  // --- RENDER 4: THE CREATOR HUB SHELL ---
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row">
         <Sidebar 

@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Business Card Storage Endpoints
+ * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
  */
 
 import express from 'express';
@@ -27,9 +27,10 @@ async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
         await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
-        
-        // NEW: Business Card Storage Table
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
+        
+        // NEW: Safely add the custom_slug column for vanity URLs
+        try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
     } catch (e) {
         console.error("Schema check notice:", e.message);
     }
@@ -44,19 +45,13 @@ async function getAuthenticatedUser(token) {
         const meData = await meRes.json();
         if (meData && meData.id) return meData;
         return null;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
 }
 
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({ email: email, space_id: contentId, action: 'add' })
-        });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'add' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -65,11 +60,7 @@ async function grantCommunityAccess(email, module, contentId) {
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({ email: email, space_id: contentId, action: 'remove' })
-        });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'remove' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -86,10 +77,7 @@ app.post('/api/auth/callback', async (req, res) => {
         params.append('client_secret', UNA_CLIENT_SECRET);
         params.append('code', code);
         params.append('redirect_uri', redirect_uri); 
-
-        const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, {
-            method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params
-        });
+        const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
         const data = await response.json();
         if (data.error) return res.status(400).json(data);
         res.json(data);
@@ -109,28 +97,20 @@ app.get('/api/get-communities', async (req, res) => {
         let userProfileUrl = meData.profile_link;
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
         if (!userProfileUrl.includes('www.')) { userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
-
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
-
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
         let parsedData = null;
         try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
-        const crowds = [];
-        const spaces = [];
-        let currentCategory = null;
-
+        const crowds = []; const spaces = []; let currentCategory = null;
         parsedData.allow_view_to.values.forEach(item => {
-            if (item.type === 'group_header') {
-                if (item.value === 'CROWD') currentCategory = 'CROWD';
-                if (item.value === 'SPACE') currentCategory = 'SPACE';
-            } else if (item.type === 'group_end') {
-                currentCategory = null;
+            if (item.type === 'group_header') { if (item.value === 'CROWD') currentCategory = 'CROWD'; if (item.value === 'SPACE') currentCategory = 'SPACE';
+            } else if (item.type === 'group_end') { currentCategory = null;
             } else if (item.key !== undefined && typeof item.key === 'number') {
                 const trueId = Math.abs(item.key).toString();
                 if (currentCategory === 'CROWD') crowds.push({ id: trueId, title: item.value });
@@ -141,6 +121,7 @@ app.get('/api/get-communities', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch community assets" }); }
 });
 
+// --- SETTINGS & MAPPINGS ---
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -192,15 +173,15 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
-// --- NEW: BUSINESS CARD ENDPOINTS ---
+// --- BUSINESS CARD STORAGE ENDPOINTS ---
 app.get('/api/get-card', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         await ensureSchema();
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE user_id = ${userId}`;
-        res.json({ card: rows.length > 0 ? rows[0].card_data : null });
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${userId}`;
+        res.json({ card: rows.length > 0 ? rows[0].card_data : null, slug: rows.length > 0 ? rows[0].custom_slug : '' });
     } catch (error) { res.status(500).json({ error: "Failed to fetch card" }); }
 });
 
@@ -211,14 +192,39 @@ app.post('/api/save-card', async (req, res) => {
         await ensureSchema();
         const userId = parseInt(user.id);
         const cardData = req.body.card;
+        const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
+
+        // Ensure no one else has already claimed this link!
+        if (slug) {
+            const check = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${userId}`;
+            if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
+        }
+
         await sql`
-            INSERT INTO bridge_business_cards (user_id, card_data) 
-            VALUES (${userId}, ${cardData})
+            INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) 
+            VALUES (${userId}, ${cardData}, ${slug})
             ON CONFLICT (user_id) 
-            DO UPDATE SET card_data = EXCLUDED.card_data
+            DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug
         `;
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: "Failed to save card" }); }
+});
+
+// --- NEW PUBLIC ENDPOINT FOR CROWDS.BIO ---
+// This endpoint doesn't require authentication, allowing the internet to fetch public profiles
+app.get('/api/public-card/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const slug = req.params.slug.toLowerCase().trim();
+        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE custom_slug = ${slug}`;
+        if (rows.length > 0) {
+            res.json({ success: true, card: rows[0].card_data });
+        } else {
+            res.status(404).json({ error: "Card not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to load card" });
+    }
 });
 
 // --- REMAINDER OF STRIPE / PATREON ENDPOINTS ---

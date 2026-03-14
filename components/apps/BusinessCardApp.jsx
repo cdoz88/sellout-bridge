@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram } from 'lucide-react';
 
-// Custom SVG for TikTok since it is not in the standard Lucide library
+// Custom SVG for TikTok
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.01.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 2.24-.71 4.46-1.92 6.25-1.2 1.81-2.92 3.15-4.96 3.79-2.14.65-4.52.54-6.52-.3-2.02-.85-3.66-2.45-4.56-4.45-.9-2.01-1.02-4.43-.33-6.51.68-2.08 2.2-3.79 4.16-4.7 1.95-.92 4.29-1.14 6.36-.61V14.8c-1.02-.38-2.19-.34-3.13.18-.95.52-1.61 1.48-1.74 2.57-.15 1.09.17 2.22.87 3.03.7.81 1.78 1.22 2.87 1.13 1.09-.09 2.08-.66 2.65-1.54.58-.89.81-2 .76-3.05V0h4.22z"/>
@@ -27,12 +27,11 @@ const DEFAULT_CARD = {
     theme: "#9df01c",
     textColor: "#000000",
     iconColor: "#FFFFFF",
-    cardMode: "dark" // NEW: Light/Dark Mode
+    cardMode: "dark" 
 };
 
 // --- THE PUBLIC CARD COMPONENT ---
 export const PublicCardView = ({ data }) => {
-    // Check if the card should render in Light Mode
     const isLight = data.cardMode === 'light';
     
     const handleSaveContact = () => {
@@ -69,7 +68,6 @@ export const PublicCardView = ({ data }) => {
         ? "from-white via-white/40 to-transparent" 
         : "from-[#111] via-black/20 to-transparent";
 
-    // Styling constants based on the card mode
     const cardBgClass = isLight ? 'bg-white border-gray-200' : 'bg-[#111] border-white/5';
     const avatarBorderClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#0a0a0a]';
     const avatarFallbackClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#1a1a1a]';
@@ -149,6 +147,7 @@ export const PublicCardView = ({ data }) => {
 // --- THE BUILDER APP ---
 export default function BusinessCardApp({ session, activeTab }) {
     const [cardData, setCardData] = useState(DEFAULT_CARD);
+    const [slug, setSlug] = useState(''); // NEW: Track the custom URL
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ avatar: false, cover: false });
@@ -160,19 +159,33 @@ export default function BusinessCardApp({ session, activeTab }) {
             .then(res => res.json())
             .then(data => {
                 if (data.card) setCardData({ ...DEFAULT_CARD, ...data.card }); 
+                if (data.slug) setSlug(data.slug);
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
     }, [session]);
 
     const handleSave = async () => {
+        if (!slug || slug.trim() === '') {
+            alert("Please claim a custom link (e.g. your name) before saving!");
+            return;
+        }
+
         setIsSaving(true);
         try {
-            await fetch('/api/save-card', {
+            const res = await fetch('/api/save-card', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card: cardData })
+                body: JSON.stringify({ card: cardData, slug: slug })
             });
+            const result = await res.json();
+            
+            if (result.error) {
+                alert(result.error); // E.g., "That link is already taken!"
+                setIsSaving(false);
+                return;
+            }
+            
             setTimeout(() => setIsSaving(false), 1000);
         } catch (err) {
             alert("Failed to save card.");
@@ -204,12 +217,17 @@ export default function BusinessCardApp({ session, activeTab }) {
     };
 
     const getShareUrl = () => {
-        const base64Data = btoa(JSON.stringify(cardData));
-        return `${window.location.origin}/#${base64Data}`;
+        if (!slug) return '';
+        return `https://crowds.bio/${slug}`;
     };
 
     const copyShareLink = () => {
-        navigator.clipboard.writeText(getShareUrl());
+        const url = getShareUrl();
+        if (!url) {
+            alert("Save your custom link first!");
+            return;
+        }
+        navigator.clipboard.writeText(url);
         alert("Public link copied to clipboard!");
     };
 
@@ -227,7 +245,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                     </p>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={() => setShowQrModal(true)} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
+                    <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
                         <QrCode size={14} /> Get QR Code
                     </button>
                     <button onClick={copyShareLink} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
@@ -243,75 +261,94 @@ export default function BusinessCardApp({ session, activeTab }) {
                     
                     {/* TAB 1: BUILDER (CORE DETAILS) */}
                     {activeTab === 'builder' && (
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 animate-in fade-in duration-300">
-                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Core Details</h3>
+                        <div className="animate-in fade-in duration-300">
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label>
-                                    <input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                            {/* THE URL CLAIMER */}
+                            <div className="mb-6 p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
+                                <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
+                                <div className="flex items-center gap-2 bg-black p-3 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors">
+                                    <span className="text-gray-500 font-bold">crowds.bio /</span>
+                                    <input 
+                                        type="text" 
+                                        value={slug} 
+                                        onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} 
+                                        placeholder="your-name" 
+                                        className="flex-1 bg-transparent text-white font-bold outline-none"
+                                    />
                                 </div>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
-                                    <input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
-                                    <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
-                                    <input type="tel" value={cardData.phone} onChange={e => setCardData({...cardData, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
-                                    <input type="email" value={cardData.email} onChange={e => setCardData({...cardData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website URL</label>
-                                    <input type="text" value={cardData.website} onChange={e => setCardData({...cardData, website: e.target.value})} placeholder="e.g. selloutcrowds.com" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
+                                <p className="text-[9px] text-gray-500 mt-2 font-medium">Letters, numbers, and hyphens only. This is what you will share with people!</p>
                             </div>
 
-                            <div className="mt-8 pt-8 border-t border-white/5">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Social Media</h3>
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Core Details</h3>
+                                
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label>
+                                        <input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
+                                        <input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    </div>
                                     <div className="sm:col-span-2">
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Link2 size={10}/> Sellout Crowds URL</label>
-                                        <input type="text" value={cardData.sellout} onChange={e => setCardData({...cardData, sellout: e.target.value})} placeholder="selloutcrowds.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
+                                        <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
                                     <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Instagram size={10}/> Instagram URL</label>
-                                        <input type="text" value={cardData.instagram} onChange={e => setCardData({...cardData, instagram: e.target.value})} placeholder="instagram.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
+                                        <input type="tel" value={cardData.phone} onChange={e => setCardData({...cardData, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
                                     <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><TiktokIcon size={10}/> TikTok URL</label>
-                                        <input type="text" value={cardData.tiktok} onChange={e => setCardData({...cardData, tiktok: e.target.value})} placeholder="tiktok.com/@username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
+                                        <input type="email" value={cardData.email} onChange={e => setCardData({...cardData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Youtube size={10}/> YouTube URL</label>
-                                        <input type="text" value={cardData.youtube} onChange={e => setCardData({...cardData, youtube: e.target.value})} placeholder="youtube.com/@channel" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Facebook size={10}/> Facebook URL</label>
-                                        <input type="text" value={cardData.facebook} onChange={e => setCardData({...cardData, facebook: e.target.value})} placeholder="facebook.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Twitter size={10}/> X (Twitter) URL</label>
-                                        <input type="text" value={cardData.twitter} onChange={e => setCardData({...cardData, twitter: e.target.value})} placeholder="x.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Linkedin size={10}/> LinkedIn URL</label>
-                                        <input type="text" value={cardData.linkedin} onChange={e => setCardData({...cardData, linkedin: e.target.value})} placeholder="linkedin.com/in/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                    <div className="sm:col-span-2">
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website URL</label>
+                                        <input type="text" value={cardData.website} onChange={e => setCardData({...cardData, website: e.target.value})} placeholder="e.g. selloutcrowds.com" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                                    {isSaving ? 'Saving...' : 'Save Card'}
-                                </button>
+                                <div className="mt-8 pt-8 border-t border-white/5">
+                                    <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Social Media</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="sm:col-span-2">
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Link2 size={10}/> Sellout Crowds URL</label>
+                                            <input type="text" value={cardData.sellout} onChange={e => setCardData({...cardData, sellout: e.target.value})} placeholder="selloutcrowds.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Instagram size={10}/> Instagram URL</label>
+                                            <input type="text" value={cardData.instagram} onChange={e => setCardData({...cardData, instagram: e.target.value})} placeholder="instagram.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><TiktokIcon size={10}/> TikTok URL</label>
+                                            <input type="text" value={cardData.tiktok} onChange={e => setCardData({...cardData, tiktok: e.target.value})} placeholder="tiktok.com/@username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Youtube size={10}/> YouTube URL</label>
+                                            <input type="text" value={cardData.youtube} onChange={e => setCardData({...cardData, youtube: e.target.value})} placeholder="youtube.com/@channel" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Facebook size={10}/> Facebook URL</label>
+                                            <input type="text" value={cardData.facebook} onChange={e => setCardData({...cardData, facebook: e.target.value})} placeholder="facebook.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Twitter size={10}/> X (Twitter) URL</label>
+                                            <input type="text" value={cardData.twitter} onChange={e => setCardData({...cardData, twitter: e.target.value})} placeholder="x.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Linkedin size={10}/> LinkedIn URL</label>
+                                            <input type="text" value={cardData.linkedin} onChange={e => setCardData({...cardData, linkedin: e.target.value})} placeholder="linkedin.com/in/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                                        {isSaving ? 'Saving...' : 'Save Card'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -414,7 +451,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                 </div>
             </div>
 
-            {/* QR CODE MODAL */}
+            {/* QR CODE MODAL - ONLY GENERATES CLEAN SHORT LINKS NOW! */}
             {showQrModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-sm p-8 flex flex-col items-center shadow-2xl relative">
