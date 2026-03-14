@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram, ArrowRight } from 'lucide-react';
 
 // Custom SVG for TikTok
 const TiktokIcon = ({ size=20, className="" }) => (
@@ -23,14 +23,14 @@ const DEFAULT_CARD = {
     youtube: "",
     tiktok: "",
     avatarUrl: "",
-    coverUrl: "",
+    logoUrl: "", // REPLACED coverUrl with logoUrl
     theme: "#9df01c",
     textColor: "#000000",
-    iconColor: "#FFFFFF",
+    iconColor: "#9df01c",
     cardMode: "dark" 
 };
 
-// --- THE PUBLIC CARD COMPONENT ---
+// --- THE PUBLIC CARD COMPONENT (FLOATING DESIGN) ---
 export const PublicCardView = ({ data }) => {
     const isLight = data.cardMode === 'light';
     
@@ -60,86 +60,69 @@ export const PublicCardView = ({ data }) => {
         document.body.removeChild(link);
     };
 
-    const coverStyle = data.coverUrl 
-        ? { backgroundImage: `url(${data.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
-        : { backgroundColor: data.theme };
-
-    const overlayGradient = isLight 
-        ? "from-white via-white/40 to-transparent" 
-        : "from-[#111] via-black/20 to-transparent";
-
-    const cardBgClass = isLight ? 'bg-white border-gray-200' : 'bg-[#111] border-white/5';
-    const avatarBorderClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#0a0a0a]';
-    const avatarFallbackClass = isLight ? 'border-white bg-gray-100' : 'border-[#111] bg-[#1a1a1a]';
+    // Styling constants for Light/Dark floating mode
     const textNameClass = isLight ? 'text-gray-900' : 'text-white';
-    const textTitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
-    const linkWrapperClass = isLight ? 'bg-gray-50 hover:bg-gray-100 border border-gray-100' : 'bg-white/5 hover:bg-white/10';
-    const linkTextClass = isLight ? 'text-gray-700 group-hover:text-gray-900' : 'text-gray-300 group-hover:text-white';
-    const socialLinkClass = isLight 
-        ? "text-gray-500 hover:text-gray-900 transition-colors p-2 bg-gray-50 rounded-full hover:bg-gray-100 border border-gray-200" 
-        : "text-gray-400 hover:text-white transition-colors p-2 bg-white/5 rounded-full hover:bg-white/10";
+    const textCompanyClass = isLight ? 'text-gray-500' : 'text-gray-400';
+    const buttonBgClass = isLight ? 'bg-white hover:bg-gray-50 border border-gray-200 shadow-sm' : 'bg-[#111] hover:bg-[#1a1a1a] border border-white/5 shadow-lg';
+    const buttonIconBgClass = isLight ? 'bg-gray-100 group-hover:bg-gray-200' : 'bg-white/5 group-hover:bg-white/10';
+    const buttonTitleClass = isLight ? 'text-gray-900' : 'text-white';
+    const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
+    const arrowClass = isLight ? 'text-gray-300' : 'text-gray-600';
+
+    // Map out all active links into sleek wide buttons
+    const activeLinks = [
+        { id: 'phone', title: 'Phone Number', subtitle: data.phone, url: `tel:${data.phone?.replace(/\D/g, '')}`, icon: Phone, active: !!data.phone },
+        { id: 'email', title: 'Email Address', subtitle: data.email, url: `mailto:${data.email}`, icon: Mail, active: !!data.email },
+        { id: 'website', title: 'Official Website', subtitle: data.website?.replace(/^https?:\/\//, ''), url: `https://${data.website?.replace(/^https?:\/\//, '')}`, icon: Globe, active: !!data.website },
+        { id: 'sellout', title: 'Sellout Crowds', subtitle: 'Join my community', url: `https://${data.sellout?.replace(/^https?:\/\//, '')}`, icon: Link2, active: !!data.sellout },
+        { id: 'instagram', title: 'Instagram', subtitle: 'Follow me', url: `https://${data.instagram?.replace(/^https?:\/\//, '')}`, icon: Instagram, active: !!data.instagram },
+        { id: 'tiktok', title: 'TikTok', subtitle: 'Watch my videos', url: `https://${data.tiktok?.replace(/^https?:\/\//, '')}`, icon: TiktokIcon, active: !!data.tiktok },
+        { id: 'youtube', title: 'YouTube', subtitle: 'Subscribe to my channel', url: `https://${data.youtube?.replace(/^https?:\/\//, '')}`, icon: Youtube, active: !!data.youtube },
+        { id: 'facebook', title: 'Facebook', subtitle: 'Connect on Facebook', url: `https://${data.facebook?.replace(/^https?:\/\//, '')}`, icon: Facebook, active: !!data.facebook },
+        { id: 'twitter', title: 'X (Twitter)', subtitle: 'Follow for updates', url: `https://${data.twitter?.replace(/^https?:\/\//, '')}`, icon: Twitter, active: !!data.twitter },
+        { id: 'linkedin', title: 'LinkedIn', subtitle: 'Professional network', url: `https://${data.linkedin?.replace(/^https?:\/\//, '')}`, icon: Linkedin, active: !!data.linkedin }
+    ].filter(l => l.active);
 
     return (
-        <div className={`w-full max-w-sm mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative ${cardBgClass}`}>
-            <div className="relative h-36" style={coverStyle}>
-                <div className={`absolute inset-0 bg-gradient-to-t ${overlayGradient}`}></div>
-                <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-                    {data.avatarUrl ? (
-                        <img src={data.avatarUrl} className={`w-24 h-24 rounded-full border-4 object-cover ${avatarBorderClass}`} alt="Profile" />
-                    ) : (
-                        <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center text-3xl font-black ${avatarFallbackClass}`} style={{ color: data.theme }}>
-                            {data.name.charAt(0)}
-                        </div>
-                    )}
-                </div>
-            </div>
+        <div className="w-full max-w-md mx-auto font-sans text-center">
             
-            <div className="pt-16 pb-8 px-6 text-center">
-                <h1 className={`text-2xl font-black ${textNameClass}`}>{data.name}</h1>
-                <p className={`text-sm font-medium mt-1 ${textTitleClass}`}>{data.title}</p>
-                <p className="text-sm font-bold mt-1" style={{ color: data.theme }}>{data.company}</p>
+            {/* Top Brand Logo */}
+            {data.logoUrl && (
+                <img src={data.logoUrl} alt="Company Logo" className="h-14 mx-auto mb-8 object-contain" />
+            )}
 
-                <div className="mt-8 space-y-3">
-                    {data.phone && (
-                        <a href={`tel:${data.phone.replace(/\D/g, '')}`} className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
-                                <Phone size={18} style={{ color: data.iconColor }} />
-                            </div>
-                            <span className={`text-sm font-bold transition-colors ${linkTextClass}`}>{data.phone}</span>
-                        </a>
-                    )}
-                    {data.email && (
-                        <a href={`mailto:${data.email}`} className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
-                                <Mail size={18} style={{ color: data.iconColor }} />
-                            </div>
-                            <span className={`text-sm font-bold truncate transition-colors ${linkTextClass}`}>{data.email}</span>
-                        </a>
-                    )}
-                    {data.website && (
-                        <a href={`https://${data.website.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-3 rounded-xl transition-colors group ${linkWrapperClass}`}>
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: data.theme }}>
-                                <Globe size={18} style={{ color: data.iconColor }} />
-                            </div>
-                            <span className={`text-sm font-bold truncate transition-colors ${linkTextClass}`}>{data.website}</span>
-                        </a>
-                    )}
+            {/* Glowing Avatar */}
+            {data.avatarUrl ? (
+                <img src={data.avatarUrl} className="w-28 h-28 mx-auto rounded-full object-cover border-2" style={{ borderColor: data.theme, boxShadow: `0 0 35px ${data.theme}40` }} alt="Profile" />
+            ) : (
+                <div className="w-28 h-28 mx-auto rounded-full border-2 flex items-center justify-center text-4xl font-black bg-[#111]" style={{ borderColor: data.theme, color: data.theme, boxShadow: `0 0 35px ${data.theme}40` }}>
+                    {data.name.charAt(0)}
                 </div>
+            )}
+            
+            <h1 className={`text-3xl font-black uppercase tracking-tight mt-6 ${textNameClass}`}>{data.name}</h1>
+            <p className="text-xs font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.title}</p>
+            <p className={`text-sm font-medium mt-1 ${textCompanyClass}`}>{data.company}</p>
 
-                <div className="mt-6 flex justify-center gap-3 flex-wrap">
-                    {data.sellout && <a href={`https://${data.sellout.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Link2 size={18}/></a>}
-                    {data.instagram && <a href={`https://${data.instagram.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Instagram size={18}/></a>}
-                    {data.tiktok && <a href={`https://${data.tiktok.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><TiktokIcon size={18}/></a>}
-                    {data.youtube && <a href={`https://${data.youtube.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Youtube size={18}/></a>}
-                    {data.facebook && <a href={`https://${data.facebook.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Facebook size={18}/></a>}
-                    {data.twitter && <a href={`https://${data.twitter.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Twitter size={18}/></a>}
-                    {data.linkedin && <a href={`https://${data.linkedin.replace(/^https?:\/\//,'')}`} target="_blank" rel="noreferrer" className={socialLinkClass}><Linkedin size={18}/></a>}
-                </div>
-
-                <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                    <Download size={16} /> Save to Contacts
-                </button>
+            {/* Sleek Wide Buttons */}
+            <div className="mt-10 space-y-3 text-left">
+                {activeLinks.map(link => (
+                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
+                            <link.icon size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0 py-1">
+                            <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
+                            <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
+                        </div>
+                        <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
+                    </a>
+                ))}
             </div>
+
+            <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                <Download size={16} /> Save to Contacts
+            </button>
         </div>
     );
 };
@@ -150,7 +133,7 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState({ avatar: false, cover: false });
+    const [isUploading, setIsUploading] = useState({ avatar: false, logo: false });
     const [showQrModal, setShowQrModal] = useState(false);
 
     useEffect(() => {
@@ -263,7 +246,6 @@ export default function BusinessCardApp({ session, activeTab }) {
                     {activeTab === 'builder' && (
                         <div className="animate-in fade-in duration-300">
                             
-                            {/* THE URL CLAIMER */}
                             <div className="mb-6 p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
                                 <div className="flex items-center gap-2 bg-black p-1.5 pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
@@ -288,7 +270,6 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
 
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
-                                {/* FIX 1: Updated to "Details" */}
                                 <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Details</h3>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -351,13 +332,6 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                                        {isSaving ? 'Saving...' : 'Save Card'}
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -384,23 +358,23 @@ export default function BusinessCardApp({ session, activeTab }) {
                                     </label>
                                 </div>
 
-                                {/* Cover Image Upload */}
+                                {/* Logo Image Upload */}
                                 <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
                                     <div className="mb-4 w-full">
-                                        {cardData.coverUrl ? (
-                                            <img src={cardData.coverUrl} alt="Cover" className="w-full h-20 rounded-xl object-cover border border-white/10 bg-[#0a0a0a]" />
+                                        {cardData.logoUrl ? (
+                                            <img src={cardData.logoUrl} alt="Logo" className="w-full h-20 rounded-xl object-contain border border-white/10 bg-[#0a0a0a] p-2" />
                                         ) : (
                                             <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>
                                         )}
                                     </div>
-                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.cover ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.cover ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
-                                        {isUploading.cover ? 'Uploading...' : 'Cover Image'}
-                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'coverUrl')} />
+                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.logo ? 'Uploading...' : 'Brand Logo'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
                                     </label>
                                     <div className="flex w-full justify-end mt-2">
-                                        {cardData.coverUrl && (
-                                            <button onClick={() => setCardData({...cardData, coverUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove Cover</button>
+                                        {cardData.logoUrl && (
+                                            <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove Logo</button>
                                         )}
                                     </div>
                                 </div>
@@ -453,14 +427,15 @@ export default function BusinessCardApp({ session, activeTab }) {
                         <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                             <MonitorSmartphone size={14} /> Live Preview
                         </div>
-                        <div className="pointer-events-none">
+                        {/* We wrap the preview in a simulated screen background so they can see the full effect of Light/Dark mode! */}
+                        <div className={`p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardMode === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`}>
                            <PublicCardView data={cardData} />
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* QR CODE MODAL - ONLY GENERATES CLEAN SHORT LINKS NOW! */}
+            {/* QR CODE MODAL */}
             {showQrModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-sm p-8 flex flex-col items-center shadow-2xl relative">

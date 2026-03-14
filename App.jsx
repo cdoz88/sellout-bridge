@@ -79,7 +79,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
   useEffect(() => {
-    if (isPublicBio) return; // Do not attempt OAuth if rendering a public card
+    if (isPublicBio) return; 
 
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -184,10 +184,13 @@ export default function App() {
           );
       }
 
+      const isLight = publicCardData.cardMode === 'light';
+      const bgClass = isLight ? 'bg-gray-50' : 'bg-[#050505]';
+
       return (
-          <div className="min-h-screen bg-[#050505] flex flex-col items-center py-12 px-4">
+          <div className={`min-h-screen ${bgClass} flex flex-col items-center py-12 px-4 transition-colors duration-300`}>
               <PublicCardView data={publicCardData} />
-              <a href="https://selloutcrowds.com" className="mt-8 text-[10px] text-gray-500 font-bold uppercase tracking-widest hover:text-[#9df01c] transition-colors">
+              <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
                   Powered by Sellout Crowds
               </a>
           </div>
