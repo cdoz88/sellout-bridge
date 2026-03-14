@@ -147,7 +147,7 @@ export const PublicCardView = ({ data }) => {
 // --- THE BUILDER APP ---
 export default function BusinessCardApp({ session, activeTab }) {
     const [cardData, setCardData] = useState(DEFAULT_CARD);
-    const [slug, setSlug] = useState(''); // NEW: Track the custom URL
+    const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ avatar: false, cover: false });
@@ -181,7 +181,7 @@ export default function BusinessCardApp({ session, activeTab }) {
             const result = await res.json();
             
             if (result.error) {
-                alert(result.error); // E.g., "That link is already taken!"
+                alert(result.error); 
                 setIsSaving(false);
                 return;
             }
@@ -266,21 +266,30 @@ export default function BusinessCardApp({ session, activeTab }) {
                             {/* THE URL CLAIMER */}
                             <div className="mb-6 p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
-                                <div className="flex items-center gap-2 bg-black p-3 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors">
-                                    <span className="text-gray-500 font-bold">crowds.bio /</span>
+                                <div className="flex items-center gap-2 bg-black p-1.5 pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
+                                    <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio /</span>
                                     <input 
                                         type="text" 
                                         value={slug} 
                                         onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} 
                                         placeholder="your-name" 
-                                        className="flex-1 bg-transparent text-white font-bold outline-none"
+                                        className="flex-1 bg-transparent text-white font-bold outline-none min-w-[50px]"
                                     />
+                                    <button 
+                                        onClick={handleSave} 
+                                        disabled={isSaving} 
+                                        className="bg-[#9df01c] text-black hover:bg-[#8ce015] px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 shadow-sm flex-shrink-0"
+                                    >
+                                        {isSaving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>}
+                                        {isSaving ? '...' : 'Save'}
+                                    </button>
                                 </div>
                                 <p className="text-[9px] text-gray-500 mt-2 font-medium">Letters, numbers, and hyphens only. This is what you will share with people!</p>
                             </div>
 
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Core Details</h3>
+                                {/* FIX 1: Updated to "Details" */}
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Details</h3>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
