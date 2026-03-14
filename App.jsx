@@ -37,10 +37,14 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- 0. SET PAGE TITLE ---
+  // --- 0. SET DYNAMIC PAGE TITLE ---
   useEffect(() => {
-      document.title = "Sellout Crowds Hub";
-  }, []);
+      if (isPublicBio && publicCardData?.name) {
+          document.title = `${publicCardData.name} | Contact`;
+      } else {
+          document.title = "Sellout Crowds Hub";
+      }
+  }, [isPublicBio, publicCardData]);
 
   // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
@@ -189,14 +193,12 @@ export default function App() {
           );
       }
 
-      // Safely determine colors for the full-screen background
       const bgType = publicCardData.cardBgType || publicCardData.cardMode || 'dark';
       const isLight = bgType === 'light';
       const fullScreenBgColor = publicCardData.cardBgColor || (isLight ? '#f9fafb' : '#050505');
 
       return (
           <div className={`min-h-screen flex flex-col items-center pt-8 pb-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
-              {/* isFullScreen=true makes it blend seamlessly into the page background! */}
               <PublicCardView data={publicCardData} isFullScreen={true} />
               
               <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>

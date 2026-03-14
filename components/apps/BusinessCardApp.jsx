@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare } from 'lucide-react';
 
-// Perfectly scaled TikTok SVG
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
     </svg>
 );
 
-// X Logo
 const XIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
 );
 
-// Sellout Crowds Custom SVG
 const SelloutIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 362.85 305.65" fill="currentColor" className={className}>
         <path d="m321.31,285.9l-17.52-1.66c-2.92-.25-5.84-.61-8.76-.77l-8.77-.55-8.77-.55c-2.92-.19-5.85-.39-8.77-.46l-17.54-.63c-2.92-.13-5.85-.17-8.77-.2l-8.77-.11-8.77-.11c-2.92-.05-5.84.03-8.77.03l-17.53.15-17.52.46c-23.35.76-46.66,2.03-69.94,3.85-5.82.49-11.64.93-17.45,1.46-5.81.56-11.63,1.04-17.43,1.67l-8.71.9-8.71.97c-5.82.66-11.59,1.36-17.46,2.15l1.83,13.13c5.64-.75,11.41-1.46,17.15-2.11l8.62-.96,8.63-.89c5.75-.62,11.52-1.1,17.28-1.65,5.76-.52,11.53-.96,17.3-1.45,23.08-1.8,46.2-3.06,69.32-3.82l17.34-.46,17.34-.15c2.89,0,5.78-.08,8.67-.03l8.66.11,8.66.11c2.89.03,5.78.06,8.66.19l17.31.62c2.89.07,5.76.27,8.64.45l8.63.54,8.63.54c2.88.16,5.74.51,8.61.76l17.2,1.62,1.48-13.17Z" />
@@ -99,6 +96,27 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
     const cardBgColor = data.cardBgColor || (isLight ? '#ffffff' : '#111111');
+
+    const [showNotesModal, setShowNotesModal] = useState(false);
+    const [notes, setNotes] = useState('');
+    const [showPhoneAction, setShowPhoneAction] = useState(false);
+
+    // Retrieve locally saved notes on mount (based on their unique email or name)
+    useEffect(() => {
+        const identifier = data.email || data.name;
+        if (identifier) {
+            const saved = localStorage.getItem(`sc_notes_${btoa(identifier)}`);
+            if (saved) setNotes(saved);
+        }
+    }, [data.email, data.name]);
+
+    const handleSaveNotes = () => {
+        const identifier = data.email || data.name;
+        if (identifier) {
+            localStorage.setItem(`sc_notes_${btoa(identifier)}`, notes);
+        }
+        setShowNotesModal(false);
+    };
     
     const handleSaveContact = () => {
         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
@@ -115,6 +133,12 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
         if (data.phone) parts.push(`TEL;TYPE=WORK,VOICE:${data.phone}`);
         if (data.email) parts.push(`EMAIL:${data.email}`);
         if (data.website) parts.push(`URL:https://${data.website.replace(/^https?:\/\//,'')}`);
+        
+        // Inject secure personal notes into the vCard!
+        if (notes && notes.trim() !== '') {
+            parts.push(`NOTE:${escapeVCardValue(notes.trim())}`);
+        }
+
         parts.push('END:VCARD');
 
         const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
@@ -128,7 +152,7 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
 
     const containerClasses = isFullScreen 
         ? "w-full max-w-md mx-auto font-sans relative" 
-        : "w-full max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative";
+        : "w-full max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative pb-8";
     
     const containerStyle = isFullScreen 
         ? {} 
@@ -176,31 +200,115 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                 )}
             </div>
             
-            <div className="pt-6 pb-8 px-6 text-center">
+            <div className="pt-6 pb-2 px-6 text-center">
+                {/* Title / Company Swap */}
                 <h1 className={`text-3xl font-black uppercase tracking-tight ${textNameClass}`}>{data.name}</h1>
-                <p className="text-xs font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.title}</p>
-                <p className={`text-sm font-medium mt-1 ${textCompanyClass}`}>{data.company}</p>
+                <p className="text-sm font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.company}</p>
+                <p className={`text-xs font-medium mt-1 ${textCompanyClass}`}>{data.title}</p>
 
                 {/* Sleek Wide Buttons */}
                 <div className="mt-10 space-y-3 text-left">
-                    {activeLinks.map(link => (
-                        <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
-                                <link.icon size={20} />
-                            </div>
-                            <div className="flex-1 min-w-0 py-1">
-                                <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
-                                <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
-                            </div>
-                            <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
-                        </a>
-                    ))}
+                    {activeLinks.map(link => {
+                        if (link.id === 'phone') {
+                            return (
+                                <button key={link.id} onClick={() => setShowPhoneAction(true)} className={`w-full flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group text-left ${buttonBgClass}`}>
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
+                                        <link.icon size={20} />
+                                    </div>
+                                    <div className="flex-1 min-w-0 py-1">
+                                        <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
+                                        <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
+                                    </div>
+                                    <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
+                                </button>
+                            );
+                        }
+
+                        return (
+                            <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
+                                    <link.icon size={20} />
+                                </div>
+                                <div className="flex-1 min-w-0 py-1">
+                                    <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
+                                    <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
+                                </div>
+                                <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
+                            </a>
+                        );
+                    })}
                 </div>
 
-                <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                    <Download size={16} /> Save to Contacts
-                </button>
+                {/* Action Buttons (Notes + Save) */}
+                <div className="mt-8 flex gap-3">
+                    <button onClick={() => setShowNotesModal(true)} className={`flex-1 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}>
+                        <FileText size={16} /> Notes
+                    </button>
+                    <button onClick={handleSaveContact} className="flex-[2] py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                        <Download size={16} /> Save Contact
+                    </button>
+                </div>
             </div>
+
+            {/* CALL OR TEXT MODAL */}
+            {showPhoneAction && (
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPhoneAction(false)}>
+                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowPhoneAction(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
+                        
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}>
+                            <Phone size={24} />
+                        </div>
+                        
+                        <h3 className={`text-xl font-black uppercase tracking-tight mb-4 ${textNameClass}`}>Contact Options</h3>
+                        
+                        <div className="space-y-3">
+                            <a href={`tel:${data.phone?.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <Phone size={18} style={{ color: data.theme }} /> 
+                                    <span>Call {data.phone}</span>
+                                </div>
+                                <ArrowRight size={16} className={arrowClass} />
+                            </a>
+                            <a href={`sms:${data.phone?.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <MessageSquare size={18} style={{ color: data.theme }} /> 
+                                    <span>Text (SMS)</span>
+                                </div>
+                                <ArrowRight size={16} className={arrowClass} />
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NOTES MODAL */}
+            {showNotesModal && (
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNotesModal(false)}>
+                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowNotesModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
+                        
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}>
+                            <FileText size={24} />
+                        </div>
+                        
+                        <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Personal Notes</h3>
+                        <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Jot down details to remember this person. These save directly to your phone contacts.</p>
+                        
+                        <textarea 
+                            value={notes} 
+                            onChange={e => setNotes(e.target.value)} 
+                            rows="4" 
+                            placeholder="E.g., Met at the conference..."
+                            className={`w-full p-4 rounded-2xl text-sm outline-none border transition-colors mb-6 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}
+                        ></textarea>
+                        
+                        <button onClick={handleSaveNotes} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                            Save Notes
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
