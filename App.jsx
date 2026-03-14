@@ -37,6 +37,11 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
+  // --- 0. SET PAGE TITLE ---
+  useEffect(() => {
+      document.title = "Sellout Crowds Hub";
+  }, []);
+
   // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
       const hostname = window.location.hostname;
@@ -79,7 +84,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
   useEffect(() => {
-    if (isPublicBio) return; 
+    if (isPublicBio) return; // Do not attempt OAuth if rendering a public card
 
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -184,12 +189,16 @@ export default function App() {
           );
       }
 
-      const isLight = publicCardData.cardMode === 'light';
-      const bgClass = isLight ? 'bg-gray-50' : 'bg-[#050505]';
+      // Safely determine colors for the full-screen background
+      const bgType = publicCardData.cardBgType || publicCardData.cardMode || 'dark';
+      const isLight = bgType === 'light';
+      const fullScreenBgColor = publicCardData.cardBgColor || (isLight ? '#f9fafb' : '#050505');
 
       return (
-          <div className={`min-h-screen ${bgClass} flex flex-col items-center py-12 px-4 transition-colors duration-300`}>
-              <PublicCardView data={publicCardData} />
+          <div className={`min-h-screen flex flex-col items-center py-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
+              {/* isFullScreen=true makes it blend seamlessly into the page background! */}
+              <PublicCardView data={publicCardData} isFullScreen={true} />
+              
               <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
                   Powered by Sellout Crowds
               </a>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram, ArrowRight } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Twitter, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User } from 'lucide-react';
 
 // Custom SVG for TikTok
 const TiktokIcon = ({ size=20, className="" }) => (
@@ -23,16 +23,21 @@ const DEFAULT_CARD = {
     youtube: "",
     tiktok: "",
     avatarUrl: "",
-    logoUrl: "", // REPLACED coverUrl with logoUrl
+    logoUrl: "", 
+    logoSize: 56, // NEW: Logo Scale Property
     theme: "#9df01c",
     textColor: "#000000",
     iconColor: "#9df01c",
-    cardMode: "dark" 
+    cardBgColor: "#111111", // NEW: Custom Background Color Picker
+    cardBgType: "dark" // "dark" means use white text. "light" means use black text.
 };
 
 // --- THE PUBLIC CARD COMPONENT (FLOATING DESIGN) ---
-export const PublicCardView = ({ data }) => {
-    const isLight = data.cardMode === 'light';
+export const PublicCardView = ({ data, isFullScreen = false }) => {
+    // Gracefully handle older saves that used "cardMode" instead of the new BgType
+    const bgType = data.cardBgType || data.cardMode || 'dark';
+    const isLight = bgType === 'light';
+    const cardBgColor = data.cardBgColor || (isLight ? '#ffffff' : '#111111');
     
     const handleSaveContact = () => {
         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
@@ -60,16 +65,32 @@ export const PublicCardView = ({ data }) => {
         document.body.removeChild(link);
     };
 
-    // Styling constants for Light/Dark floating mode
+    // Dynamically fade the cover image into WHATEVER custom background color they picked!
+    const coverStyle = data.coverUrl 
+        ? { backgroundImage: `url(${data.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } 
+        : { backgroundColor: data.theme };
+
+    const overlayStyle = {
+        background: `linear-gradient(to top, ${cardBgColor} 0%, transparent 100%)`
+    };
+
+    // Styling constants adapting seamlessly to their chosen background type
+    const containerClasses = isFullScreen 
+        ? "w-full max-w-md mx-auto font-sans relative" 
+        : "w-full max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative";
+    
+    const containerStyle = isFullScreen 
+        ? {} 
+        : { backgroundColor: cardBgColor, borderColor: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.05)' };
+
     const textNameClass = isLight ? 'text-gray-900' : 'text-white';
     const textCompanyClass = isLight ? 'text-gray-500' : 'text-gray-400';
-    const buttonBgClass = isLight ? 'bg-white hover:bg-gray-50 border border-gray-200 shadow-sm' : 'bg-[#111] hover:bg-[#1a1a1a] border border-white/5 shadow-lg';
-    const buttonIconBgClass = isLight ? 'bg-gray-100 group-hover:bg-gray-200' : 'bg-white/5 group-hover:bg-white/10';
+    const buttonBgClass = isLight ? 'bg-black/5 hover:bg-black/10 border border-black/5 shadow-sm' : 'bg-white/5 hover:bg-white/10 border border-white/5 shadow-lg';
+    const buttonIconBgClass = isLight ? 'bg-white group-hover:bg-gray-50' : 'bg-black/20 group-hover:bg-black/40';
     const buttonTitleClass = isLight ? 'text-gray-900' : 'text-white';
     const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
-    const arrowClass = isLight ? 'text-gray-300' : 'text-gray-600';
+    const arrowClass = isLight ? 'text-gray-400' : 'text-gray-500';
 
-    // Map out all active links into sleek wide buttons
     const activeLinks = [
         { id: 'phone', title: 'Phone Number', subtitle: data.phone, url: `tel:${data.phone?.replace(/\D/g, '')}`, icon: Phone, active: !!data.phone },
         { id: 'email', title: 'Email Address', subtitle: data.email, url: `mailto:${data.email}`, icon: Mail, active: !!data.email },
@@ -84,45 +105,51 @@ export const PublicCardView = ({ data }) => {
     ].filter(l => l.active);
 
     return (
-        <div className="w-full max-w-md mx-auto font-sans text-center">
+        <div className={containerClasses} style={containerStyle}>
             
-            {/* Top Brand Logo */}
+            {/* Top Brand Logo (Scalable!) */}
             {data.logoUrl && (
-                <img src={data.logoUrl} alt="Company Logo" className="h-14 mx-auto mb-8 object-contain" />
+                <div className="w-full flex justify-center pt-8 relative z-10">
+                    <img src={data.logoUrl} alt="Company Logo" className="object-contain" style={{ height: `${data.logoSize || 56}px` }} />
+                </div>
             )}
 
             {/* Glowing Avatar */}
-            {data.avatarUrl ? (
-                <img src={data.avatarUrl} className="w-28 h-28 mx-auto rounded-full object-cover border-2" style={{ borderColor: data.theme, boxShadow: `0 0 35px ${data.theme}40` }} alt="Profile" />
-            ) : (
-                <div className="w-28 h-28 mx-auto rounded-full border-2 flex items-center justify-center text-4xl font-black bg-[#111]" style={{ borderColor: data.theme, color: data.theme, boxShadow: `0 0 35px ${data.theme}40` }}>
-                    {data.name.charAt(0)}
-                </div>
-            )}
-            
-            <h1 className={`text-3xl font-black uppercase tracking-tight mt-6 ${textNameClass}`}>{data.name}</h1>
-            <p className="text-xs font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.title}</p>
-            <p className={`text-sm font-medium mt-1 ${textCompanyClass}`}>{data.company}</p>
-
-            {/* Sleek Wide Buttons */}
-            <div className="mt-10 space-y-3 text-left">
-                {activeLinks.map(link => (
-                    <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
-                            <link.icon size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0 py-1">
-                            <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
-                            <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
-                        </div>
-                        <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
-                    </a>
-                ))}
+            <div className={`relative ${data.logoUrl ? 'mt-8' : 'mt-16'}`}>
+                {data.avatarUrl ? (
+                    <img src={data.avatarUrl} className="w-28 h-28 mx-auto rounded-full object-cover border-2 relative z-10" style={{ borderColor: data.theme, boxShadow: `0 0 35px ${data.theme}40` }} alt="Profile" />
+                ) : (
+                    <div className="w-28 h-28 mx-auto rounded-full border-2 flex items-center justify-center text-4xl font-black relative z-10" style={{ backgroundColor: cardBgColor, borderColor: data.theme, color: data.theme, boxShadow: `0 0 35px ${data.theme}40` }}>
+                        {data.name.charAt(0)}
+                    </div>
+                )}
             </div>
+            
+            <div className="pt-6 pb-8 px-6 text-center">
+                <h1 className={`text-3xl font-black uppercase tracking-tight ${textNameClass}`}>{data.name}</h1>
+                <p className="text-xs font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.title}</p>
+                <p className={`text-sm font-medium mt-1 ${textCompanyClass}`}>{data.company}</p>
 
-            <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                <Download size={16} /> Save to Contacts
-            </button>
+                {/* Sleek Wide Buttons */}
+                <div className="mt-10 space-y-3 text-left">
+                    {activeLinks.map(link => (
+                        <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
+                                <link.icon size={20} />
+                            </div>
+                            <div className="flex-1 min-w-0 py-1">
+                                <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
+                                <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
+                            </div>
+                            <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
+                        </a>
+                    ))}
+                </div>
+
+                <button onClick={handleSaveContact} className="mt-8 w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                    <Download size={16} /> Save to Contacts
+                </button>
+            </div>
         </div>
     );
 };
@@ -270,7 +297,9 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
 
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Settings size={18} className="text-[#9df01c]"/> Details</h3>
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2">
+                                    <User size={18} className="text-[#9df01c]"/> Details
+                                </h3>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
@@ -332,6 +361,13 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         </div>
                                     </div>
                                 </div>
+
+                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+                                        {isSaving ? 'Saving...' : 'Save Card'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -339,7 +375,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                     {/* TAB 2: DESIGN & THEME */}
                     {activeTab === 'design' && (
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 animate-in fade-in duration-300">
-                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Brand Imagery</h3>
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Design</h3>
                             
                             <div className="flex flex-col sm:flex-row gap-6 mb-8">
                                 {/* Profile Photo Upload */}
@@ -359,10 +395,10 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 </div>
 
                                 {/* Logo Image Upload */}
-                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
-                                    <div className="mb-4 w-full">
+                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center relative">
+                                    <div className="mb-4 w-full flex items-center justify-center h-20">
                                         {cardData.logoUrl ? (
-                                            <img src={cardData.logoUrl} alt="Logo" className="w-full h-20 rounded-xl object-contain border border-white/10 bg-[#0a0a0a] p-2" />
+                                            <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
                                         ) : (
                                             <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>
                                         )}
@@ -372,35 +408,42 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         {isUploading.logo ? 'Uploading...' : 'Brand Logo'}
                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
                                     </label>
-                                    <div className="flex w-full justify-end mt-2">
-                                        {cardData.logoUrl && (
-                                            <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove Logo</button>
-                                        )}
-                                    </div>
+                                    
+                                    {cardData.logoUrl && (
+                                        <div className="w-full mt-4 bg-white/5 p-2 rounded-xl">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-[9px] text-gray-400 font-bold uppercase">Logo Size</label>
+                                                <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove</button>
+                                            </div>
+                                            <input type="range" min="30" max="150" value={cardData.logoSize || 56} onChange={e => setCardData({...cardData, logoSize: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="pt-8 border-t border-white/5">
                                 <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Color Palette</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    
+                                    {/* The New Universal Background Color Picker */}
                                     <div>
-                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Card Theme Mode</label>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label>
+                                        <input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
                                         <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                            <button onClick={() => setCardData({...cardData, cardMode: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardMode === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
-                                            <button onClick={() => setCardData({...cardData, cardMode: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardMode === 'dark' || !cardData.cardMode ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                            <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`} title="Use white text (Best for dark backgrounds)">Dark</button>
+                                            <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`} title="Use black text (Best for light backgrounds)">Light</button>
                                         </div>
                                     </div>
+                                    
                                     <div>
                                         <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label>
                                         <input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
                                     </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Button Text</label>
-                                        <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                            <button onClick={() => setCardData({...cardData, textColor: '#FFFFFF'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#FFFFFF' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
-                                            <button onClick={() => setCardData({...cardData, textColor: '#000000'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.textColor === '#000000' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
-                                        </div>
-                                    </div>
+                                    
                                     <div>
                                         <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label>
                                         <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
@@ -408,6 +451,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                             <button onClick={() => setCardData({...cardData, iconColor: '#000000'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.iconColor === '#000000' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
                                         </div>
                                     </div>
+
                                 </div>
                             </div>
 
@@ -427,8 +471,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                         <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                             <MonitorSmartphone size={14} /> Live Preview
                         </div>
-                        {/* We wrap the preview in a simulated screen background so they can see the full effect of Light/Dark mode! */}
-                        <div className={`p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardMode === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`}>
+                        <div className="pointer-events-none">
                            <PublicCardView data={cardData} />
                         </div>
                     </div>
