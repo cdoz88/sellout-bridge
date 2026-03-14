@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -54,20 +54,26 @@ const SelloutIcon = ({ size=20, className="" }) => (
     </svg>
 );
 
+// --- THE NEW LINK ENGINE ARCHITECTURE ---
+const DEFAULT_LINKS = [
+    { id: 'phone', type: 'phone', title: 'Phone Number', defaultSubtitle: 'Call or Text', url: '' },
+    { id: 'email', type: 'email', title: 'Email Address', defaultSubtitle: 'Email me', url: '' },
+    { id: 'website', type: 'website', title: 'Official Website', defaultSubtitle: 'Visit my site', url: '' },
+    { id: 'shop', type: 'shop', title: 'Shop URL', defaultSubtitle: 'Browse my store', url: '' },
+    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', defaultSubtitle: 'Join my community', url: '' },
+    { id: 'instagram', type: 'instagram', title: 'Instagram', defaultSubtitle: 'Follow me', url: '' },
+    { id: 'tiktok', type: 'tiktok', title: 'TikTok', defaultSubtitle: 'Watch my videos', url: '' },
+    { id: 'youtube', type: 'youtube', title: 'YouTube', defaultSubtitle: 'Subscribe to my channel', url: '' },
+    { id: 'facebook', type: 'facebook', title: 'Facebook', defaultSubtitle: 'Connect on Facebook', url: '' },
+    { id: 'twitter', type: 'twitter', title: 'X', defaultSubtitle: 'Follow for updates', url: '' },
+    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', defaultSubtitle: 'Professional network', url: '' }
+];
+
 const DEFAULT_CARD = {
     name: "Your Name",
     title: "Your Title",
     company: "Your Company",
-    phone: "(555) 555-5555",
-    email: "email@example.com",
-    website: "yourwebsite.com",
-    sellout: "",
-    twitter: "",
-    linkedin: "",
-    facebook: "",
-    instagram: "",
-    youtube: "",
-    tiktok: "",
+    links: DEFAULT_LINKS, 
     avatarUrl: "",
     logoUrl: "", 
     logoSize: 56, 
@@ -91,6 +97,31 @@ const PRESETS = [
     { id: 'custom', name: 'Custom', bg: 'linear-gradient(45deg, #333, #111)', accent: 'transparent' }
 ];
 
+const getIconForType = (type) => {
+    switch(type) {
+        case 'phone': return Phone;
+        case 'email': return Mail;
+        case 'website': return Globe;
+        case 'shop': return ShoppingBag;
+        case 'sellout': return SelloutIcon;
+        case 'instagram': return Instagram;
+        case 'tiktok': return TiktokIcon;
+        case 'youtube': return Youtube;
+        case 'facebook': return Facebook;
+        case 'twitter': return XIcon;
+        case 'linkedin': return Linkedin;
+        case 'custom': return Link; 
+        default: return Link;
+    }
+};
+
+const getSubtitle = (link) => {
+    if (link.type === 'phone' || link.type === 'email') return link.url;
+    if (link.type === 'custom') return link.url.replace(/^https?:\/\//, '');
+    if (link.type === 'website' || link.type === 'shop') return link.url.replace(/^https?:\/\//, '');
+    return link.defaultSubtitle;
+};
+
 // --- THE PUBLIC CARD COMPONENT (FLOATING DESIGN) ---
 export const PublicCardView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
@@ -100,20 +131,23 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [notes, setNotes] = useState('');
     const [showPhoneAction, setShowPhoneAction] = useState(false);
+    const [activePhoneString, setActivePhoneString] = useState(''); // Tracks which phone number they tapped
 
-    // Retrieve locally saved notes on mount (based on their unique email or name)
+    // Get the primary identifier to securely save local notes
+    const activeLinks = data.links || [];
+    const emailLink = activeLinks.find(l => l.type === 'email' && l.url.trim());
+    const primaryId = emailLink ? emailLink.url : data.name;
+
     useEffect(() => {
-        const identifier = data.email || data.name;
-        if (identifier) {
-            const saved = localStorage.getItem(`sc_notes_${btoa(identifier)}`);
+        if (primaryId) {
+            const saved = localStorage.getItem(`sc_notes_${btoa(primaryId)}`);
             if (saved) setNotes(saved);
         }
-    }, [data.email, data.name]);
+    }, [primaryId]);
 
     const handleSaveNotes = () => {
-        const identifier = data.email || data.name;
-        if (identifier) {
-            localStorage.setItem(`sc_notes_${btoa(identifier)}`, notes);
+        if (primaryId) {
+            localStorage.setItem(`sc_notes_${btoa(primaryId)}`, notes);
         }
         setShowNotesModal(false);
     };
@@ -130,11 +164,15 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
         parts.push(`FN:${escapeVCardValue(data.name)}`);
         if (data.company) parts.push(`ORG:${escapeVCardValue(data.company)}`);
         if (data.title) parts.push(`TITLE:${escapeVCardValue(data.title)}`);
-        if (data.phone) parts.push(`TEL;TYPE=WORK,VOICE:${data.phone}`);
-        if (data.email) parts.push(`EMAIL:${data.email}`);
-        if (data.website) parts.push(`URL:https://${data.website.replace(/^https?:\/\//,'')}`);
         
-        // Inject secure personal notes into the vCard!
+        // Inject all mapped links from the new structure into the vCard
+        activeLinks.forEach(link => {
+            if (!link.url || link.url.trim() === '') return;
+            if (link.type === 'phone') parts.push(`TEL;TYPE=WORK,VOICE:${link.url}`);
+            if (link.type === 'email') parts.push(`EMAIL:${link.url}`);
+            if (link.type === 'website' || link.type === 'shop' || link.type === 'custom') parts.push(`URL:https://${link.url.replace(/^https?:\/\//,'')}`);
+        });
+        
         if (notes && notes.trim() !== '') {
             parts.push(`NOTE:${escapeVCardValue(notes.trim())}`);
         }
@@ -166,30 +204,31 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const arrowClass = isLight ? 'text-gray-400' : 'text-gray-500';
 
-    const activeLinks = [
-        { id: 'phone', title: 'Phone Number', subtitle: data.phone, url: `tel:${data.phone?.replace(/\D/g, '')}`, icon: Phone, active: !!data.phone },
-        { id: 'email', title: 'Email Address', subtitle: data.email, url: `mailto:${data.email}`, icon: Mail, active: !!data.email },
-        { id: 'website', title: 'Official Website', subtitle: data.website?.replace(/^https?:\/\//, ''), url: `https://${data.website?.replace(/^https?:\/\//, '')}`, icon: Globe, active: !!data.website },
-        { id: 'sellout', title: 'Sellout Crowds', subtitle: 'Join my community', url: `https://${data.sellout?.replace(/^https?:\/\//, '')}`, icon: SelloutIcon, active: !!data.sellout },
-        { id: 'instagram', title: 'Instagram', subtitle: 'Follow me', url: `https://${data.instagram?.replace(/^https?:\/\//, '')}`, icon: Instagram, active: !!data.instagram },
-        { id: 'tiktok', title: 'TikTok', subtitle: 'Watch my videos', url: `https://${data.tiktok?.replace(/^https?:\/\//, '')}`, icon: TiktokIcon, active: !!data.tiktok },
-        { id: 'youtube', title: 'YouTube', subtitle: 'Subscribe to my channel', url: `https://${data.youtube?.replace(/^https?:\/\//, '')}`, icon: Youtube, active: !!data.youtube },
-        { id: 'facebook', title: 'Facebook', subtitle: 'Connect on Facebook', url: `https://${data.facebook?.replace(/^https?:\/\//, '')}`, icon: Facebook, active: !!data.facebook },
-        { id: 'twitter', title: 'X', subtitle: 'Follow for updates', url: `https://${data.twitter?.replace(/^https?:\/\//, '')}`, icon: XIcon, active: !!data.twitter },
-        { id: 'linkedin', title: 'LinkedIn', subtitle: 'Professional network', url: `https://${data.linkedin?.replace(/^https?:\/\//, '')}`, icon: Linkedin, active: !!data.linkedin }
-    ].filter(l => l.active);
+    // Format the links for rendering
+    const renderLinks = activeLinks.filter(l => l.url && l.url.trim() !== '').map(link => {
+        let formattedUrl = link.url.trim();
+        if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
+        else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
+        else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
+
+        return {
+            ...link,
+            subtitle: getSubtitle(link),
+            url: formattedUrl,
+            rawUrl: link.url.trim(),
+            icon: getIconForType(link.type)
+        };
+    });
 
     return (
         <div className={containerClasses} style={containerStyle}>
             
-            {/* Top Brand Logo - Tightened Top Padding */}
             {data.logoUrl && (
                 <div className="w-full flex justify-center pt-2 sm:pt-6 relative z-10">
                     <img src={data.logoUrl} alt="Company Logo" className="object-contain" style={{ height: `${data.logoSize || 56}px` }} />
                 </div>
             )}
 
-            {/* Glowing Avatar */}
             <div className={`relative flex justify-center ${data.logoUrl ? 'mt-6' : 'mt-12'}`}>
                 {data.avatarUrl ? (
                     <img src={data.avatarUrl} className="w-28 h-28 rounded-full object-cover border-2 relative z-10" style={{ borderColor: data.theme, boxShadow: `0 0 35px ${data.theme}40` }} alt="Profile" />
@@ -201,17 +240,16 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
             </div>
             
             <div className="pt-6 pb-2 px-6 text-center">
-                {/* Title / Company Swap */}
                 <h1 className={`text-3xl font-black uppercase tracking-tight ${textNameClass}`}>{data.name}</h1>
                 <p className="text-sm font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.company}</p>
                 <p className={`text-xs font-medium mt-1 ${textCompanyClass}`}>{data.title}</p>
 
-                {/* Sleek Wide Buttons */}
+                {/* THE NEW SLEEK WIDE BUTTONS */}
                 <div className="mt-10 space-y-3 text-left">
-                    {activeLinks.map(link => {
-                        if (link.id === 'phone') {
+                    {renderLinks.map(link => {
+                        if (link.type === 'phone') {
                             return (
-                                <button key={link.id} onClick={() => setShowPhoneAction(true)} className={`w-full flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group text-left ${buttonBgClass}`}>
+                                <button key={link.id} onClick={() => { setActivePhoneString(link.rawUrl); setShowPhoneAction(true); }} className={`w-full flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group text-left ${buttonBgClass}`}>
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
                                         <link.icon size={20} />
                                     </div>
@@ -239,7 +277,7 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                     })}
                 </div>
 
-                {/* Action Buttons (Notes + Save) */}
+                {/* ACTION BUTTONS (Notes + Save) */}
                 <div className="mt-8 flex gap-3">
                     <button onClick={() => setShowNotesModal(true)} className={`flex-1 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}>
                         <FileText size={16} /> Notes
@@ -263,14 +301,14 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                         <h3 className={`text-xl font-black uppercase tracking-tight mb-4 ${textNameClass}`}>Contact Options</h3>
                         
                         <div className="space-y-3">
-                            <a href={`tel:${data.phone?.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
+                            <a href={`tel:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
                                 <div className="flex items-center gap-3">
                                     <Phone size={18} style={{ color: data.theme }} /> 
-                                    <span>Call {data.phone}</span>
+                                    <span>Call {activePhoneString}</span>
                                 </div>
                                 <ArrowRight size={16} className={arrowClass} />
                             </a>
-                            <a href={`sms:${data.phone?.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
+                            <a href={`sms:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
                                 <div className="flex items-center gap-3">
                                     <MessageSquare size={18} style={{ color: data.theme }} /> 
                                     <span>Text (SMS)</span>
@@ -321,13 +359,24 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ avatar: false, logo: false, qrLogo: false });
     const [showQrModal, setShowQrModal] = useState(false);
+    const [draggedIndex, setDraggedIndex] = useState(null);
 
+    // MIGRATION SCRIPT: Smoothly converts old static fields into the new Link Engine array!
     useEffect(() => {
         if (!session) return;
         fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
             .then(res => res.json())
             .then(data => {
-                if (data.card) setCardData({ ...DEFAULT_CARD, ...data.card }); 
+                if (data.card) {
+                    let fetchedCard = data.card;
+                    if (!fetchedCard.links) {
+                        fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({
+                            ...defaultLink,
+                            url: fetchedCard[defaultLink.type] || ''
+                        }));
+                    }
+                    setCardData({ ...DEFAULT_CARD, ...fetchedCard }); 
+                }
                 if (data.slug) setSlug(data.slug);
                 setIsLoading(false);
             })
@@ -393,6 +442,47 @@ export default function BusinessCardApp({ session, activeTab }) {
         }
     };
 
+    // --- DRAG AND DROP ENGINE ---
+    const handleDragStart = (e, index) => {
+        setDraggedIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+    const handleDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedIndex === null || draggedIndex === index) return;
+        const newLinks = [...cardData.links];
+        const draggedItem = newLinks[draggedIndex];
+        newLinks.splice(draggedIndex, 1);
+        newLinks.splice(index, 0, draggedItem);
+        setDraggedIndex(index);
+        setCardData({ ...cardData, links: newLinks });
+    };
+    const handleDragEnd = () => {
+        setDraggedIndex(null);
+    };
+
+    const updateLink = (id, field, value) => {
+        setCardData({
+            ...cardData,
+            links: cardData.links.map(l => l.id === id ? { ...l, [field]: value } : l)
+        });
+    };
+
+    const addCustomLink = () => {
+        const newLink = {
+            id: 'custom_' + Date.now(),
+            type: 'custom',
+            title: 'Custom Link',
+            defaultSubtitle: 'Click here',
+            url: ''
+        };
+        setCardData({ ...cardData, links: [...cardData.links, newLink] });
+    };
+
+    const removeLink = (id) => {
+        setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
+    };
+
     const getShareUrl = () => {
         if (!slug) return '';
         return `https://crowds.bio/${slug}`;
@@ -436,7 +526,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                 {/* LEFT: THE FORMS */}
                 <div className="lg:col-span-7 space-y-6">
                     
-                    {/* TAB 1: BUILDER (CORE DETAILS) */}
+                    {/* TAB 1: BUILDER (CORE DETAILS & LINKS) */}
                     {activeTab === 'builder' && (
                         <div className="animate-in fade-in duration-300">
                             
@@ -481,52 +571,64 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
                                         <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                                     </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
-                                        <input type="tel" value={cardData.phone} onChange={e => setCardData({...cardData, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
-                                        <input type="email" value={cardData.email} onChange={e => setCardData({...cardData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website URL</label>
-                                        <input type="text" value={cardData.website} onChange={e => setCardData({...cardData, website: e.target.value})} placeholder="e.g. selloutcrowds.com" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5">
-                                    <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Social Media</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="sm:col-span-2">
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><SelloutIcon size={10}/> Sellout Crowds URL</label>
-                                            <input type="text" value={cardData.sellout} onChange={e => setCardData({...cardData, sellout: e.target.value})} placeholder="selloutcrowds.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Instagram size={10}/> Instagram URL</label>
-                                            <input type="text" value={cardData.instagram} onChange={e => setCardData({...cardData, instagram: e.target.value})} placeholder="instagram.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><TiktokIcon size={10}/> TikTok URL</label>
-                                            <input type="text" value={cardData.tiktok} onChange={e => setCardData({...cardData, tiktok: e.target.value})} placeholder="tiktok.com/@username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Youtube size={10}/> YouTube URL</label>
-                                            <input type="text" value={cardData.youtube} onChange={e => setCardData({...cardData, youtube: e.target.value})} placeholder="youtube.com/@channel" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Facebook size={10}/> Facebook URL</label>
-                                            <input type="text" value={cardData.facebook} onChange={e => setCardData({...cardData, facebook: e.target.value})} placeholder="facebook.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><XIcon size={10}/> X URL</label>
-                                            <input type="text" value={cardData.twitter} onChange={e => setCardData({...cardData, twitter: e.target.value})} placeholder="x.com/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1"><Linkedin size={10}/> LinkedIn URL</label>
-                                            <input type="text" value={cardData.linkedin} onChange={e => setCardData({...cardData, linkedin: e.target.value})} placeholder="linkedin.com/in/username" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                        </div>
+                                    <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Links & Social Media</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Drag to reorder. Leave blank to hide.</p>
+                                    
+                                    <div className="flex flex-col gap-3">
+                                        {cardData.links.map((link, index) => {
+                                            const IconComponent = getIconForType(link.type);
+                                            return (
+                                                <div 
+                                                    key={link.id}
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragOver={(e) => handleDragOver(e, index)}
+                                                    onDragEnd={handleDragEnd}
+                                                    className={`flex items-center gap-3 bg-black p-2.5 rounded-xl border transition-all ${draggedIndex === index ? 'border-[#9df01c] opacity-50' : 'border-white/10 focus-within:border-white/30'}`}
+                                                >
+                                                    <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0 ml-1" />
+                                                    
+                                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0">
+                                                        <IconComponent size={16} />
+                                                    </div>
+
+                                                    <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pr-2">
+                                                        {link.type === 'custom' ? (
+                                                            <input 
+                                                                type="text" 
+                                                                value={link.title} 
+                                                                onChange={(e) => updateLink(link.id, 'title', e.target.value)}
+                                                                className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3"
+                                                                placeholder="Link Title"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 flex items-center">{link.title}</span>
+                                                        )}
+
+                                                        <input 
+                                                            type="text" 
+                                                            value={link.url}
+                                                            onChange={(e) => updateLink(link.id, 'url', e.target.value)}
+                                                            placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : 'URL or username...'}
+                                                            className="bg-transparent text-white text-xs outline-none w-full flex-1"
+                                                        />
+                                                    </div>
+
+                                                    {link.type === 'custom' && (
+                                                        <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
+                                    <button onClick={addCustomLink} className="mt-4 w-full py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                                        <Plus size={14} /> Add Custom Link
+                                    </button>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
@@ -631,7 +733,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
 
                             <div className="pt-8 border-t border-white/5 mt-8">
-                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">QR Code Setting</h4>
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
                                 
                                 <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
                                     <div>

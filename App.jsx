@@ -50,9 +50,8 @@ export default function App() {
   useEffect(() => {
       const hostname = window.location.hostname;
       
-      // If we are on crowds.bio (or testing locally with a slash)
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
-          const pathSlug = window.location.pathname.substring(1); // remove the leading '/'
+          const pathSlug = window.location.pathname.substring(1); 
           
           if (pathSlug && pathSlug !== '') {
               setIsPublicBio(true);
