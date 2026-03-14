@@ -84,7 +84,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
   useEffect(() => {
-    if (isPublicBio) return; // Do not attempt OAuth if rendering a public card
+    if (isPublicBio) return; 
 
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
@@ -195,7 +195,7 @@ export default function App() {
       const fullScreenBgColor = publicCardData.cardBgColor || (isLight ? '#f9fafb' : '#050505');
 
       return (
-          <div className={`min-h-screen flex flex-col items-center py-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
+          <div className={`min-h-screen flex flex-col items-center pt-8 pb-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
               {/* isFullScreen=true makes it blend seamlessly into the page background! */}
               <PublicCardView data={publicCardData} isFullScreen={true} />
               
