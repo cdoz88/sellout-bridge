@@ -50,6 +50,7 @@ export default function App() {
   useEffect(() => {
       const hostname = window.location.hostname;
       
+      // If we are on crowds.bio (or testing locally with a slash)
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
           const pathSlug = window.location.pathname.substring(1); 
           
@@ -89,7 +90,8 @@ export default function App() {
   useEffect(() => {
     if (isPublicBio) return; 
 
-    const urlParams = newSearchParams(window.location.search);
+    // FIX: Corrected "new URLSearchParams"
+    const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && !hasAttemptedLogin.current) {
       hasAttemptedLogin.current = true;
