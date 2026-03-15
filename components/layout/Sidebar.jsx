@@ -41,9 +41,9 @@ export default function Sidebar({
                                 <button onClick={() => handleNavClick('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
                                 </button>
-                                {/* NEW MANUAL TAB */}
+                                
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <UserPlus size={16} /> Manual Access
+                                    <UserPlus size={16} /> Manual
                                 </button>
                             </div>
                         </div>

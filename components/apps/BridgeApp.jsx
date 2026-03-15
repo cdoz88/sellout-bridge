@@ -26,7 +26,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   // --- MANUAL USER STATE ---
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
-  const [manualUnaSelect, setManualUnaSelect] = useState(''); // Combined module_id string
+  const [manualUnaSelect, setManualUnaSelect] = useState(''); 
   const [isManualSaving, setIsManualSaving] = useState(false);
 
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
@@ -146,7 +146,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               }
           }
           setPatreonUsers(parsedUsers);
-          setProviderProducts(prev => ({ ...prev, patreon: Array.from(uniqueTiers).map(t => ({ id: t, name: t })) }));
+          setProviderProducts(prev => ({ ...prev, patreon: [...uniqueTiers].map(t => ({ id: t, name: t })) }));
           setKeySuccess(true);
           setTimeout(() => setKeySuccess(false), 3000);
           setError(null);

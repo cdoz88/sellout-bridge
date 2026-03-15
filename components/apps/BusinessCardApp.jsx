@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link } from 'lucide-react';
+// FIX: Removed the conflicting 'Link' import to prevent crashes
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -107,8 +108,8 @@ const getIconForType = (type) => {
         case 'facebook': return Facebook;
         case 'twitter': return XIcon;
         case 'linkedin': return Linkedin;
-        case 'custom': return Link; 
-        default: return Link;
+        case 'custom': return Link2; 
+        default: return Link2;
     }
 };
 
@@ -315,7 +316,6 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [mobileView, setMobileView] = useState('edit');
 
-    // --- MOBILE LISTENER FOR QR CODE ---
     useEffect(() => {
         const handleOpenQrModal = () => {
             if (slug) setShowQrModal(true);
