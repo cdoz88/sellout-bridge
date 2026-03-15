@@ -71,6 +71,7 @@ const DEFAULT_CARD = {
     avatarUrl: "",
     logoUrl: "", 
     logoSize: 56, 
+    logoOffsetX: 0, // NEW: Horizontal adjustment tracker
     themePreset: "default", 
     theme: "#9df01c",
     textColor: "#000000",
@@ -199,9 +200,16 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
 
     return (
         <div className={containerClasses} style={containerStyle}>
+            
+            {/* Added Horizontal Offset Transformation for the Logo */}
             {data.logoUrl && (
                 <div className="w-full flex justify-center pt-2 sm:pt-6 relative z-10">
-                    <img src={data.logoUrl} alt="Company Logo" className="object-contain" style={{ height: `${data.logoSize || 56}px` }} />
+                    <img 
+                        src={data.logoUrl} 
+                        alt="Company Logo" 
+                        className="object-contain transition-transform" 
+                        style={{ height: `${data.logoSize || 56}px`, transform: `translateX(${data.logoOffsetX || 0}px)` }} 
+                    />
                 </div>
             )}
 
@@ -312,7 +320,6 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [editingContact, setEditingContact] = useState(null);
     const [editingContactIndex, setEditingContactIndex] = useState(-1);
     
-    // State to toggle between Builder and Live Preview on Mobile
     const [mobileView, setMobileView] = useState('edit');
 
     useEffect(() => {
@@ -325,7 +332,8 @@ export default function BusinessCardApp({ session, activeTab }) {
                     if (!fetchedCard.links) {
                         fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({ ...defaultLink, url: fetchedCard[defaultLink.type] || '' }));
                     }
-                    setCardData({ ...DEFAULT_CARD, ...fetchedCard }); 
+                    // Make sure logoOffsetX defaults to 0 if it isn't set yet
+                    setCardData({ ...DEFAULT_CARD, ...fetchedCard, logoOffsetX: fetchedCard.logoOffsetX || 0 }); 
                 }
                 if (data.slug) setSlug(data.slug);
                 setIsLoading(false);
@@ -447,7 +455,7 @@ export default function BusinessCardApp({ session, activeTab }) {
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
                         {activeTab === 'design' ? 'Design & Theme' : activeTab === 'address-book' ? 'Address Book' : activeTab === 'url' ? 'Custom URL' : 'Card Builder'}
@@ -456,8 +464,9 @@ export default function BusinessCardApp({ session, activeTab }) {
                         {activeTab === 'design' ? 'Customize the look and feel of your card.' : activeTab === 'address-book' ? 'Manage and export your saved contacts.' : activeTab === 'url' ? 'Claim your custom public link.' : 'Update your contact and social information.'}
                     </p>
                 </div>
+                {/* Header Action Buttons - Fixed for Right Alignment on Mobile */}
                 {activeTab !== 'address-book' && (
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 w-full md:w-auto justify-end">
                         <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
                             <QrCode size={14} /> <span className="hidden sm:inline">Get QR Code</span>
                         </button>
@@ -503,6 +512,29 @@ export default function BusinessCardApp({ session, activeTab }) {
                     {/* TAB 2: BUILDER (CORE DETAILS & LINKS) */}
                     {activeTab === 'builder' && (
                         <div className="animate-in fade-in duration-300">
+                            
+                            {/* MOVED: PROFILE PHOTO UPLOAD */}
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mb-6 flex flex-col sm:flex-row items-center gap-6 shadow-lg">
+                                <div className="relative shrink-0">
+                                    {cardData.avatarUrl ? (
+                                        <img src={cardData.avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
+                                    ) : (
+                                        <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={28} className="text-gray-500" /></div>
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-3 items-center sm:items-start text-center sm:text-left w-full">
+                                    <div>
+                                        <h3 className="text-lg font-black uppercase tracking-tighter text-white">Profile Photo</h3>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Upload your professional headshot</p>
+                                    </div>
+                                    <label className={`px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center sm:justify-start gap-2 border border-white/10 w-full sm:w-auto ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.avatar ? 'Uploading...' : 'Upload Photo'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
                                 <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><User size={18} className="text-[#9df01c]"/> Details</h3>
                                 
@@ -559,99 +591,116 @@ export default function BusinessCardApp({ session, activeTab }) {
 
                     {/* TAB 3: DESIGN & THEME */}
                     {activeTab === 'design' && (
-                        <div className="animate-in fade-in duration-300">
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Branding</h3>
-                                
-                                <div className="flex flex-col sm:flex-row gap-6 mb-8">
-                                    <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
-                                        <div className="mb-4">
-                                            {cardData.avatarUrl ? <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" /> : <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>}
-                                        </div>
-                                        <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
-                                            {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
-                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
-                                        </label>
-                                    </div>
-
-                                    <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center relative">
-                                        <div className="mb-4 w-full flex items-center justify-center h-20">
-                                            {cardData.logoUrl ? <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>}
-                                        </div>
-                                        <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
-                                            {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
-                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
-                                        </label>
-                                        
-                                        {cardData.logoUrl && (
-                                            <div className="w-full mt-4 bg-white/5 p-2 rounded-xl">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Logo Size</label>
-                                                    <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove</button>
-                                                </div>
-                                                <input type="range" min="30" max="150" value={cardData.logoSize || 56} onChange={e => setCardData({...cardData, logoSize: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
-                                            </div>
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 animate-in fade-in duration-300">
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Branding</h3>
+                            
+                            {/* NEW: TWO COLUMN BRAND LOGO WITH HORIZONTAL ADJUST */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 bg-black p-5 sm:p-8 rounded-2xl border border-white/5 items-center">
+                                {/* Left Column: Upload */}
+                                <div className="flex flex-col items-center justify-center text-center border-b sm:border-b-0 sm:border-r border-white/5 pb-8 sm:pb-0 sm:pr-8">
+                                    <div className="mb-4 w-full flex items-center justify-center h-24 bg-white/5 rounded-xl border border-white/5">
+                                        {cardData.logoUrl ? (
+                                            <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                                        ) : (
+                                            <ImageIcon size={28} className="text-gray-600" />
                                         )}
                                     </div>
-                                </div>
-
-                                <div className="pt-8 border-t border-white/5">
-                                    <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Theme Presets</h4>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-                                        {PRESETS.map(p => (
-                                            <button key={p.id} onClick={() => handlePresetSelect(p)} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}>
-                                                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>{p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}</div>
-                                                <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{p.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {cardData.themePreset === 'custom' && (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in bg-black p-5 rounded-2xl border border-white/5">
-                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label><input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                            <div>
-                                                <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
-                                                <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                                    <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
-                                                    <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
-                                                </div>
-                                            </div>
-                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label><input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label><input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                        </div>
+                                    <label className={`w-full justify-center py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.logo ? 'Uploading...' : 'Brand Logo'}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
+                                    </label>
+                                    {cardData.logoUrl && (
+                                        <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="mt-4 text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest transition-colors">
+                                            Remove Logo
+                                        </button>
                                     )}
                                 </div>
 
-                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Branding'}</button>
+                                {/* Right Column: Sliders */}
+                                <div className="flex flex-col justify-center space-y-8 sm:pl-4">
+                                    <div className="w-full">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Logo Size</label>
+                                            <span className="text-[9px] text-[#9df01c] font-bold">{cardData.logoSize || 56}px</span>
+                                        </div>
+                                        <input type="range" min="30" max="150" value={cardData.logoSize || 56} onChange={e => setCardData({...cardData, logoSize: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                    </div>
+
+                                    <div className="w-full">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Horizontal Alignment</label>
+                                            <span className="text-[9px] text-[#9df01c] font-bold">{cardData.logoOffsetX || 0}px</span>
+                                        </div>
+                                        <input type="range" min="-100" max="100" value={cardData.logoOffsetX || 0} onChange={e => setCardData({...cardData, logoOffsetX: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                        <div className="flex justify-between mt-2 px-1">
+                                            <span className="text-[8px] text-gray-600 uppercase font-bold">Left</span>
+                                            <button onClick={() => setCardData({...cardData, logoOffsetX: 0})} className="text-[8px] text-gray-400 hover:text-white uppercase font-bold transition-colors">Center</button>
+                                            <span className="text-[8px] text-gray-600 uppercase font-bold">Right</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mt-6">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
-                                
-                                <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
-                                    <div><p className="text-sm font-bold text-white">Embed Logo in QR Code</p><p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p></div>
-                                    <button onClick={() => setCardData({...cardData, qrLogoEnabled: !cardData.qrLogoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.qrLogoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.qrLogoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
+                            <div className="pt-4 border-t border-white/5">
+                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Theme Presets</h4>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+                                    {PRESETS.map(p => (
+                                        <button key={p.id} onClick={() => handlePresetSelect(p)} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}>
+                                            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>{p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}</div>
+                                            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{p.name}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                                {cardData.qrLogoEnabled && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-black p-5 rounded-xl border border-white/5 animate-in fade-in">
-                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label><input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /><p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p></div>
+
+                                {cardData.themePreset === 'custom' && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in bg-black p-5 rounded-2xl border border-white/5">
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label><input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
                                         <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Custom QR Logo (Optional)</label>
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0">{(cardData.qrLogoUrl || cardData.logoUrl) ? <img src={cardData.qrLogoUrl || cardData.logoUrl} className="max-w-full max-h-full object-contain" alt="QR center" /> : <ImageIcon size={16} className="text-gray-500" />}</div>
-                                                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                                    <label className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>{isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}Upload Logo<input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} /></label>
-                                                    {cardData.qrLogoUrl && <button onClick={() => setCardData({...cardData, qrLogoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-center sm:text-left sm:pl-1">Use Main Brand Logo</button>}
-                                                </div>
+                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
+                                            <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
+                                                <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                                <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
+                                            </div>
+                                        </div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label><input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label><input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Branding'}</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* NEW DEDICATED QR SECTION ON DESIGN PAGE */}
+                    {activeTab === 'design' && (
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mt-6">
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
+                            
+                            <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
+                                <div><p className="text-sm font-bold text-white">Embed Logo in QR Code</p><p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p></div>
+                                <button onClick={() => setCardData({...cardData, qrLogoEnabled: !cardData.qrLogoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.qrLogoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.qrLogoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
+                            </div>
+                            {cardData.qrLogoEnabled && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-black p-5 rounded-xl border border-white/5 animate-in fade-in">
+                                    <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label><input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /><p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p></div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Custom QR Logo (Optional)</label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0">{(cardData.qrLogoUrl || cardData.logoUrl) ? <img src={cardData.qrLogoUrl || cardData.logoUrl} className="max-w-full max-h-full object-contain" alt="QR center" /> : <ImageIcon size={16} className="text-gray-500" />}</div>
+                                            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                <label className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>{isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}Upload Logo<input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} /></label>
+                                                {cardData.qrLogoUrl && <button onClick={() => setCardData({...cardData, qrLogoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-center sm:text-left sm:pl-1">Use Main Brand Logo</button>}
                                             </div>
                                         </div>
                                     </div>
-                                )}
-                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save QR Settings'}</button>
                                 </div>
+                            )}
+                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save QR Settings'}</button>
                             </div>
                         </div>
                     )}
