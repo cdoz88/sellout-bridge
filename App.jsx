@@ -6,15 +6,14 @@ import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
 import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
+import AddressBookApp from './components/apps/AddressBookApp'; // NEW
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
-  // Public View State
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicBioError, setPublicBioError] = useState(false);
 
-  // Authenticated State
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
     const saved = localStorage.getItem('bridge_unadata');
@@ -25,23 +24,21 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
-  // --- NEW: URL-AWARE STATE INITIALIZATION ---
-  // Instead of defaulting to 'bridge', we check if the URL has an ?app= parameter!
+  // --- NEW: DEFAULT TO BUSINESS CARD BUILDER ---
   const [currentApp, setCurrentApp] = useState(() => {
       if (typeof window !== 'undefined') {
           const params = new URLSearchParams(window.location.search);
-          return params.get('app') || 'bridge';
+          return params.get('app') || 'business-card';
       }
-      return 'bridge';
+      return 'business-card';
   });
   
-  // Instead of defaulting to 'stripe', we check if the URL has a ?tab= parameter!
   const [activeTab, setActiveTab] = useState(() => {
       if (typeof window !== 'undefined') {
           const params = new URLSearchParams(window.location.search);
-          return params.get('tab') || 'stripe';
+          return params.get('tab') || 'builder';
       }
-      return 'stripe';
+      return 'builder';
   }); 
 
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
@@ -55,8 +52,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- NEW: SYNC STATE TO URL ---
-  // Whenever currentApp or activeTab changes, we instantly update the URL bar so they can bookmark it!
   useEffect(() => {
       if (!isPublicBio && session) {
           const url = new URL(window.location);
@@ -66,8 +61,6 @@ export default function App() {
       }
   }, [currentApp, activeTab, isPublicBio, session]);
 
-
-  // --- 0. SET DYNAMIC PAGE TITLE ---
   useEffect(() => {
       if (isPublicBio && publicCardData?.name) {
           document.title = `${publicCardData.name} | Contact`;
@@ -76,17 +69,13 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData]);
 
-  // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
       const hostname = window.location.hostname;
-      
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
           const pathSlug = window.location.pathname.substring(1); 
-          
           if (pathSlug && pathSlug !== '') {
               setIsPublicBio(true);
               setIsLoading(true);
-              
               fetch(`/api/public-card/${pathSlug}`)
                   .then(res => res.json())
                   .then(data => {
@@ -105,7 +94,6 @@ export default function App() {
       }
   }, []);
 
-  // --- 2. OAUTH LOGIN LOGIC ---
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
     else {
@@ -123,8 +111,24 @@ export default function App() {
     if (code && !hasAttemptedLogin.current) {
       hasAttemptedLogin.current = true;
       handleCallback(code);
+    } else if (session && !unaData.user) {
+        // If they have a session but no user data on load, check the token!
+        fetchUser(session);
     }
-  }, [isPublicBio]);
+  }, [isPublicBio, session]);
+
+  // --- LOGOUT HANDLER ---
+  const handleLogout = () => {
+    setSession(null);
+    setUnaData({ user: null, crowds: [], spaces: [], debug: null });
+    setCurrentApp('business-card');
+    setActiveTab('builder');
+    
+    // Clear URL parameters when logging out
+    const url = new URL(window.location);
+    url.search = '';
+    window.history.replaceState({}, '', url);
+  };
 
   const handleCallback = async (code) => {
     setIsLoading(true);
@@ -145,7 +149,6 @@ export default function App() {
       } else {
         setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
       }
-      // When OAuth finishes, we clear the code from the URL and let our Sync hook handle the rest
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
       setError("The server is not responding. Please try again.");
@@ -154,9 +157,11 @@ export default function App() {
     }
   };
 
+  // --- NEW: AUTO-LOGOUT IF TOKEN EXPIRES (401) ---
   const fetchUser = async (token) => {
     try {
       const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401) { handleLogout(); return; }
       const data = await res.json();
       setUnaData(prev => ({ ...prev, user: data.user }));
     } catch (err) { console.error("Could not load user data"); }
@@ -171,6 +176,7 @@ export default function App() {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' }
       });
+      if (res.status === 401) { handleLogout(); return; }
       const data = await res.json();
       setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
     } catch (err) { 
@@ -185,13 +191,6 @@ export default function App() {
     const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
     const state = Math.random().toString(36).substring(7);
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
-  };
-
-  const handleLogout = () => {
-    setSession(null);
-    setUnaData({ user: null, crowds: [], spaces: [], debug: null });
-    setCurrentApp('bridge');
-    setActiveTab('stripe');
   };
 
   const handleAppSwitch = (appId, defaultTab) => {
@@ -309,12 +308,15 @@ export default function App() {
                 {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'business-card' && (
-                    ['builder', 'design', 'address-book', 'url'].includes(activeTab) ? (
+                    ['builder', 'design', 'url'].includes(activeTab) ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
                     ) : (
                         <PlaceholderApp title="Card Settings" icon={<LayoutDashboard size={64}/>} description="Analytics and custom domain settings coming soon." />
                     )
                 )}
+
+                {/* NEW: ADDRESS BOOK AS A STANDALONE TOP-LEVEL APP */}
+                {currentApp === 'address-book' && <AddressBookApp />}
                 
                 {currentApp === 'linktree' && <PlaceholderApp title="Link-in-Bio Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
                 {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<Image size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}

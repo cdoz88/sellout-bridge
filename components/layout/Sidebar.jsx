@@ -70,12 +70,20 @@ export default function Sidebar({
                             <button onClick={() => handleNavClick('design')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'design' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Palette size={16} /> Design & Theme
                             </button>
-                            <button onClick={() => handleNavClick('address-book')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'address-book' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Users size={16} /> Address Book
-                            </button>
-                            {/* Renamed Settings to Custom URL */}
                             <button onClick={() => handleNavClick('url')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'url' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Globe size={16} /> Custom URL
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* NEW: DEDICATED ADDRESS BOOK MENU */}
+                {currentApp === 'address-book' && (
+                    <div className="px-4">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
+                        <div className="space-y-1">
+                            <button onClick={() => handleNavClick('contacts')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'contacts' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Users size={16} /> All Contacts
                             </button>
                         </div>
                     </div>
