@@ -8,6 +8,13 @@ export default function AddressBookApp() {
     const [editingContactIndex, setEditingContactIndex] = useState(-1);
     const [isUploading, setIsUploading] = useState({ contactPic: false });
 
+    // --- NEW: LISTEN FOR MOBILE BOTTOM NAV TRIGGER ---
+    useEffect(() => {
+        const handleAddContactEvent = () => openNewContactForm();
+        window.addEventListener('open-add-contact', handleAddContactEvent);
+        return () => window.removeEventListener('open-add-contact', handleAddContactEvent);
+    }, []);
+
     useEffect(() => {
         const savedContacts = localStorage.getItem('sc_address_book');
         if (savedContacts) setContacts(JSON.parse(savedContacts));
@@ -25,7 +32,7 @@ export default function AddressBookApp() {
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.success) {
-                setEditingContact({ ...editingContact, photo: result.url });
+                setEditingContact(prev => ({ ...prev, photo: result.url }));
             } else {
                 alert("Upload failed.");
             }
@@ -66,8 +73,17 @@ export default function AddressBookApp() {
          document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 
-    const openNewContactForm = () => { setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' }); setEditingContactIndex(-1); setContactView('form'); };
-    const openEditContactForm = (contact, index) => { setEditingContact({ ...contact }); setEditingContactIndex(index); setContactView('form'); };
+    const openNewContactForm = () => { 
+        setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' }); 
+        setEditingContactIndex(-1); 
+        setContactView('form'); 
+    };
+    
+    const openEditContactForm = (contact, index) => { 
+        setEditingContact({ ...contact }); 
+        setEditingContactIndex(index); 
+        setContactView('form'); 
+    };
     
     const saveAddressBookContact = () => {
         if (!editingContact.name) { alert("Name is required"); return; }

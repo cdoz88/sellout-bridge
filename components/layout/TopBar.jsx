@@ -9,7 +9,7 @@ export default function TopBar({
             case 'business-card': return { name: 'Business Card', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
             case 'address-book': return { name: 'Address Book', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'bridge': return { name: 'Subscription Bridge', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
-            case 'linktree': return { name: 'Link-in-Bio Tool', icon: <Link2 size={20} className="text-[#9df01c]" /> };
+            case 'linktree': return { name: 'Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <Image size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
             default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
@@ -44,7 +44,7 @@ export default function TopBar({
                             </button>
                             
                             <button onClick={() => handleAppSwitch('linktree', 'links')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'linktree' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Link-in-Bio Tool
+                                <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Bio Page
                             </button>
                             
                             <button onClick={() => handleAppSwitch('assets', 'logos')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'assets' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>

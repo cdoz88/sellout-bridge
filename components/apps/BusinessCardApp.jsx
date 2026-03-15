@@ -119,7 +119,6 @@ const getSubtitle = (link) => {
     return link.defaultSubtitle;
 };
 
-// --- THE PUBLIC CARD COMPONENT ---
 export const PublicCardView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
@@ -306,7 +305,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     );
 };
 
-// --- THE BUILDER APP ---
 export default function BusinessCardApp({ session, activeTab }) {
     const [cardData, setCardData] = useState(DEFAULT_CARD);
     const [slug, setSlug] = useState('');
@@ -316,6 +314,16 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [mobileView, setMobileView] = useState('edit');
+
+    // --- MOBILE LISTENER FOR QR CODE ---
+    useEffect(() => {
+        const handleOpenQrModal = () => {
+            if (slug) setShowQrModal(true);
+            else alert("Save your custom link first!");
+        };
+        window.addEventListener('open-qr-modal', handleOpenQrModal);
+        return () => window.removeEventListener('open-qr-modal', handleOpenQrModal);
+    }, [slug]);
 
     useEffect(() => {
         if (!session) return;
@@ -600,7 +608,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
 
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mt-6">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Setting</h3>
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
                                 
                                 <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
                                     <div><p className="text-sm font-bold text-white">Embed Logo in QR Code</p><p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p></div>
@@ -622,7 +630,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                     </div>
                                 )}
                                 <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Design'}</button>
+                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save QR Settings'}</button>
                                 </div>
                             </div>
                         </div>

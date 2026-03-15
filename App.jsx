@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText, Menu, X, LogOut } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText, Menu, X, QrCode, UserPlus } from 'lucide-react';
 
 // Import our new Component Architecture
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
 import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
-import AddressBookApp from './components/apps/AddressBookApp'; // NEW
+import AddressBookApp from './components/apps/AddressBookApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
@@ -24,7 +24,6 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
-  // --- NEW: DEFAULT TO BUSINESS CARD BUILDER ---
   const [currentApp, setCurrentApp] = useState(() => {
       if (typeof window !== 'undefined') {
           const params = new URLSearchParams(window.location.search);
@@ -112,19 +111,16 @@ export default function App() {
       hasAttemptedLogin.current = true;
       handleCallback(code);
     } else if (session && !unaData.user) {
-        // If they have a session but no user data on load, check the token!
         fetchUser(session);
     }
   }, [isPublicBio, session]);
 
-  // --- LOGOUT HANDLER ---
   const handleLogout = () => {
     setSession(null);
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
     setCurrentApp('business-card');
     setActiveTab('builder');
     
-    // Clear URL parameters when logging out
     const url = new URL(window.location);
     url.search = '';
     window.history.replaceState({}, '', url);
@@ -157,7 +153,6 @@ export default function App() {
     }
   };
 
-  // --- NEW: AUTO-LOGOUT IF TOKEN EXPIRES (401) ---
   const fetchUser = async (token) => {
     try {
       const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
@@ -200,7 +195,17 @@ export default function App() {
       setIsMobileMenuOpen(false);
   };
 
-  // --- RENDER 1: THE PUBLIC CARD VIEWER (crowds.bio) ---
+  // --- NEW: MOBILE ACTION SHORTCUTS ---
+  const triggerMobileQRCode = () => {
+      handleAppSwitch('business-card', 'builder');
+      setTimeout(() => window.dispatchEvent(new CustomEvent('open-qr-modal')), 100);
+  };
+
+  const triggerMobileAddContact = () => {
+      handleAppSwitch('address-book', 'contacts');
+      setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
+  };
+
   if (isPublicBio) {
       if (isLoading) {
           return (
@@ -236,7 +241,6 @@ export default function App() {
       );
   }
 
-  // --- RENDER 2: LOADING ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -246,7 +250,6 @@ export default function App() {
     );
   }
 
-  // --- RENDER 3: THE LOGIN SCREEN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -276,7 +279,6 @@ export default function App() {
     );
   }
 
-  // --- RENDER 4: THE CREATOR HUB SHELL ---
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
         {isMobileMenuOpen && (
@@ -315,24 +317,27 @@ export default function App() {
                     )
                 )}
 
-                {/* NEW: ADDRESS BOOK AS A STANDALONE TOP-LEVEL APP */}
                 {currentApp === 'address-book' && <AddressBookApp />}
                 
-                {currentApp === 'linktree' && <PlaceholderApp title="Link-in-Bio Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
+                {currentApp === 'linktree' && <PlaceholderApp title="Bio Page Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
                 {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<Image size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
                 {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
             </main>
         </div>
 
-        {/* MOBILE BOTTOM NAVIGATION */}
+        {/* UPGRADED MOBILE BOTTOM NAVIGATION */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-6 z-50">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 -ml-2 transition-colors flex flex-col items-center gap-1 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500 hover:text-white'}`}>
                 {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                 <span className="text-[9px] font-bold uppercase tracking-widest">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
             </button>
-            <button onClick={handleLogout} className="p-2 -mr-2 text-gray-500 hover:text-red-500 transition-colors flex flex-col items-center gap-1">
-                <LogOut size={20} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Log Out</span>
+            <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
+                <QrCode size={20} />
+                <span className="text-[9px] font-bold uppercase tracking-widest">QR Code</span>
+            </button>
+            <button onClick={triggerMobileAddContact} className="p-2 -mr-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
+                <UserPlus size={20} />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Add Contact</span>
             </button>
         </div>
     </div>
