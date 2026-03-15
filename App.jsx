@@ -9,10 +9,12 @@ import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardA
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
+  // Public View State
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicBioError, setPublicBioError] = useState(false);
 
+  // Authenticated State
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
     const saved = localStorage.getItem('bridge_unadata');
@@ -23,8 +25,25 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
-  const [currentApp, setCurrentApp] = useState('bridge');
-  const [activeTab, setActiveTab] = useState('stripe'); 
+  // --- NEW: URL-AWARE STATE INITIALIZATION ---
+  // Instead of defaulting to 'bridge', we check if the URL has an ?app= parameter!
+  const [currentApp, setCurrentApp] = useState(() => {
+      if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          return params.get('app') || 'bridge';
+      }
+      return 'bridge';
+  });
+  
+  // Instead of defaulting to 'stripe', we check if the URL has a ?tab= parameter!
+  const [activeTab, setActiveTab] = useState(() => {
+      if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          return params.get('tab') || 'stripe';
+      }
+      return 'stripe';
+  }); 
+
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
 
@@ -36,6 +55,19 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
+  // --- NEW: SYNC STATE TO URL ---
+  // Whenever currentApp or activeTab changes, we instantly update the URL bar so they can bookmark it!
+  useEffect(() => {
+      if (!isPublicBio && session) {
+          const url = new URL(window.location);
+          url.searchParams.set('app', currentApp);
+          url.searchParams.set('tab', activeTab);
+          window.history.replaceState({}, '', url);
+      }
+  }, [currentApp, activeTab, isPublicBio, session]);
+
+
+  // --- 0. SET DYNAMIC PAGE TITLE ---
   useEffect(() => {
       if (isPublicBio && publicCardData?.name) {
           document.title = `${publicCardData.name} | Contact`;
@@ -44,13 +76,17 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData]);
 
+  // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
       const hostname = window.location.hostname;
+      
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
           const pathSlug = window.location.pathname.substring(1); 
+          
           if (pathSlug && pathSlug !== '') {
               setIsPublicBio(true);
               setIsLoading(true);
+              
               fetch(`/api/public-card/${pathSlug}`)
                   .then(res => res.json())
                   .then(data => {
@@ -69,6 +105,7 @@ export default function App() {
       }
   }, []);
 
+  // --- 2. OAUTH LOGIN LOGIC ---
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
     else {
@@ -108,7 +145,8 @@ export default function App() {
       } else {
         setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
       }
-      window.history.replaceState({}, document.title, "/");
+      // When OAuth finishes, we clear the code from the URL and let our Sync hook handle the rest
+      window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
       setError("The server is not responding. Please try again.");
     } finally {
@@ -163,6 +201,7 @@ export default function App() {
       setIsMobileMenuOpen(false);
   };
 
+  // --- RENDER 1: THE PUBLIC CARD VIEWER (crowds.bio) ---
   if (isPublicBio) {
       if (isLoading) {
           return (
@@ -198,6 +237,7 @@ export default function App() {
       );
   }
 
+  // --- RENDER 2: LOADING ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -207,6 +247,7 @@ export default function App() {
     );
   }
 
+  // --- RENDER 3: THE LOGIN SCREEN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -236,6 +277,7 @@ export default function App() {
     );
   }
 
+  // --- RENDER 4: THE CREATOR HUB SHELL ---
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
         {isMobileMenuOpen && (
