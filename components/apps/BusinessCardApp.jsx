@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
+// FIX: Link2 has been successfully added to the import list!
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -754,7 +755,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                     )}
                 </div>
 
-                {/* RIGHT: THE LIVE PREVIEW (Hidden on mobile if not needed, or stacked at bottom) */}
+                {/* RIGHT: THE LIVE PREVIEW (Hidden if viewing Address Book) */}
                 {activeTab !== 'address-book' && (
                     <div className="lg:col-span-5">
                         <div className="lg:sticky lg:top-24 mt-8 lg:mt-0">
