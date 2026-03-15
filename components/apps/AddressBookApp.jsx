@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Download, UploadCloud, X, Trash2, Plus, Users, ChevronLeft } from 'lucide-react';
+import { Camera, Save, Loader2, Download, Upload, X, Trash2, Plus, Users, ChevronLeft } from 'lucide-react';
 
 export default function AddressBookApp() {
     const [contacts, setContacts] = useState([]);
@@ -187,7 +187,7 @@ export default function AddressBookApp() {
                                 <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>
                             )}
                             <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.contactPic ? 'opacity-50 pointer-events-none' : ''}`}>
-                                {isUploading.contactPic ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                {isUploading.contactPic ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14}/>}
                                 {isUploading.contactPic ? 'Uploading...' : 'Upload Photo'}
                                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                             </label>

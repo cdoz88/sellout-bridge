@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Globe, Image, FileText, DownloadCloud, RefreshCcw, Palette, Users, UserPlus } from 'lucide-react';
+import { CreditCard, Smartphone, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -42,6 +42,7 @@ export default function Sidebar({
                                     <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
                                 </button>
                                 
+                                {/* RENAMED TO MANUAL */}
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <UserPlus size={16} /> Manual
                                 </button>
@@ -97,10 +98,10 @@ export default function Sidebar({
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Brand Kit</p>
                         <div className="space-y-1">
                             <button onClick={() => handleNavClick('logos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'logos' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Image size={16} /> SC Logos
+                                <ImageIcon size={16} /> SC Logos
                             </button>
                             <button onClick={() => handleNavClick('graphics')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'graphics' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <DownloadCloud size={16} /> Promo Graphics
+                                <Download size={16} /> Promo Graphics
                             </button>
                         </div>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, UploadCloud, MonitorSmartphone, UserPlus, Users } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [apiKey, setApiKey] = useState(''); 
@@ -23,7 +23,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [patreonUsers, setPatreonUsers] = useState([]);
   const [error, setError] = useState(null);
 
-  // --- MANUAL USER STATE ---
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
   const [manualUnaSelect, setManualUnaSelect] = useState(''); 
@@ -253,7 +252,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- MANUAL ACCESS FUNCTIONS ---
   const handleAddManualUser = async () => {
       if (!manualEmail || !manualUnaSelect) {
           setError("Please enter an email and select a community.");
@@ -307,7 +305,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- MAPPING LOGIC ---
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
   const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   
@@ -337,7 +334,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   return (
     <>
-      {/* MOBILE LOCKOUT SCREEN */}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-[#050505]">
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
@@ -346,7 +342,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           </p>
       </div>
 
-      {/* DESKTOP APP */}
       <div className="hidden lg:block max-w-7xl mx-auto py-12 px-8">
           {activeTab === 'patreon' && (
             <div className="mb-8 p-5 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-400 text-left flex items-start gap-3">
@@ -534,7 +529,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
                         ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                         ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <UploadCloud className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
+                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <Upload className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
                       {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
                     </button>
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Removed the conflicting 'Link' import to prevent crashes
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Users, ChevronLeft } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Upload, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -473,7 +472,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Upload your professional headshot</p>
                                     </div>
                                     <label className={`px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center sm:justify-start gap-2 border border-white/10 w-full sm:w-auto ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14}/>}
                                         {isUploading.avatar ? 'Uploading...' : 'Upload Photo'}
                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
                                     </label>
@@ -545,7 +544,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                             {cardData.logoUrl ? <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" /> : <ImageIcon size={28} className="text-gray-600" />}
                                         </div>
                                         <label className={`w-full justify-center py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
-                                            {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
+                                            {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <Upload size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
                                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
                                         </label>
                                         {cardData.logoUrl && <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="mt-4 text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest transition-colors">Remove Logo</button>}
@@ -622,7 +621,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0">{(cardData.qrLogoUrl || cardData.logoUrl) ? <img src={cardData.qrLogoUrl || cardData.logoUrl} className="max-w-full max-h-full object-contain" alt="QR center" /> : <ImageIcon size={16} className="text-gray-500" />}</div>
                                                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                                    <label className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>{isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}Upload Logo<input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} /></label>
+                                                    <label className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>{isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <Upload size={12}/>}Upload Logo<input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} /></label>
                                                     {cardData.qrLogoUrl && <button onClick={() => setCardData({...cardData, qrLogoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-center sm:text-left sm:pl-1">Use Main Brand Logo</button>}
                                                 </div>
                                             </div>
