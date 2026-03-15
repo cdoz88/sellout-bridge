@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText, Menu, X, LogOut } from 'lucide-react';
 
 // Import our new Component Architecture
 import TopBar from './components/layout/TopBar';
@@ -25,9 +25,11 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
+  // Layout State
   const [currentApp, setCurrentApp] = useState('bridge');
   const [activeTab, setActiveTab] = useState('stripe'); 
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // NEW: Mobile Menu State
 
   const hasAttemptedLogin = useRef(false);
 
@@ -49,15 +51,11 @@ export default function App() {
   // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
       const hostname = window.location.hostname;
-      
-      // If we are on crowds.bio (or testing locally with a slash)
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
           const pathSlug = window.location.pathname.substring(1); 
-          
           if (pathSlug && pathSlug !== '') {
               setIsPublicBio(true);
               setIsLoading(true);
-              
               fetch(`/api/public-card/${pathSlug}`)
                   .then(res => res.json())
                   .then(data => {
@@ -89,8 +87,6 @@ export default function App() {
 
   useEffect(() => {
     if (isPublicBio) return; 
-
-    // FIX: Corrected "new URLSearchParams"
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && !hasAttemptedLogin.current) {
@@ -170,6 +166,7 @@ export default function App() {
       setCurrentApp(appId);
       setActiveTab(defaultTab);
       setIsAppSwitcherOpen(false);
+      setIsMobileMenuOpen(false);
   };
 
   // --- RENDER 1: THE PUBLIC CARD VIEWER (crowds.bio) ---
@@ -201,7 +198,6 @@ export default function App() {
       return (
           <div className={`min-h-screen flex flex-col items-center pt-8 pb-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
               <PublicCardView data={publicCardData} isFullScreen={true} />
-              
               <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
                   Powered by Sellout Crowds
               </a>
@@ -251,15 +247,25 @@ export default function App() {
 
   // --- RENDER 4: THE CREATOR HUB SHELL ---
   return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row">
-        <Sidebar 
-            currentApp={currentApp} 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            unaData={unaData} 
-            syncCommunities={syncCommunities}
-            isSyncingCommunities={isSyncingCommunities}
-        />
+    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
+        
+        {/* MOBILE OVERLAY */}
+        {isMobileMenuOpen && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+        )}
+
+        <div className={`fixed inset-y-0 left-0 z-40 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out`}>
+            <Sidebar 
+                currentApp={currentApp} 
+                activeTab={activeTab} 
+                setActiveTab={setActiveTab} 
+                unaData={unaData} 
+                syncCommunities={syncCommunities}
+                isSyncingCommunities={isSyncingCommunities}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
+        </div>
+
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
             <TopBar 
                 currentApp={currentApp}
@@ -276,11 +282,7 @@ export default function App() {
                     (activeTab === 'builder' || activeTab === 'design' || activeTab === 'address-book') ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
                     ) : (
-                        <PlaceholderApp 
-                            title="Card Settings" 
-                            icon={<LayoutDashboard size={64}/>} 
-                            description="Analytics and custom domain settings coming soon." 
-                        />
+                        <PlaceholderApp title="Card Settings" icon={<LayoutDashboard size={64}/>} description="Analytics and custom domain settings coming soon." />
                     )
                 )}
                 
@@ -288,6 +290,18 @@ export default function App() {
                 {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<Image size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
                 {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
             </main>
+        </div>
+
+        {/* MOBILE BOTTOM NAVIGATION */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-6 z-50">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 -ml-2 transition-colors flex flex-col items-center gap-1 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500 hover:text-white'}`}>
+                {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                <span className="text-[9px] font-bold uppercase tracking-widest">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
+            </button>
+            <button onClick={handleLogout} className="p-2 -mr-2 text-gray-500 hover:text-red-500 transition-colors flex flex-col items-center gap-1">
+                <LogOut size={20} />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Log Out</span>
+            </button>
         </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -116,7 +116,7 @@ const getSubtitle = (link) => {
     return link.defaultSubtitle;
 };
 
-// --- THE PUBLIC CARD COMPONENT (FLOATING DESIGN) ---
+// --- THE PUBLIC CARD COMPONENT ---
 export const PublicCardView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
@@ -147,7 +147,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     
     const handleSaveContact = () => {
         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-        
         let parts = ['BEGIN:VCARD', 'VERSION:3.0'];
         const nameParts = (data.name || 'Contact').trim().split(/\s+/);
         const lastName = nameParts.pop() || '';
@@ -165,10 +164,7 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
             if (link.type === 'website' || link.type === 'shop' || link.type === 'custom') parts.push(`URL:https://${link.url.replace(/^https?:\/\//,'')}`);
         });
         
-        if (notes && notes.trim() !== '') {
-            parts.push(`NOTE:${escapeVCardValue(notes.trim())}`);
-        }
-
+        if (notes && notes.trim() !== '') parts.push(`NOTE:${escapeVCardValue(notes.trim())}`);
         parts.push('END:VCARD');
 
         const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
@@ -183,11 +179,7 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const containerClasses = isFullScreen 
         ? "w-full max-w-md mx-auto font-sans relative" 
         : "w-full max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative pb-8";
-    
-    const containerStyle = isFullScreen 
-        ? {} 
-        : { backgroundColor: cardBgColor, borderColor: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.05)' };
-
+    const containerStyle = isFullScreen ? {} : { backgroundColor: cardBgColor, borderColor: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.05)' };
     const textNameClass = isLight ? 'text-gray-900' : 'text-white';
     const textCompanyClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const buttonBgClass = isLight ? 'bg-black/5 hover:bg-black/10 border border-black/5 shadow-sm' : 'bg-white/5 hover:bg-white/10 border border-white/5 shadow-lg';
@@ -202,18 +194,11 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
         else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
         else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
 
-        return {
-            ...link,
-            subtitle: getSubtitle(link),
-            url: formattedUrl,
-            rawUrl: link.url.trim(),
-            icon: getIconForType(link.type)
-        };
+        return { ...link, subtitle: getSubtitle(link), url: formattedUrl, rawUrl: link.url.trim(), icon: getIconForType(link.type) };
     });
 
     return (
         <div className={containerClasses} style={containerStyle}>
-            
             {data.logoUrl && (
                 <div className="w-full flex justify-center pt-2 sm:pt-6 relative z-10">
                     <img src={data.logoUrl} alt="Company Logo" className="object-contain" style={{ height: `${data.logoSize || 56}px` }} />
@@ -277,31 +262,19 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                 </div>
             </div>
 
-            {/* CALL OR TEXT MODAL */}
             {showPhoneAction && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPhoneAction(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
                         <button onClick={() => setShowPhoneAction(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
-                        
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}>
-                            <Phone size={24} />
-                        </div>
-                        
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><Phone size={24} /></div>
                         <h3 className={`text-xl font-black uppercase tracking-tight mb-4 ${textNameClass}`}>Contact Options</h3>
-                        
                         <div className="space-y-3">
                             <a href={`tel:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <Phone size={18} style={{ color: data.theme }} /> 
-                                    <span>Call {activePhoneString}</span>
-                                </div>
+                                <div className="flex items-center gap-3"><Phone size={18} style={{ color: data.theme }} /><span>Call {activePhoneString}</span></div>
                                 <ArrowRight size={16} className={arrowClass} />
                             </a>
                             <a href={`sms:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <MessageSquare size={18} style={{ color: data.theme }} /> 
-                                    <span>Text (SMS)</span>
-                                </div>
+                                <div className="flex items-center gap-3"><MessageSquare size={18} style={{ color: data.theme }} /><span>Text (SMS)</span></div>
                                 <ArrowRight size={16} className={arrowClass} />
                             </a>
                         </div>
@@ -309,30 +282,15 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                 </div>
             )}
 
-            {/* NOTES MODAL */}
             {showNotesModal && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNotesModal(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
                         <button onClick={() => setShowNotesModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
-                        
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}>
-                            <FileText size={24} />
-                        </div>
-                        
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><FileText size={24} /></div>
                         <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Personal Notes</h3>
                         <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Jot down details to remember this person. These save directly to your phone contacts.</p>
-                        
-                        <textarea 
-                            value={notes} 
-                            onChange={e => setNotes(e.target.value)} 
-                            rows="4" 
-                            placeholder="E.g., Met at the conference..."
-                            className={`w-full p-4 rounded-2xl text-sm outline-none border transition-colors mb-6 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}
-                        ></textarea>
-                        
-                        <button onClick={handleSaveNotes} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                            Save Notes
-                        </button>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="4" placeholder="E.g., Met at the conference..." className={`w-full p-4 rounded-2xl text-sm outline-none border transition-colors mb-6 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}></textarea>
+                        <button onClick={handleSaveNotes} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]" style={{ backgroundColor: data.theme, color: data.textColor }}>Save Notes</button>
                     </div>
                 </div>
             )}
@@ -349,8 +307,6 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [isUploading, setIsUploading] = useState({ avatar: false, logo: false, qrLogo: false, contactPic: false });
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
-
-    // Address Book State
     const [contacts, setContacts] = useState([]);
     const [contactView, setContactView] = useState('list'); 
     const [editingContact, setEditingContact] = useState(null);
@@ -364,10 +320,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                 if (data.card) {
                     let fetchedCard = data.card;
                     if (!fetchedCard.links) {
-                        fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({
-                            ...defaultLink,
-                            url: fetchedCard[defaultLink.type] || ''
-                        }));
+                        fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({ ...defaultLink, url: fetchedCard[defaultLink.type] || '' }));
                     }
                     setCardData({ ...DEFAULT_CARD, ...fetchedCard }); 
                 }
@@ -375,79 +328,43 @@ export default function BusinessCardApp({ session, activeTab }) {
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
-
         const savedContacts = localStorage.getItem('sc_address_book');
         if (savedContacts) setContacts(JSON.parse(savedContacts));
     }, [session]);
 
     const handleSave = async () => {
-        if (!slug || slug.trim() === '') {
-            alert("Please claim a custom link (e.g. your name) before saving!");
-            return;
-        }
-
+        if (!slug || slug.trim() === '') { alert("Please claim a custom link (e.g. your name) before saving!"); return; }
         setIsSaving(true);
         try {
-            const res = await fetch('/api/save-card', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card: cardData, slug: slug })
-            });
+            const res = await fetch('/api/save-card', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ card: cardData, slug: slug }) });
             const result = await res.json();
-            
-            if (result.error) {
-                alert(result.error); 
-                setIsSaving(false);
-                return;
-            }
-            
+            if (result.error) { alert(result.error); setIsSaving(false); return; }
             setTimeout(() => setIsSaving(false), 1000);
-        } catch (err) {
-            alert("Failed to save card.");
-            setIsSaving(false);
-        }
+        } catch (err) { alert("Failed to save card."); setIsSaving(false); }
     };
 
     const handleImageUpload = async (e, fieldName) => {
         const file = e.target.files[0];
         if (!file) return;
-        
         setIsUploading(prev => ({ ...prev, [fieldName]: true }));
-        const formData = new FormData();
-        formData.append('file', file);
-        
+        const formData = new FormData(); formData.append('file', file);
         try {
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.success) {
-                if (fieldName === 'contactPic') {
-                    setEditingContact({ ...editingContact, photo: result.url });
-                } else {
-                    setCardData(prev => ({ ...prev, [fieldName]: result.url }));
-                }
-            } else {
-                alert("Upload failed.");
-            }
-        } catch (err) {
-            alert("Image server unreachable.");
-        } finally {
-            setIsUploading(prev => ({ ...prev, [fieldName]: false }));
-        }
+                if (fieldName === 'contactPic') setEditingContact({ ...editingContact, photo: result.url });
+                else setCardData(prev => ({ ...prev, [fieldName]: result.url }));
+            } else alert("Upload failed.");
+        } catch (err) { alert("Image server unreachable."); } 
+        finally { setIsUploading(prev => ({ ...prev, [fieldName]: false })); }
     };
 
     const handlePresetSelect = (preset) => {
-        if (preset.id === 'custom') {
-            setCardData({ ...cardData, themePreset: 'custom' });
-        } else {
-            setCardData({ ...cardData, themePreset: preset.id, ...preset.data });
-        }
+        if (preset.id === 'custom') setCardData({ ...cardData, themePreset: 'custom' });
+        else setCardData({ ...cardData, themePreset: preset.id, ...preset.data });
     };
 
-    const handleDragStart = (e, index) => {
-        setDraggedIndex(index);
-        e.dataTransfer.effectAllowed = 'move';
-    };
-    
+    const handleDragStart = (e, index) => { setDraggedIndex(index); e.dataTransfer.effectAllowed = 'move'; };
     const handleDragOver = (e, index) => {
         e.preventDefault();
         if (draggedIndex === null || draggedIndex === index) return;
@@ -458,82 +375,41 @@ export default function BusinessCardApp({ session, activeTab }) {
         setDraggedIndex(index);
         setCardData({ ...cardData, links: newLinks });
     };
-    
-    const handleDragEnd = () => {
-        setDraggedIndex(null);
-    };
+    const handleDragEnd = () => setDraggedIndex(null);
 
     const updateLink = (id, field, value) => {
-        setCardData({
-            ...cardData,
-            links: cardData.links.map(l => l.id === id ? { ...l, [field]: value } : l)
-        });
+        setCardData({ ...cardData, links: cardData.links.map(l => l.id === id ? { ...l, [field]: value } : l) });
     };
-
     const addCustomLink = () => {
-        const newLink = {
-            id: 'custom_' + Date.now(),
-            type: 'custom',
-            title: 'Custom Link',
-            defaultSubtitle: 'Click here',
-            url: ''
-        };
+        const newLink = { id: 'custom_' + Date.now(), type: 'custom', title: 'Custom Link', defaultSubtitle: 'Click here', url: '' };
         setCardData({ ...cardData, links: [...cardData.links, newLink] });
     };
+    const removeLink = (id) => setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
 
-    const removeLink = (id) => {
-        setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
-    };
-
-    const getShareUrl = () => {
-        if (!slug) return '';
-        return `https://crowds.bio/${slug}`;
-    };
-
+    const getShareUrl = () => slug ? `https://crowds.bio/${slug}` : '';
     const copyShareLink = () => {
         const url = getShareUrl();
-        if (!url) {
-            alert("Save your custom link first!");
-            return;
-        }
-        navigator.clipboard.writeText(url);
-        alert("Public link copied to clipboard!");
+        if (!url) { alert("Save your custom link first!"); return; }
+        navigator.clipboard.writeText(url); alert("Public link copied to clipboard!");
     };
 
-    // --- ADDRESS BOOK FUNCTIONS ---
     const handleExportCSV = () => {
-        if (contacts.length === 0) {
-            alert("No contacts to export!");
-            return;
-        }
+        if (contacts.length === 0) { alert("No contacts to export!"); return; }
         const headers = "Name,Title,Company,Phone,Email,Website,Notes";
         const csvContent = contacts.map(c => {
             const sanitize = (field) => `"${(field || '').toString().replace(/"/g, '""')}"`;
-            return [
-                sanitize(c.name), sanitize(c.title), sanitize(c.company),
-                sanitize(c.phone), sanitize(c.email), sanitize(c.website),
-                sanitize(c.notes)
-            ].join(',');
+            return [ sanitize(c.name), sanitize(c.title), sanitize(c.company), sanitize(c.phone), sanitize(c.email), sanitize(c.website), sanitize(c.notes) ].join(',');
         }).join('\n');
-        
-        const fullCsv = `${headers}\n${csvContent}`;
-        const blob = new Blob([fullCsv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "sc_contacts.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const blob = new Blob([`${headers}\n${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "sc_contacts.csv";
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 
     const handleDownloadContactVCard = (contact) => {
          const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
          let parts = ['BEGIN:VCARD', 'VERSION:3.0'];
          const nameParts = (contact.name || 'Contact').trim().split(/\s+/);
-         const lastName = nameParts.pop() || '';
-         const firstName = nameParts.join(' ');
-         
-         parts.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)}`);
+         parts.push(`N:${escapeVCardValue(nameParts.pop() || '')};${escapeVCardValue(nameParts.join(' '))}`);
          parts.push(`FN:${escapeVCardValue(contact.name)}`);
          if (contact.company) parts.push(`ORG:${escapeVCardValue(contact.company)}`);
          if (contact.title) parts.push(`TITLE:${escapeVCardValue(contact.title)}`);
@@ -541,60 +417,34 @@ export default function BusinessCardApp({ session, activeTab }) {
          if (contact.email) parts.push(`EMAIL:${contact.email}`);
          if (contact.website) parts.push(`URL:https://${contact.website.replace(/^https?:\/\//,'')}`);
          if (contact.notes) parts.push(`NOTE:${escapeVCardValue(contact.notes)}`);
-         
          parts.push('END:VCARD');
          const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
-         const link = document.createElement('a');
-         link.href = URL.createObjectURL(blob);
-         link.download = `${(contact.name || 'contact').replace(/\s/g, '_')}.vcf`;
-         document.body.appendChild(link);
-         link.click();
-         document.body.removeChild(link);
+         const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${(contact.name || 'contact').replace(/\s/g, '_')}.vcf`;
+         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 
-    const openNewContactForm = () => {
-        setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' });
-        setEditingContactIndex(-1);
-        setContactView('form');
-    };
-
-    const openEditContactForm = (contact, index) => {
-        setEditingContact({ ...contact });
-        setEditingContactIndex(index);
-        setContactView('form');
-    };
-
+    const openNewContactForm = () => { setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' }); setEditingContactIndex(-1); setContactView('form'); };
+    const openEditContactForm = (contact, index) => { setEditingContact({ ...contact }); setEditingContactIndex(index); setContactView('form'); };
     const saveAddressBookContact = () => {
-        if (!editingContact.name) {
-            alert("Name is required"); return;
-        }
+        if (!editingContact.name) { alert("Name is required"); return; }
         let newContacts = [...contacts];
-        if (editingContactIndex >= 0) {
-            newContacts[editingContactIndex] = editingContact;
-        } else {
-            newContacts.push({ ...editingContact, id: Date.now() });
-        }
-        setContacts(newContacts);
-        localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
-        setContactView('list');
+        if (editingContactIndex >= 0) newContacts[editingContactIndex] = editingContact; else newContacts.push({ ...editingContact, id: Date.now() });
+        setContacts(newContacts); localStorage.setItem('sc_address_book', JSON.stringify(newContacts)); setContactView('list');
     };
-
     const deleteAddressBookContact = (index) => {
         if (window.confirm("Are you sure you want to delete this contact?")) {
-            let newContacts = [...contacts];
-            newContacts.splice(index, 1);
-            setContacts(newContacts);
-            localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
+            let newContacts = [...contacts]; newContacts.splice(index, 1);
+            setContacts(newContacts); localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
         }
     };
 
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
 
     return (
-        <div className="max-w-7xl mx-auto py-12 px-8">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
                 <div>
-                    <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white">
+                    <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
                         {activeTab === 'design' ? 'Design & Theme' : activeTab === 'address-book' ? 'Address Book' : 'Card Builder'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
@@ -603,11 +453,11 @@ export default function BusinessCardApp({ session, activeTab }) {
                 </div>
                 {activeTab !== 'address-book' && (
                     <div className="flex gap-3">
-                        <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
-                            <QrCode size={14} /> Get QR Code
+                        <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
+                            <QrCode size={14} /> <span className="hidden sm:inline">Get QR Code</span>
                         </button>
-                        <button onClick={copyShareLink} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                            <Share2 size={14} /> Copy Link
+                        <button onClick={copyShareLink} className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                            <Share2 size={14} /> <span className="hidden sm:inline">Copy Link</span>
                         </button>
                     </div>
                 )}
@@ -622,47 +472,27 @@ export default function BusinessCardApp({ session, activeTab }) {
                     {activeTab === 'builder' && (
                         <div className="animate-in fade-in duration-300">
                             
-                            <div className="mb-6 p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
+                            <div className="mb-6 p-4 sm:p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
-                                <div className="flex items-center gap-2 bg-black p-1.5 pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
-                                    <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio /</span>
-                                    <input 
-                                        type="text" 
-                                        value={slug} 
-                                        onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} 
-                                        placeholder="your-name" 
-                                        className="flex-1 bg-transparent text-white font-bold outline-none min-w-[50px]"
-                                    />
-                                    <button 
-                                        onClick={handleSave} 
-                                        disabled={isSaving} 
-                                        className="bg-[#9df01c] text-black hover:bg-[#8ce015] px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5 shadow-sm flex-shrink-0"
-                                    >
-                                        {isSaving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>}
-                                        {isSaving ? '...' : 'Save'}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black p-1.5 sm:pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
+                                    <div className="flex items-center flex-1 min-w-0 px-3 sm:px-0 py-2 sm:py-0">
+                                        <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio /</span>
+                                        <input type="text" value={slug} onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} placeholder="your-name" className="flex-1 bg-transparent text-white font-bold outline-none min-w-[50px] ml-1" />
+                                    </div>
+                                    <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-[#9df01c] text-black hover:bg-[#8ce015] px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0">
+                                        {isSaving ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>}{isSaving ? '...' : 'Save'}
                                     </button>
                                 </div>
                                 <p className="text-[9px] text-gray-500 mt-2 font-medium">Letters, numbers, and hyphens only. This is what you will share with people!</p>
                             </div>
 
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2">
-                                    <User size={18} className="text-[#9df01c]"/> Details
-                                </h3>
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><User size={18} className="text-[#9df01c]"/> Details</h3>
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label>
-                                        <input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
-                                        <input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div className="sm:col-span-2">
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
-                                        <input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
+                                    <div><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label><input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
+                                    <div><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label><input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
+                                    <div className="sm:col-span-2"><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label><input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5">
@@ -673,60 +503,37 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         {cardData.links.map((link, index) => {
                                             const IconComponent = getIconForType(link.type);
                                             return (
-                                                <div 
-                                                    key={link.id}
-                                                    draggable
-                                                    onDragStart={(e) => handleDragStart(e, index)}
-                                                    onDragOver={(e) => handleDragOver(e, index)}
-                                                    onDragEnd={handleDragEnd}
-                                                    className={`flex items-center gap-3 bg-black p-2.5 rounded-xl border transition-all ${draggedIndex === index ? 'border-[#9df01c] opacity-50' : 'border-white/10 focus-within:border-white/30'}`}
-                                                >
-                                                    <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0 ml-1" />
-                                                    
-                                                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0">
-                                                        <IconComponent size={16} />
-                                                    </div>
-
-                                                    <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pr-2">
+                                                <div key={link.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDragEnd={handleDragEnd} className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-black p-3 sm:p-2.5 rounded-xl border transition-all ${draggedIndex === index ? 'border-[#9df01c] opacity-50' : 'border-white/10 focus-within:border-white/30'}`}>
+                                                    <div className="flex items-center w-full sm:w-auto">
+                                                        <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0 ml-1 mr-2 sm:mr-0" />
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0 mx-2"><IconComponent size={16} /></div>
                                                         {link.type === 'custom' ? (
-                                                            <input 
-                                                                type="text" 
-                                                                value={link.title} 
-                                                                onChange={(e) => updateLink(link.id, 'title', e.target.value)}
-                                                                className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3"
-                                                                placeholder="Link Title"
-                                                            />
+                                                            <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none flex-1 sm:w-1/3 sm:hidden" placeholder="Link Title" />
                                                         ) : (
-                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 flex items-center">{link.title}</span>
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex-1 sm:hidden">{link.title}</span>
                                                         )}
-
-                                                        <input 
-                                                            type="text" 
-                                                            value={link.url}
-                                                            onChange={(e) => updateLink(link.id, 'url', e.target.value)}
-                                                            placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : 'URL or username...'}
-                                                            className="bg-transparent text-white text-xs outline-none w-full flex-1"
-                                                        />
+                                                        {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
                                                     </div>
-
-                                                    {link.type === 'custom' && (
-                                                        <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    )}
+                                                    
+                                                    <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
+                                                        {link.type === 'custom' ? (
+                                                            <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
+                                                        )}
+                                                        <input type="text" value={link.url} onChange={(e) => updateLink(link.id, 'url', e.target.value)} placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : 'URL or username...'} className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" />
+                                                    </div>
+                                                    {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                    <button onClick={addCustomLink} className="mt-4 w-full py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
-                                        <Plus size={14} /> Add Custom Link
-                                    </button>
+                                    <button onClick={addCustomLink} className="mt-4 w-full py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Plus size={14} /> Add Custom Link</button>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
                                     <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                                        {isSaving ? 'Saving...' : 'Save Card'}
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Card'}
                                     </button>
                                 </div>
                             </div>
@@ -735,38 +542,26 @@ export default function BusinessCardApp({ session, activeTab }) {
 
                     {/* TAB 2: DESIGN & THEME */}
                     {activeTab === 'design' && (
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 animate-in fade-in duration-300">
-                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Design</h3>
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 animate-in fade-in duration-300">
+                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Brand Imagery</h3>
                             
                             <div className="flex flex-col sm:flex-row gap-6 mb-8">
-                                {/* Profile Photo Upload */}
                                 <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
                                     <div className="mb-4">
-                                        {cardData.avatarUrl ? (
-                                            <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
-                                        ) : (
-                                            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>
-                                        )}
+                                        {cardData.avatarUrl ? <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" /> : <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>}
                                     </div>
                                     <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
-                                        {isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
+                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
                                     </label>
                                 </div>
 
-                                {/* Logo Image Upload */}
                                 <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center relative">
                                     <div className="mb-4 w-full flex items-center justify-center h-20">
-                                        {cardData.logoUrl ? (
-                                            <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
-                                        ) : (
-                                            <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>
-                                        )}
+                                        {cardData.logoUrl ? <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>}
                                     </div>
                                     <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
-                                        {isUploading.logo ? 'Uploading...' : 'Brand Logo'}
+                                        {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
                                     </label>
                                     
@@ -786,14 +581,8 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Theme Presets</h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                                     {PRESETS.map(p => (
-                                        <button 
-                                            key={p.id} 
-                                            onClick={() => handlePresetSelect(p)}
-                                            className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}
-                                        >
-                                            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>
-                                                {p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}
-                                            </div>
+                                        <button key={p.id} onClick={() => handlePresetSelect(p)} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}>
+                                            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>{p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}</div>
                                             <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{p.name}</span>
                                         </button>
                                     ))}
@@ -801,68 +590,36 @@ export default function BusinessCardApp({ session, activeTab }) {
 
                                 {cardData.themePreset === 'custom' && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in bg-black p-5 rounded-2xl border border-white/5">
-                                        <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label>
-                                            <input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
-                                        </div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label><input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
                                         <div>
                                             <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
                                             <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                                <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`} title="Use white text">Dark</button>
-                                                <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`} title="Use black text">Light</button>
+                                                <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                                <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label>
-                                            <input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label>
-                                            <input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
-                                        </div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label><input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label><input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
                                     </div>
                                 )}
                             </div>
 
                             <div className="pt-8 border-t border-white/5 mt-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
-                                
+                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">QR Code Setting</h4>
                                 <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
-                                    <div>
-                                        <p className="text-sm font-bold text-white">Embed Logo in QR Code</p>
-                                        <p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p>
-                                    </div>
-                                    <button onClick={() => setCardData({...cardData, qrLogoEnabled: !cardData.qrLogoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative ${cardData.qrLogoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}>
-                                        <div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.qrLogoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div>
-                                    </button>
+                                    <div><p className="text-sm font-bold text-white">Embed Logo in QR Code</p><p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p></div>
+                                    <button onClick={() => setCardData({...cardData, qrLogoEnabled: !cardData.qrLogoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.qrLogoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.qrLogoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
                                 </div>
-
                                 {cardData.qrLogoEnabled && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-black p-5 rounded-xl border border-white/5 animate-in fade-in">
-                                        <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label>
-                                            <input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
-                                            <p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p>
-                                        </div>
+                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label><input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /><p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p></div>
                                         <div>
                                             <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Custom QR Logo (Optional)</label>
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1">
-                                                    {(cardData.qrLogoUrl || cardData.logoUrl) ? (
-                                                        <img src={cardData.qrLogoUrl || cardData.logoUrl} className="max-w-full max-h-full object-contain" alt="QR center" />
-                                                    ) : (
-                                                        <ImageIcon size={16} className="text-gray-500" />
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>
-                                                        {isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}
-                                                        Upload Specific Logo
-                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} />
-                                                    </label>
-                                                    {cardData.qrLogoUrl && (
-                                                        <button onClick={() => setCardData({...cardData, qrLogoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-left pl-1">Use Main Brand Logo</button>
-                                                    )}
+                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0">{(cardData.qrLogoUrl || cardData.logoUrl) ? <img src={cardData.qrLogoUrl || cardData.logoUrl} className="max-w-full max-h-full object-contain" alt="QR center" /> : <ImageIcon size={16} className="text-gray-500" />}</div>
+                                                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                    <label className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.qrLogo ? 'opacity-50 pointer-events-none' : ''}`}>{isUploading.qrLogo ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}Upload Logo<input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'qrLogoUrl')} /></label>
+                                                    {cardData.qrLogoUrl && <button onClick={() => setCardData({...cardData, qrLogoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-center sm:text-left sm:pl-1">Use Main Brand Logo</button>}
                                                 </div>
                                             </div>
                                         </div>
@@ -871,10 +628,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
 
                             <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-                                    {isSaving ? 'Saving...' : 'Save Design'}
-                                </button>
+                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Design'}</button>
                             </div>
                         </div>
                     )}
@@ -883,16 +637,16 @@ export default function BusinessCardApp({ session, activeTab }) {
                     {activeTab === 'address-book' && (
                         <div className="animate-in fade-in duration-300">
                             {contactView === 'list' ? (
-                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-[60vh]">
+                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 min-h-[60vh]">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
                                         <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2">
                                             <Users size={18} className="text-[#9df01c]"/> Connections
                                         </h3>
                                         <div className="flex gap-3">
-                                            <button onClick={handleExportCSV} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+                                            <button onClick={handleExportCSV} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                                                 <Download size={14}/> Export CSV
                                             </button>
-                                            <button onClick={openNewContactForm} className="px-4 py-2 bg-[#9df01c] text-black hover:bg-[#8ce015] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+                                            <button onClick={openNewContactForm} className="flex-1 sm:flex-none px-4 py-2 bg-[#9df01c] text-black hover:bg-[#8ce015] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                                                 <Plus size={14}/> Add Contact
                                             </button>
                                         </div>
@@ -903,9 +657,9 @@ export default function BusinessCardApp({ session, activeTab }) {
                                             {contacts.map((contact, i) => (
                                                 <div key={contact.id || i} className="bg-black p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors group flex items-center gap-4">
                                                     {contact.photo ? (
-                                                        <img src={contact.photo} className="w-12 h-12 rounded-full object-cover border border-white/10 bg-[#111]" alt="Contact" />
+                                                        <img src={contact.photo} className="w-12 h-12 rounded-full object-cover border border-white/10 bg-[#111] flex-shrink-0" alt="Contact" />
                                                     ) : (
-                                                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-gray-500">
+                                                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-gray-500 flex-shrink-0">
                                                             {contact.name?.charAt(0) || '?'}
                                                         </div>
                                                     )}
@@ -915,7 +669,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                                         <p className="text-[10px] text-gray-500 uppercase tracking-widest truncate mt-0.5">{contact.company || contact.title || 'No company listed'}</p>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button onClick={() => handleDownloadContactVCard(contact)} className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Download vCard">
                                                             <Download size={14}/>
                                                         </button>
@@ -935,8 +689,8 @@ export default function BusinessCardApp({ session, activeTab }) {
                                     )}
                                 </div>
                             ) : (
-                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative">
-                                    <button onClick={() => setContactView('list')} className="absolute top-8 right-8 text-gray-500 hover:text-white p-2 bg-white/5 rounded-full transition-colors">
+                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 relative">
+                                    <button onClick={() => setContactView('list')} className="absolute top-5 right-5 sm:top-8 sm:right-8 text-gray-500 hover:text-white p-2 bg-white/5 rounded-full transition-colors">
                                         <X size={16}/>
                                     </button>
                                     
@@ -990,9 +744,8 @@ export default function BusinessCardApp({ session, activeTab }) {
                                     </div>
 
                                     <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                        <button onClick={saveAddressBookContact} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                            <Save className="w-4 h-4"/>
-                                            Save Contact
+                                        <button onClick={saveAddressBookContact} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                            <Save className="w-4 h-4"/> Save Contact
                                         </button>
                                     </div>
                                 </div>
@@ -1001,14 +754,14 @@ export default function BusinessCardApp({ session, activeTab }) {
                     )}
                 </div>
 
-                {/* RIGHT: THE LIVE PREVIEW (Hidden if viewing Address Book) */}
+                {/* RIGHT: THE LIVE PREVIEW (Hidden on mobile if not needed, or stacked at bottom) */}
                 {activeTab !== 'address-book' && (
                     <div className="lg:col-span-5">
-                        <div className="sticky top-24">
+                        <div className="lg:sticky lg:top-24 mt-8 lg:mt-0">
                             <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                                 <MonitorSmartphone size={14} /> Live Preview
                             </div>
-                            <div className={`p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
+                            <div className={`p-4 sm:p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
                                <PublicCardView data={cardData} />
                             </div>
                         </div>
@@ -1024,10 +777,8 @@ export default function BusinessCardApp({ session, activeTab }) {
                         <h3 className="text-xl font-black uppercase italic text-white mb-2">Scan to Connect</h3>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-6 text-center">Have them open their camera app</p>
                         
-                        <div className="bg-white p-3 rounded-2xl shadow-xl relative inline-flex items-center justify-center">
-                            {/* ecc=H enables High Error Correction so covering the center is perfectly safe! */}
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=H&margin=0&data=${encodeURIComponent(getShareUrl())}`} alt="QR Code" className="w-48 h-48" />
-                            
+                        <div className="bg-white p-3 rounded-2xl shadow-xl relative inline-flex items-center justify-center max-w-full">
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&ecc=H&margin=0&data=${encodeURIComponent(getShareUrl())}`} alt="QR Code" className="w-48 h-48 max-w-full" />
                             {cardData.qrLogoEnabled && (cardData.qrLogoUrl || cardData.logoUrl) && (
                                 <div className="absolute w-12 h-12 rounded-lg flex items-center justify-center p-1 shadow-md border-[3px] border-white overflow-hidden" style={{ backgroundColor: cardData.qrLogoBg || '#ffffff' }}>
                                     <img src={cardData.qrLogoUrl || cardData.logoUrl} alt="QR Logo" className="max-w-full max-h-full object-contain" />
