@@ -9,12 +9,10 @@ import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardA
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 export default function App() {
-  // Public View State
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicBioError, setPublicBioError] = useState(false);
 
-  // Authenticated State
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
     const saved = localStorage.getItem('bridge_unadata');
@@ -25,11 +23,10 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
-  // Layout State
   const [currentApp, setCurrentApp] = useState('bridge');
   const [activeTab, setActiveTab] = useState('stripe'); 
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // NEW: Mobile Menu State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
 
   const hasAttemptedLogin = useRef(false);
 
@@ -39,7 +36,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- 0. SET DYNAMIC PAGE TITLE ---
   useEffect(() => {
       if (isPublicBio && publicCardData?.name) {
           document.title = `${publicCardData.name} | Contact`;
@@ -48,7 +44,6 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData]);
 
-  // --- 1. MULTI-DOMAIN ROUTER: CHECK FOR CROWDS.BIO ---
   useEffect(() => {
       const hostname = window.location.hostname;
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
@@ -74,7 +69,6 @@ export default function App() {
       }
   }, []);
 
-  // --- 2. OAUTH LOGIN LOGIC ---
   useEffect(() => {
     if (session) localStorage.setItem('bridge_session', session);
     else {
@@ -169,7 +163,6 @@ export default function App() {
       setIsMobileMenuOpen(false);
   };
 
-  // --- RENDER 1: THE PUBLIC CARD VIEWER (crowds.bio) ---
   if (isPublicBio) {
       if (isLoading) {
           return (
@@ -205,7 +198,6 @@ export default function App() {
       );
   }
 
-  // --- RENDER 2: LOADING ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -215,7 +207,6 @@ export default function App() {
     );
   }
 
-  // --- RENDER 3: THE LOGIN SCREEN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -245,11 +236,8 @@ export default function App() {
     );
   }
 
-  // --- RENDER 4: THE CREATOR HUB SHELL ---
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
-        
-        {/* MOBILE OVERLAY */}
         {isMobileMenuOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
         )}
@@ -279,7 +267,7 @@ export default function App() {
                 {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'business-card' && (
-                    (activeTab === 'builder' || activeTab === 'design' || activeTab === 'address-book') ? (
+                    ['builder', 'design', 'address-book', 'url'].includes(activeTab) ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
                     ) : (
                         <PlaceholderApp title="Card Settings" icon={<LayoutDashboard size={64}/>} description="Analytics and custom domain settings coming soon." />

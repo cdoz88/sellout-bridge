@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Settings, Image, FileText, Link2, DownloadCloud, RefreshCcw, Palette, Users } from 'lucide-react';
+import { CreditCard, Smartphone, LayoutDashboard, Globe, Image, FileText, DownloadCloud, RefreshCcw, Palette, Users } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -73,8 +73,9 @@ export default function Sidebar({
                             <button onClick={() => handleNavClick('address-book')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'address-book' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Users size={16} /> Address Book
                             </button>
-                            <button onClick={() => handleNavClick('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'settings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Settings size={16} /> Settings
+                            {/* Renamed Settings to Custom URL */}
+                            <button onClick={() => handleNavClick('url')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'url' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Globe size={16} /> Custom URL
                             </button>
                         </div>
                     </div>

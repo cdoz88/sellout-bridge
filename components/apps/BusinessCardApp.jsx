@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Link2 has been successfully added to the import list!
 import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
@@ -312,6 +311,9 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [contactView, setContactView] = useState('list'); 
     const [editingContact, setEditingContact] = useState(null);
     const [editingContactIndex, setEditingContactIndex] = useState(-1);
+    
+    // State to toggle between Builder and Live Preview on Mobile
+    const [mobileView, setMobileView] = useState('edit');
 
     useEffect(() => {
         if (!session) return;
@@ -334,7 +336,7 @@ export default function BusinessCardApp({ session, activeTab }) {
     }, [session]);
 
     const handleSave = async () => {
-        if (!slug || slug.trim() === '') { alert("Please claim a custom link (e.g. your name) before saving!"); return; }
+        if (!slug || slug.trim() === '') { alert("Please claim a custom link on the 'Custom URL' page before saving!"); return; }
         setIsSaving(true);
         try {
             const res = await fetch('/api/save-card', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ card: cardData, slug: slug }) });
@@ -441,15 +443,17 @@ export default function BusinessCardApp({ session, activeTab }) {
 
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
 
+    const showPreviewCols = ['builder', 'design', 'url'].includes(activeTab);
+
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
-                        {activeTab === 'design' ? 'Design & Theme' : activeTab === 'address-book' ? 'Address Book' : 'Card Builder'}
+                        {activeTab === 'design' ? 'Design & Theme' : activeTab === 'address-book' ? 'Address Book' : activeTab === 'url' ? 'Custom URL' : 'Card Builder'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : activeTab === 'address-book' ? 'Manage and export your saved contacts.' : 'Update your contact and social information.'}
+                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : activeTab === 'address-book' ? 'Manage and export your saved contacts.' : activeTab === 'url' ? 'Claim your custom public link.' : 'Update your contact and social information.'}
                     </p>
                 </div>
                 {activeTab !== 'address-book' && (
@@ -464,15 +468,22 @@ export default function BusinessCardApp({ session, activeTab }) {
                 )}
             </div>
 
+            {/* MOBILE PREVIEW TOGGLE */}
+            {showPreviewCols && (
+                <div className="lg:hidden flex bg-black p-1 rounded-xl border border-white/10 mb-6">
+                    <button onClick={() => setMobileView('edit')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${mobileView === 'edit' ? 'bg-[#222] text-white shadow' : 'text-gray-500'}`}>Edit Mode</button>
+                    <button onClick={() => setMobileView('preview')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${mobileView === 'preview' ? 'bg-[#222] text-white shadow' : 'text-gray-500'}`}>Live Preview</button>
+                </div>
+            )}
+
             <div className="grid lg:grid-cols-12 gap-8">
                 
                 {/* LEFT: THE FORMS OR FULL-WIDTH ADDRESS BOOK */}
-                <div className={`space-y-6 ${activeTab === 'address-book' ? 'lg:col-span-12' : 'lg:col-span-7'}`}>
+                <div className={`space-y-6 ${activeTab === 'address-book' ? 'lg:col-span-12' : 'lg:col-span-7'} ${mobileView === 'preview' && showPreviewCols ? 'hidden lg:block' : ''}`}>
                     
-                    {/* TAB 1: BUILDER (CORE DETAILS & LINKS) */}
-                    {activeTab === 'builder' && (
+                    {/* TAB 1: CUSTOM URL */}
+                    {activeTab === 'url' && (
                         <div className="animate-in fade-in duration-300">
-                            
                             <div className="mb-6 p-4 sm:p-6 bg-[#111] rounded-2xl border border-[#9df01c]/30 shadow-lg shadow-[#9df01c]/5">
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black p-1.5 sm:pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
@@ -486,7 +497,12 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 </div>
                                 <p className="text-[9px] text-gray-500 mt-2 font-medium">Letters, numbers, and hyphens only. This is what you will share with people!</p>
                             </div>
+                        </div>
+                    )}
 
+                    {/* TAB 2: BUILDER (CORE DETAILS & LINKS) */}
+                    {activeTab === 'builder' && (
+                        <div className="animate-in fade-in duration-300">
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
                                 <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><User size={18} className="text-[#9df01c]"/> Details</h3>
                                 
@@ -541,72 +557,79 @@ export default function BusinessCardApp({ session, activeTab }) {
                         </div>
                     )}
 
-                    {/* TAB 2: DESIGN & THEME */}
+                    {/* TAB 3: DESIGN & THEME */}
                     {activeTab === 'design' && (
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 animate-in fade-in duration-300">
-                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Brand Imagery</h3>
-                            
-                            <div className="flex flex-col sm:flex-row gap-6 mb-8">
-                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
-                                    <div className="mb-4">
-                                        {cardData.avatarUrl ? <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" /> : <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>}
+                        <div className="animate-in fade-in duration-300">
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><Palette size={18} className="text-[#9df01c]"/> Branding</h3>
+                                
+                                <div className="flex flex-col sm:flex-row gap-6 mb-8">
+                                    <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center">
+                                        <div className="mb-4">
+                                            {cardData.avatarUrl ? <img src={cardData.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" /> : <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>}
+                                        </div>
+                                        <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
+                                        </label>
                                     </div>
-                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.avatar ? 'Uploading...' : 'Profile Photo'}
-                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
-                                    </label>
+
+                                    <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center relative">
+                                        <div className="mb-4 w-full flex items-center justify-center h-20">
+                                            {cardData.logoUrl ? <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>}
+                                        </div>
+                                        <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
+                                        </label>
+                                        
+                                        {cardData.logoUrl && (
+                                            <div className="w-full mt-4 bg-white/5 p-2 rounded-xl">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Logo Size</label>
+                                                    <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove</button>
+                                                </div>
+                                                <input type="range" min="30" max="150" value={cardData.logoSize || 56} onChange={e => setCardData({...cardData, logoSize: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="flex-1 bg-black p-5 rounded-2xl border border-white/5 flex flex-col items-center justify-center text-center relative">
-                                    <div className="mb-4 w-full flex items-center justify-center h-20">
-                                        {cardData.logoUrl ? <img src={cardData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" /> : <div className="w-full h-20 rounded-xl bg-white/5 border border-white/10 border-dashed flex items-center justify-center"><ImageIcon size={24} className="text-gray-500" /></div>}
+                                <div className="pt-8 border-t border-white/5">
+                                    <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Theme Presets</h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+                                        {PRESETS.map(p => (
+                                            <button key={p.id} onClick={() => handlePresetSelect(p)} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}>
+                                                <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>{p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}</div>
+                                                <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{p.name}</span>
+                                            </button>
+                                        ))}
                                     </div>
-                                    <label className={`w-full justify-center py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}{isUploading.logo ? 'Uploading...' : 'Brand Logo'}
-                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'logoUrl')} />
-                                    </label>
-                                    
-                                    {cardData.logoUrl && (
-                                        <div className="w-full mt-4 bg-white/5 p-2 rounded-xl">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Logo Size</label>
-                                                <button onClick={() => setCardData({...cardData, logoUrl: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest">Remove</button>
+
+                                    {cardData.themePreset === 'custom' && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in bg-black p-5 rounded-2xl border border-white/5">
+                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label><input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
+                                            <div>
+                                                <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
+                                                <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
+                                                    <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
+                                                    <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
+                                                </div>
                                             </div>
-                                            <input type="range" min="30" max="150" value={cardData.logoSize || 56} onChange={e => setCardData({...cardData, logoSize: e.target.value})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label><input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
+                                            <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label><input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            <div className="pt-8 border-t border-white/5">
-                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">Theme Presets</h4>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-                                    {PRESETS.map(p => (
-                                        <button key={p.id} onClick={() => handlePresetSelect(p)} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${cardData.themePreset === p.id ? 'bg-white/10 border-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20'}`}>
-                                            <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center overflow-hidden" style={{ background: p.bg }}>{p.accent !== 'transparent' && <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.accent }}></div>}</div>
-                                            <span className="text-[9px] font-bold text-gray-300 uppercase tracking-widest">{p.name}</span>
-                                        </button>
-                                    ))}
+                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Branding'}</button>
                                 </div>
-
-                                {cardData.themePreset === 'custom' && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in bg-black p-5 rounded-2xl border border-white/5">
-                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Background Color</label><input type="color" value={cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#ffffff' : '#111111')} onChange={e => setCardData({...cardData, cardBgColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                        <div>
-                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Text & Panel Mode</label>
-                                            <div className="flex bg-black p-1 rounded-lg border border-white/10 h-12">
-                                                <button onClick={() => setCardData({...cardData, cardBgType: 'dark'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'dark' || !cardData.cardBgType ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Dark</button>
-                                                <button onClick={() => setCardData({...cardData, cardBgType: 'light'})} className={`flex-1 rounded-md text-[10px] font-bold transition-colors ${cardData.cardBgType === 'light' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>Light</button>
-                                            </div>
-                                        </div>
-                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Accent Color</label><input type="color" value={cardData.theme} onChange={e => setCardData({...cardData, theme: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Icons Color</label><input type="color" value={cardData.iconColor} onChange={e => setCardData({...cardData, iconColor: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /></div>
-                                    </div>
-                                )}
                             </div>
 
-                            <div className="pt-8 border-t border-white/5 mt-8">
-                                <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-4">QR Code Setting</h4>
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mt-6">
+                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><QrCode size={18} className="text-[#9df01c]"/> QR Code Settings</h3>
+                                
                                 <div className="flex items-center justify-between bg-black p-5 rounded-2xl border border-white/5 mb-4">
                                     <div><p className="text-sm font-bold text-white">Embed Logo in QR Code</p><p className="text-[10px] text-gray-500 font-medium mt-1">Place a logo directly in the center of your shareable QR code.</p></div>
                                     <button onClick={() => setCardData({...cardData, qrLogoEnabled: !cardData.qrLogoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.qrLogoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.qrLogoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
@@ -626,15 +649,14 @@ export default function BusinessCardApp({ session, activeTab }) {
                                         </div>
                                     </div>
                                 )}
-                            </div>
-
-                            <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Design'}</button>
+                                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">{isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save QR Settings'}</button>
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* TAB 3: ADDRESS BOOK CRM */}
+                    {/* TAB 4: ADDRESS BOOK CRM */}
                     {activeTab === 'address-book' && (
                         <div className="animate-in fade-in duration-300">
                             {contactView === 'list' ? (
@@ -755,9 +777,9 @@ export default function BusinessCardApp({ session, activeTab }) {
                     )}
                 </div>
 
-                {/* RIGHT: THE LIVE PREVIEW (Hidden if viewing Address Book) */}
-                {activeTab !== 'address-book' && (
-                    <div className="lg:col-span-5">
+                {/* RIGHT: THE LIVE PREVIEW */}
+                {showPreviewCols && (
+                    <div className={`lg:col-span-5 ${mobileView === 'edit' ? 'hidden lg:block' : ''}`}>
                         <div className="lg:sticky lg:top-24 mt-8 lg:mt-0">
                             <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                                 <MonitorSmartphone size={14} /> Live Preview
