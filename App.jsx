@@ -1,345 +1,493 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image, FileText, Menu, X, QrCode, UserPlus } from 'lucide-react';
+/**
+ * api/index.js - THE BACKEND ENGINE
+ * ADDED: Manual User tracking and granting!
+ */
 
-// Import our new Component Architecture
-import TopBar from './components/layout/TopBar';
-import Sidebar from './components/layout/Sidebar';
-import BridgeApp from './components/apps/BridgeApp';
-import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
-import AddressBookApp from './components/apps/AddressBookApp';
-import PlaceholderApp from './components/apps/PlaceholderApp';
+import express from 'express';
+import { neon } from '@neondatabase/serverless';
+import Stripe from 'stripe'; 
 
-export default function App() {
-  const [publicCardData, setPublicCardData] = useState(null);
-  const [isPublicBio, setIsPublicBio] = useState(false);
-  const [publicBioError, setPublicBioError] = useState(false);
+const app = express();
 
-  const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
-  const [unaData, setUnaData] = useState(() => {
-    const saved = localStorage.getItem('bridge_unadata');
-    return saved ? JSON.parse(saved) : { user: null, crowds: [], spaces: [], debug: null };
-  });
+const UNA_BASE_URL = "https://studio.selloutcrowds.com";
+const UNA_SECRET = "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC";
+const UNA_CLIENT_ID = "yxxnxsihu2";
+const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
-  const [error, setError] = useState(null);
+const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
+const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
-  const [currentApp, setCurrentApp] = useState(() => {
-      if (typeof window !== 'undefined') {
-          const params = new URLSearchParams(window.location.search);
-          return params.get('app') || 'business-card';
-      }
-      return 'business-card';
-  });
-  
-  const [activeTab, setActiveTab] = useState(() => {
-      if (typeof window !== 'undefined') {
-          const params = new URLSearchParams(window.location.search);
-          return params.get('tab') || 'builder';
-      }
-      return 'builder';
-  }); 
+const sql = neon(process.env.DATABASE_URL);
 
-  const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
+app.use(express.json());
 
-  const hasAttemptedLogin = useRef(false);
+// --- HELPER FUNCTIONS ---
 
-  const brandColor = '#9df01c';
-  const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
-  const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
-  const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
-  const UNA_CLIENT_ID = "yxxnxsihu2"; 
-
-  useEffect(() => {
-      if (!isPublicBio && session) {
-          const url = new URL(window.location);
-          url.searchParams.set('app', currentApp);
-          url.searchParams.set('tab', activeTab);
-          window.history.replaceState({}, '', url);
-      }
-  }, [currentApp, activeTab, isPublicBio, session]);
-
-  useEffect(() => {
-      if (isPublicBio && publicCardData?.name) {
-          document.title = `${publicCardData.name} | Contact`;
-      } else {
-          document.title = "Sellout Crowds Hub";
-      }
-  }, [isPublicBio, publicCardData]);
-
-  useEffect(() => {
-      const hostname = window.location.hostname;
-      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
-          const pathSlug = window.location.pathname.substring(1); 
-          if (pathSlug && pathSlug !== '') {
-              setIsPublicBio(true);
-              setIsLoading(true);
-              fetch(`/api/public-card/${pathSlug}`)
-                  .then(res => res.json())
-                  .then(data => {
-                      if (data.success && data.card) {
-                          setPublicCardData(data.card);
-                      } else {
-                          setPublicBioError(true);
-                      }
-                      setIsLoading(false);
-                  })
-                  .catch(() => {
-                      setPublicBioError(true);
-                      setIsLoading(false);
-                  });
-          }
-      }
-  }, []);
-
-  useEffect(() => {
-    if (session) localStorage.setItem('bridge_session', session);
-    else {
-      localStorage.removeItem('bridge_session');
-      localStorage.removeItem('bridge_unadata'); 
-    }
-  }, [session]);
-
-  useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
-
-  useEffect(() => {
-    if (isPublicBio) return; 
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    if (code && !hasAttemptedLogin.current) {
-      hasAttemptedLogin.current = true;
-      handleCallback(code);
-    } else if (session && !unaData.user) {
-        fetchUser(session);
-    }
-  }, [isPublicBio, session]);
-
-  const handleLogout = () => {
-    setSession(null);
-    setUnaData({ user: null, crowds: [], spaces: [], debug: null });
-    setCurrentApp('business-card');
-    setActiveTab('builder');
-    
-    const url = new URL(window.location);
-    url.search = '';
-    window.history.replaceState({}, '', url);
-  };
-
-  const handleCallback = async (code) => {
-    setIsLoading(true);
-    setError(null);
+async function ensureSchema() {
     try {
-      const redirectUri = window.location.origin.endsWith('/') ? window.location.origin : `${window.location.origin}/`;
-      const res = await fetch('/api/auth/callback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirect_uri: redirectUri })
-      });
-      const data = await res.json();
-      
-      if (data.access_token) {
-        setSession(data.access_token);
-        fetchUser(data.access_token); 
-        syncCommunities(data.access_token);
-      } else {
-        setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
-      }
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (err) {
-      setError("The server is not responding. Please try again.");
-    } finally {
-      setIsLoading(false);
+        await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
+        await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
+        await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
+        try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
+        
+        // NEW: Table to track manually added users
+        try { 
+            await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
+                id SERIAL PRIMARY KEY, 
+                user_id INTEGER, 
+                email VARCHAR(255), 
+                una_module VARCHAR(50), 
+                una_content_id INTEGER, 
+                status VARCHAR(50) DEFAULT 'bridged', 
+                UNIQUE(user_id, email, una_module, una_content_id)
+            )`; 
+        } catch(e) {}
+    } catch (e) {
+        console.error("Schema check notice:", e.message);
     }
-  };
-
-  const fetchUser = async (token) => {
-    try {
-      const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.status === 401) { handleLogout(); return; }
-      const data = await res.json();
-      setUnaData(prev => ({ ...prev, user: data.user }));
-    } catch (err) { console.error("Could not load user data"); }
-  };
-
-  const syncCommunities = async (overrideToken) => {
-    const activeToken = overrideToken || session;
-    if (!activeToken) return;
-    setIsSyncingCommunities(true);
-    try {
-      const res = await fetch('/api/get-communities', {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' }
-      });
-      if (res.status === 401) { handleLogout(); return; }
-      const data = await res.json();
-      setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
-    } catch (err) { 
-        console.error("Failed to sync communities from Sellout Crowds."); 
-    } finally {
-        setIsSyncingCommunities(false);
-    }
-  };
-
-  const startLogin = () => {
-    const origin = window.location.origin;
-    const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
-    const state = Math.random().toString(36).substring(7);
-    window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
-  };
-
-  const handleAppSwitch = (appId, defaultTab) => {
-      setCurrentApp(appId);
-      setActiveTab(defaultTab);
-      setIsAppSwitcherOpen(false);
-      setIsMobileMenuOpen(false);
-  };
-
-  // --- NEW: MOBILE ACTION SHORTCUTS ---
-  const triggerMobileQRCode = () => {
-      handleAppSwitch('business-card', 'builder');
-      setTimeout(() => window.dispatchEvent(new CustomEvent('open-qr-modal')), 100);
-  };
-
-  const triggerMobileAddContact = () => {
-      handleAppSwitch('address-book', 'contacts');
-      setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
-  };
-
-  if (isPublicBio) {
-      if (isLoading) {
-          return (
-             <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
-                <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                <span className="font-black uppercase tracking-[0.3em] text-[10px]">Loading Profile...</span>
-             </div>
-          );
-      }
-
-      if (publicBioError || !publicCardData) {
-          return (
-              <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white font-sans p-4 text-center">
-                  <AlertCircle size={48} className="text-red-500 mb-4" />
-                  <h1 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Profile Not Found</h1>
-                  <p className="text-gray-500 font-medium">This crowds.bio link doesn't exist or has been changed.</p>
-                  <a href="https://selloutcrowds.com" className="mt-8 text-[#9df01c] font-black uppercase tracking-widest text-[10px] hover:underline">Go to Sellout Crowds</a>
-              </div>
-          );
-      }
-
-      const bgType = publicCardData.cardBgType || publicCardData.cardMode || 'dark';
-      const isLight = bgType === 'light';
-      const fullScreenBgColor = publicCardData.cardBgColor || (isLight ? '#f9fafb' : '#050505');
-
-      return (
-          <div className={`min-h-screen flex flex-col items-center pt-8 pb-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
-              <PublicCardView data={publicCardData} isFullScreen={true} />
-              <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
-                  Powered by Sellout Crowds
-              </a>
-          </div>
-      );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
-        <Loader2 className="w-12 h-12 animate-spin mb-4" />
-        <span className="font-black uppercase tracking-[0.3em] text-[10px]">Processing...</span>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-        <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
-          
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-start gap-3 relative z-10 text-left">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="mb-1">Authentication Error</p>
-                <p className="text-xs font-medium opacity-80 normal-case tracking-normal">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
-          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight relative z-10">Creator Hub</h1>
-          <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed relative z-10">
-            Login with your Sellout Crowds credentials to access your business tools and integrations.
-          </p>
-          <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
-            Login to Hub
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
-        {isMobileMenuOpen && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
-        )}
-
-        <div className={`fixed inset-y-0 left-0 z-40 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out`}>
-            <Sidebar 
-                currentApp={currentApp} 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                unaData={unaData} 
-                syncCommunities={syncCommunities}
-                isSyncingCommunities={isSyncingCommunities}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-            />
-        </div>
-
-        <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-            <TopBar 
-                currentApp={currentApp}
-                handleAppSwitch={handleAppSwitch}
-                isAppSwitcherOpen={isAppSwitcherOpen}
-                setIsAppSwitcherOpen={setIsAppSwitcherOpen}
-                handleLogout={handleLogout}
-            />
-
-            <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
-                
-                {currentApp === 'business-card' && (
-                    ['builder', 'design', 'url'].includes(activeTab) ? (
-                        <BusinessCardApp session={session} activeTab={activeTab} />
-                    ) : (
-                        <PlaceholderApp title="Card Settings" icon={<LayoutDashboard size={64}/>} description="Analytics and custom domain settings coming soon." />
-                    )
-                )}
-
-                {currentApp === 'address-book' && <AddressBookApp />}
-                
-                {currentApp === 'linktree' && <PlaceholderApp title="Bio Page Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
-                {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<Image size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
-                {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
-            </main>
-        </div>
-
-        {/* UPGRADED MOBILE BOTTOM NAVIGATION */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-6 z-50">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 -ml-2 transition-colors flex flex-col items-center gap-1 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500 hover:text-white'}`}>
-                {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-                <span className="text-[9px] font-bold uppercase tracking-widest">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
-            </button>
-            <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
-                <QrCode size={20} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">QR Code</span>
-            </button>
-            <button onClick={triggerMobileAddContact} className="p-2 -mr-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
-                <UserPlus size={20} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Add Contact</span>
-            </button>
-        </div>
-    </div>
-  );
 }
+
+async function getAuthenticatedUser(token) {
+    if (!token) return null;
+    try {
+        const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
+            headers: { 'Authorization': token }
+        });
+        const meData = await meRes.json();
+        if (meData && meData.id) return meData;
+        return null;
+    } catch (e) { return null; }
+}
+
+async function grantCommunityAccess(email, module, contentId) {
+    try {
+        const url = `${UNA_BASE_URL}/bridge-connector.php`;
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'add' }) });
+        const responseText = await response.text();
+        try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
+    } catch (err) { return { error: err.message }; }
+}
+
+async function revokeCommunityAccess(email, module, contentId) {
+    try {
+        const url = `${UNA_BASE_URL}/bridge-connector.php`;
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'remove' }) });
+        const responseText = await response.text();
+        try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
+    } catch (err) { return { error: err.message }; }
+}
+
+// --- API ENDPOINTS ---
+
+app.post('/api/auth/callback', async (req, res) => {
+    const { code, redirect_uri } = req.body;
+    try {
+        const params = new URLSearchParams();
+        params.append('grant_type', 'authorization_code');
+        params.append('client_id', UNA_CLIENT_ID);
+        params.append('client_secret', UNA_CLIENT_SECRET);
+        params.append('code', code);
+        params.append('redirect_uri', redirect_uri); 
+        const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+        const data = await response.json();
+        if (data.error) return res.status(400).json(data);
+        res.json(data);
+    } catch (error) { res.status(500).json({ error: "Failed to exchange auth code" }); }
+});
+
+app.get('/api/get-user', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    res.json({ user });
+});
+
+app.get('/api/get-communities', async (req, res) => {
+    const meData = await getAuthenticatedUser(req.headers.authorization);
+    if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
+    try {
+        let userProfileUrl = meData.profile_link;
+        userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
+        if (!userProfileUrl.includes('www.')) { userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN); 
+        formData.append('user', userProfileUrl);
+        formData.append('domain', 'https://bridge.selloutcrowds.com');
+        const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
+        const text = await fsanRes.text();
+        let parsedData = null;
+        try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
+        if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
+
+        const crowds = []; const spaces = []; let currentCategory = null;
+        parsedData.allow_view_to.values.forEach(item => {
+            if (item.type === 'group_header') { if (item.value === 'CROWD') currentCategory = 'CROWD'; if (item.value === 'SPACE') currentCategory = 'SPACE';
+            } else if (item.type === 'group_end') { currentCategory = null;
+            } else if (item.key !== undefined && typeof item.key === 'number') {
+                const trueId = Math.abs(item.key).toString();
+                if (currentCategory === 'CROWD') crowds.push({ id: trueId, title: item.value });
+                else if (currentCategory === 'SPACE') spaces.push({ id: trueId, title: item.value });
+            }
+        });
+        res.json({ crowds, spaces });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch community assets" }); }
+});
+
+// --- NEW: MANUAL USER ENDPOINTS ---
+app.get('/api/get-manual-users', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
+        res.json({ users: rows });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
+});
+
+app.post('/api/add-manual-user', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { email, unaModule, unaId } = req.body;
+    if (!email || !unaModule || !unaId) return res.status(400).json({ error: "Missing fields" });
+    
+    try {
+        await ensureSchema();
+        const cleanEmail = email.trim().toLowerCase();
+        const result = await grantCommunityAccess(cleanEmail, unaModule, unaId);
+        const newStatus = result.success ? 'bridged' : 'pending';
+        
+        await sql`
+            INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status)
+            VALUES (${user.id}, ${cleanEmail}, ${unaModule}, ${unaId}, ${newStatus})
+            ON CONFLICT (user_id, email, una_module, una_content_id) 
+            DO UPDATE SET status = EXCLUDED.status
+        `;
+        res.json({ success: true, result });
+    } catch (error) { res.status(500).json({ error: "Failed to add manual user" }); }
+});
+
+app.post('/api/remove-manual-user', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { id, email, unaModule, unaId } = req.body;
+    
+    try {
+        await ensureSchema();
+        await revokeCommunityAccess(email, unaModule, unaId);
+        await sql`DELETE FROM bridge_manual_users WHERE id = ${id} AND user_id = ${user.id}`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to remove manual user" }); }
+});
+
+
+// --- SETTINGS & MAPPINGS ---
+app.get('/api/get-settings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        const userId = parseInt(user.id);
+        const rows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
+        res.json({ settings: rows[0] || {} });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
+});
+
+app.post('/api/save-settings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { stripeKey } = req.body;
+    try {
+        const userId = parseInt(user.id);
+        const cleanKey = stripeKey ? stripeKey.trim() : '';
+        await sql`INSERT INTO bridge_settings (user_id, stripe_secret_key) VALUES (${userId}, ${cleanKey}) ON CONFLICT (user_id) DO UPDATE SET stripe_secret_key = EXCLUDED.stripe_secret_key`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to save settings." }); }
+});
+
+app.get('/api/get-mappings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappedData = rows.map(row => ({ id: row.id, provider: row.provider, productId: row.stripe_product_id, unaModule: row.una_module, unaId: row.una_content_id.toString() }));
+        res.json({ mappings: mappedData });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch mappings" }); }
+});
+
+app.post('/api/save-mappings', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { mappings } = req.body;
+    try {
+        await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
+        if (mappings && mappings.length > 0) {
+            for (const map of mappings) {
+                if (map.productId && map.unaModule && map.unaId) {
+                    const provider = map.provider || 'stripe';
+                    const contentId = parseInt(map.unaId);
+                    await sql`INSERT INTO bridge_mappings (user_id, creator_id, provider, stripe_product_id, una_module, una_content_id) VALUES (${user.id}, ${user.id}, ${provider}, ${map.productId}, ${map.unaModule}, ${contentId})`;
+                }
+            }
+        }
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
+});
+
+// --- BUSINESS CARD STORAGE ENDPOINTS ---
+app.get('/api/get-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${userId}`;
+        res.json({ card: rows.length > 0 ? rows[0].card_data : null, slug: rows.length > 0 ? rows[0].custom_slug : '' });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch card" }); }
+});
+
+app.post('/api/save-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        const cardData = req.body.card;
+        const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
+
+        if (slug) {
+            const check = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${userId}`;
+            if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
+        }
+
+        await sql`
+            INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) 
+            VALUES (${userId}, ${cardData}, ${slug})
+            ON CONFLICT (user_id) 
+            DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to save card" }); }
+});
+
+app.get('/api/public-card/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const slug = req.params.slug.toLowerCase().trim();
+        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE custom_slug = ${slug}`;
+        if (rows.length > 0) {
+            res.json({ success: true, card: rows[0].card_data });
+        } else {
+            res.status(404).json({ error: "Card not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to load card" });
+    }
+});
+
+// --- REMAINDER OF STRIPE / PATREON ENDPOINTS ---
+app.post('/api/get-stripe-products', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { apiKey } = req.body;
+    if (!apiKey) return res.status(400).json({ error: "No API key provided" });
+    try {
+        const stripe = new Stripe(apiKey.trim());
+        const products = await stripe.products.list({ limit: 100, active: true });
+        res.json({ products: products.data.map(p => ({ id: p.id, name: p.name })) });
+    } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
+});
+
+app.post('/api/patreon-import', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { users, mappings } = req.body; 
+    try {
+        await ensureSchema();
+        const mappingsMap = {};
+        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
+        const incomingMap = {};
+        users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
+
+        let importCount = 0; let revokeCount = 0;
+        for (const dbUser of existingDb) {
+            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
+                const oldMapping = mappingsMap[dbUser.tier];
+                if (oldMapping) await revokeCommunityAccess(dbUser.email, oldMapping.module, oldMapping.id);
+                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
+                revokeCount++;
+                await new Promise(resolve => setTimeout(resolve, 250)); 
+            }
+        }
+        for (const [email, tier] of Object.entries(incomingMap)) {
+            const { module, id } = mappingsMap[tier];
+            const result = await grantCommunityAccess(email, module, id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            if (result.success) importCount++;
+            await new Promise(resolve => setTimeout(resolve, 250)); 
+        }
+        res.json({ success: true, added: importCount, revoked: revokeCount });
+    } catch (error) { res.status(500).json({ error: "Failed to process Patreon import." }); }
+});
+
+app.get('/api/get-subscribers', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) return res.json({ stats: [] });
+        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+        const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
+        const products = await stripe.products.list({ active: true, limit: 100 });
+        const productMap = {};
+        products.data.forEach(p => productMap[p.id] = p.name);
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const statusMap = {};
+        customersDb.forEach(c => statusMap[c.email] = c.bridge_status || 'pending');
+
+        const stats = {};
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+            const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            if (!productId) continue;
+            if (!stats[productId]) {
+                stats[productId] = { productId: productId, productName: productMap[productId] || 'Unknown Product', isMapped: mappedProductIds.has(productId), totalCount: 0, bridgedCount: 0, users: [] };
+            }
+            stats[productId].totalCount++;
+            const email = sub.customer?.email || 'No email';
+            let displayStatus = 'Stripe Only'; let isRevoked = false; let isBridged = false;
+
+            if (mappedProductIds.has(productId)) {
+                const dbStatus = statusMap[email];
+                if (dbStatus === 'revoked') { displayStatus = 'Access Revoked'; isRevoked = true; } 
+                else if (dbStatus === 'bridged') { displayStatus = 'Active'; isBridged = true; stats[productId].bridgedCount++; } 
+                else { displayStatus = 'Inactive'; }
+            }
+            stats[productId].users.push({ name: sub.customer?.name || 'Customer', email: email, status: displayStatus, isRevoked: isRevoked, isBridged: isBridged });
+        }
+        res.json({ stats: Object.values(stats) });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch subscriber stats." }); }
+});
+
+app.post('/api/sync-subscribers', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0) return res.status(400).json({ error: "Stripe key not found." });
+        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+        const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappingsMap = {};
+        mappingRows.forEach(row => mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id });
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const statusMap = {};
+        customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
+
+        let syncCount = 0;
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+            const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            const customerEmail = sub.customer?.email;
+            if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
+                if (statusMap[customerEmail] === 'revoked') continue;
+                const { module, id } = mappingsMap[stripeProductId];
+                const result = await grantCommunityAccess(customerEmail, module, id);
+                const newStatus = result.success ? 'bridged' : 'pending';
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+                if (result.success) syncCount++;
+                await new Promise(resolve => setTimeout(resolve, 250));
+            }
+        }
+        res.json({ success: true, count: syncCount });
+    } catch (error) { res.status(500).json({ error: "Failed to sync subscribers." }); }
+});
+
+app.post('/api/toggle-user-access', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { email, productId, action } = req.body; 
+    try {
+        await ensureSchema();
+        const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND stripe_product_id = ${productId}`;
+        if (mappingRows.length === 0) return res.status(400).json({ error: "Mapping not found." });
+        const { una_module, una_content_id } = mappingRows[0];
+        if (action === 'revoke') {
+            await revokeCommunityAccess(email, una_module, una_content_id);
+            await sql`UPDATE bridge_customers SET bridge_status = 'revoked' WHERE email = ${email}`;
+        } else {
+            const result = await grantCommunityAccess(email, una_module, una_content_id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+            await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${email}`;
+        }
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
+});
+
+app.post('/api/stripe-webhook', async (req, res) => {
+    const event = req.body;
+    try {
+        await ensureSchema();
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const customerEmail = session.customer_details?.email;
+            const customerId = session.customer; 
+            const stripeProductId = session.metadata?.product_id;
+            let bridgeStatus = 'pending';
+            if (stripeProductId && customerEmail) {
+                const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                if (rows.length > 0) {
+                    const result = await grantCommunityAccess(customerEmail, rows[0].una_module, rows[0].una_content_id);
+                    bridgeStatus = result.success ? 'bridged' : 'pending';
+                }
+            }
+            if (customerId && customerEmail) {
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${customerId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+            }
+        } 
+        else if (event.type === 'customer.subscription.deleted') {
+            const sub = event.data.object;
+            const customerId = sub.customer;
+            const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            if (customerId && stripeProductId) {
+                const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                if (customerRows.length > 0) {
+                    const customerEmail = customerRows[0].email;
+                    const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    if (mapRows.length > 0) {
+                        await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                        await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                    }
+                }
+            }
+        }
+        else if (event.type === 'customer.subscription.updated') {
+             const sub = event.data.object;
+             const status = sub.status; 
+             const customerId = sub.customer;
+             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+             if (customerId && stripeProductId) {
+                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                 if (customerRows.length > 0) {
+                     const customerEmail = customerRows[0].email;
+                     const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     if (mapRows.length > 0) {
+                         const currentStatus = customerRows[0].bridge_status;
+                         if (currentStatus !== 'revoked') {
+                             if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
+                                 await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                             } else if (status === 'active') {
+                                 const result = await grantCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 const newStatus = result.success ? 'bridged' : 'pending';
+                                 await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${customerEmail}`;
+                             }
+                         }
+                     }
+                 }
+             }
+        }
+    } catch (error) { console.error('Webhook Error Processing:', error); }
+    res.json({ received: true });
+});
+
+export default app;

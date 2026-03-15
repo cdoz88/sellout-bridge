@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, UploadCloud, MonitorSmartphone } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, UploadCloud, MonitorSmartphone, UserPlus, Users } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [apiKey, setApiKey] = useState(''); 
@@ -23,6 +23,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [patreonUsers, setPatreonUsers] = useState([]);
   const [error, setError] = useState(null);
 
+  // --- MANUAL USER STATE ---
+  const [manualUsers, setManualUsers] = useState([]);
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualUnaSelect, setManualUnaSelect] = useState(''); // Combined module_id string
+  const [isManualSaving, setIsManualSaving] = useState(false);
+
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
@@ -31,8 +37,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     if (session) {
       fetchDatabaseMappings(session);
       fetchDatabaseSettings(session);
+      fetchManualUsers(session);
     }
-  }, [session]);
+  }, [session, activeTab]);
 
   const fetchDatabaseSettings = async (token) => {
     try {
@@ -58,9 +65,20 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   };
 
+  const fetchManualUsers = async (token = session) => {
+      if (!token) return;
+      try {
+          const res = await fetch('/api/get-manual-users', { headers: { 'Authorization': `Bearer ${token}` } });
+          const data = await res.json();
+          if (data.users) setManualUsers(data.users);
+      } catch (err) {
+          console.error("Failed to load manual users.");
+      }
+  };
+
   const fetchProviderProducts = async (keyToTest, overrideToken) => {
     const activeToken = overrideToken || session;
-    if (!keyToTest || !activeToken) return;
+    if (!keyToTest || !activeToken || activeTab === 'manual') return;
     
     setIsValidatingKey(true);
     setError(null);
@@ -235,6 +253,61 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // --- MANUAL ACCESS FUNCTIONS ---
+  const handleAddManualUser = async () => {
+      if (!manualEmail || !manualUnaSelect) {
+          setError("Please enter an email and select a community.");
+          return;
+      }
+      const lastUnderscore = manualUnaSelect.lastIndexOf('_');
+      const module = manualUnaSelect.substring(0, lastUnderscore);
+      const id = manualUnaSelect.substring(lastUnderscore + 1);
+
+      setIsManualSaving(true);
+      setError(null);
+      try {
+          const res = await fetch('/api/add-manual-user', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: manualEmail, unaModule: module, unaId: id })
+          });
+          if (res.ok) {
+              setManualEmail('');
+              setManualUnaSelect('');
+              fetchManualUsers();
+          } else {
+              const errData = await res.json();
+              throw new Error(errData.error || "Failed to grant access.");
+          }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsManualSaving(false);
+      }
+  };
+
+  const handleRemoveManualUser = async (user) => {
+      try {
+          await fetch('/api/remove-manual-user', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: user.id, email: user.email, unaModule: user.una_module, unaId: user.una_content_id })
+          });
+          fetchManualUsers();
+      } catch (err) {
+          console.error("Failed to remove manual user.");
+      }
+  };
+
+  const getCommunityName = (mod, id) => {
+      if (mod === 'bx_groups') {
+          return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
+      } else {
+          return unaData.crowds.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
+      }
+  };
+
+  // --- MAPPING LOGIC ---
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
   const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   
@@ -300,7 +373,60 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-6">
               
-              {activeTab === 'patreon' ? (
+              {activeTab === 'manual' ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
+                    <UserPlus size={18} className="text-[#9df01c]" />
+                    Grant Access
+                  </h3>
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                    Add your team members, partners, or VIPs to your community for free without requiring a payment plan.
+                  </p>
+                  <div className="space-y-5 relative z-10">
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        Email Address
+                      </label>
+                      <input 
+                        type="email" 
+                        value={manualEmail} 
+                        onChange={(e) => setManualEmail(e.target.value)} 
+                        placeholder="vip@example.com" 
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        Select Community
+                      </label>
+                      <select 
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
+                        value={manualUnaSelect}
+                        onChange={(e) => setManualUnaSelect(e.target.value)}
+                      >
+                        <option value="">Choose Crowd/Space...</option>
+                        {unaData.crowds.length > 0 && (
+                          <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
+                            {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
+                          </optgroup>
+                        )}
+                        {unaData.spaces.length > 0 && (
+                          <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
+                            {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
+                    <button 
+                      onClick={handleAddManualUser}
+                      disabled={isManualSaving || !manualEmail || !manualUnaSelect}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${!manualEmail || !manualUnaSelect ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      {isManualSaving ? 'Granting...' : 'Grant Access'}
+                    </button>
+                  </div>
+                </div>
+              ) : activeTab === 'patreon' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
@@ -360,7 +486,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              {activeTab !== 'patreon' && (
+              {['stripe', 'paypal'].includes(activeTab) && (
                 <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
@@ -386,170 +512,219 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
-                  {activeTab === 'patreon' ? (
-                     <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
-                  ) : (
-                     <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
-                  )}
-                  {activeTab === 'patreon' ? 'Import CSV Data' : 'Sync Subscribers'}
-                </h3>
-                <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                  {activeTab === 'patreon' 
-                    ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
-                    : `Pull in your existing ${activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access.`}
-                </p>
-                
-                <button 
-                  onClick={activeTab === 'patreon' ? runPatreonImport : syncExistingSubscribers}
-                  disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0)}
-                  className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
-                    ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
-                    ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                  {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <UploadCloud className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
-                  {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
-                </button>
-
-                {activeTab !== 'patreon' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-white/10">
-                    <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
-                      <span>Bridged Products</span>
-                      {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+              {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                    <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
+                      {activeTab === 'patreon' ? (
+                         <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
+                      ) : (
+                         <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                      )}
+                      {activeTab === 'patreon' ? 'Import CSV Data' : 'Sync Subscribers'}
+                    </h3>
+                    <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                      {activeTab === 'patreon' 
+                        ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
+                        : `Pull in your existing ${activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access.`}
                     </p>
-                    <div className="space-y-2">
-                      {audienceStats.filter(stat => stat.isMapped).map(stat => (
-                        <div 
-                          key={stat.productId} 
-                          onClick={() => setModalData(stat)}
-                          className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-3 flex justify-between items-center cursor-pointer transition-colors group"
-                        >
-                          <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
-                          <div className="flex flex-col items-end">
-                              <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
-                              <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
-                          </div>
+                    
+                    <button 
+                      onClick={activeTab === 'patreon' ? runPatreonImport : syncExistingSubscribers}
+                      disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0)}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
+                        ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
+                        ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
+                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <UploadCloud className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
+                      {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
+                    </button>
+
+                    {activeTab !== 'patreon' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-white/10">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
+                          <span>Bridged Products</span>
+                          {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                        </p>
+                        <div className="space-y-2">
+                          {audienceStats.filter(stat => stat.isMapped).map(stat => (
+                            <div 
+                              key={stat.productId} 
+                              onClick={() => setModalData(stat)}
+                              className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-3 flex justify-between items-center cursor-pointer transition-colors group"
+                            >
+                              <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
+                              <div className="flex flex-col items-end">
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
+                                  <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <p className="text-[9px] text-gray-600 mt-3 text-center italic">Click a product to view subscribers</p>
+                        <p className="text-[9px] text-gray-600 mt-3 text-center italic">Click a product to view subscribers</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+              )}
 
             </div>
 
             <div className="lg:col-span-8">
               <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                  <div>
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                      {activeTab === 'patreon' ? (
-                          <img src={patreonIcon} alt="Patreon" className="w-6 h-6 object-contain" />
-                      ) : (
-                          <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
-                      )}
-                      Subscription Mappings
-                    </h3>
-                    <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                      Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Community]
-                    </p>
-                  </div>
-                  <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
-                    <Plus className="w-4 h-4" /> Add Bridge
-                  </button>
-                </div>
-
-                <div className="space-y-4 flex-1">
-                  {currentTabMappings.length === 0 ? (
-                    <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
-                      <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                      <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                      <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a product to a Crowd or Space.</p>
-                    </div>
-                  ) : (
-                    currentTabMappings.map((mapping) => (
-                      <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        
-                        <div className="flex-1 w-full">
-                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">
-                            {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
-                          </label>
-                          
-                          <select 
-                             className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                             value={mapping.productId}
-                             onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
-                          >
-                            <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
-                            {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
-                              providerProducts[activeTab].map(prod => (
-                                  <option key={prod.id} value={prod.id}>{prod.name}</option>
-                              ))
-                            ) : (
-                              <option value="" disabled>
-                                  {activeTab === 'patreon' ? 'Upload a CSV first to see Tiers.' : 'No products found. Sync Credentials first.'}
-                              </option>
-                            )}
-                          </select>
-                        </div>
-
-                        <div className="md:pt-5 hidden md:block">
-                          <Zap className="w-5 h-5 text-[#9df01c]" />
-                        </div>
-
-                        <div className="flex-1 w-full">
-                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
-                          <select 
-                            className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                            value={mapping.unaId ? `${mapping.unaModule}_${mapping.unaId}` : ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (!val) {
-                                updateMapping(mapping.id, 'unaModule', '');
-                                updateMapping(mapping.id, 'unaId', '');
-                              } else {
-                                const lastUnderscore = val.lastIndexOf('_');
-                                const module = val.substring(0, lastUnderscore);
-                                const id = val.substring(lastUnderscore + 1);
-                                updateMapping(mapping.id, 'unaModule', module);
-                                updateMapping(mapping.id, 'unaId', id);
-                              }
-                            }}
-                          >
-                            <option value="">Select Crowd/Space...</option>
-                            {unaData.crowds.length > 0 && (
-                              <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
-                                {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
-                              </optgroup>
-                            )}
-                            {unaData.spaces.length > 0 && (
-                              <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
-                                {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
-                              </optgroup>
-                            )}
-                          </select>
-                        </div>
-
-                        <div className="md:pt-5 w-full md:w-auto">
-                          <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                
+                {activeTab === 'manual' ? (
+                  <>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                        <div>
+                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
+                            <Users className="w-6 h-6 text-[#9df01c]" />
+                            Active Manual Members
+                          </h3>
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                            People who have been manually granted access to your communities.
+                          </p>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
 
-                <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                  <button 
-                    onClick={saveMappingsToDatabase}
-                    disabled={isSaving}
-                    className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {saveSuccess ? 'Saved!' : 'Save Configuration'}
-                  </button>
-                </div>
+                      <div className="space-y-4 flex-1">
+                        {manualUsers.length === 0 ? (
+                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
+                            <UserPlus className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Manual Users</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to grant access to a teammate or VIP.</p>
+                          </div>
+                        ) : (
+                            manualUsers.map((user) => (
+                                <div key={user.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
+                                    <div className="flex-1 w-full text-center md:text-left">
+                                        <p className="text-sm font-bold text-white">{user.email}</p>
+                                        <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
+                                            {getCommunityName(user.una_module, user.una_content_id)}
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveManualUser(user)}
+                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
+                                        title="Revoke Access"
+                                    >
+                                        <UserX size={16} /> <span className="md:hidden">Revoke</span>
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                      </div>
+                  </>
+                ) : (
+                  <>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                        <div>
+                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
+                            {activeTab === 'patreon' ? (
+                                <img src={patreonIcon} alt="Patreon" className="w-6 h-6 object-contain" />
+                            ) : (
+                                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
+                            )}
+                            Subscription Mappings
+                          </h3>
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Community]
+                          </p>
+                        </div>
+                        <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
+                          <Plus className="w-4 h-4" /> Add Bridge
+                        </button>
+                      </div>
+
+                      <div className="space-y-4 flex-1">
+                        {currentTabMappings.length === 0 ? (
+                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
+                            <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a product to a Crowd or Space.</p>
+                          </div>
+                        ) : (
+                          currentTabMappings.map((mapping) => (
+                            <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                              
+                              <div className="flex-1 w-full">
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">
+                                  {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
+                                </label>
+                                
+                                <select 
+                                   className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
+                                   value={mapping.productId}
+                                   onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
+                                >
+                                  <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
+                                  {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
+                                    providerProducts[activeTab].map(prod => (
+                                        <option key={prod.id} value={prod.id}>{prod.name}</option>
+                                    ))
+                                  ) : (
+                                    <option value="" disabled>
+                                        {activeTab === 'patreon' ? 'Upload a CSV first to see Tiers.' : 'No products found. Sync Credentials first.'}
+                                    </option>
+                                  )}
+                                </select>
+                              </div>
+
+                              <div className="md:pt-5 hidden md:block">
+                                <Zap className="w-5 h-5 text-[#9df01c]" />
+                              </div>
+
+                              <div className="flex-1 w-full">
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
+                                <select 
+                                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
+                                  value={mapping.unaId ? `${mapping.unaModule}_${mapping.unaId}` : ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) {
+                                      updateMapping(mapping.id, 'unaModule', '');
+                                      updateMapping(mapping.id, 'unaId', '');
+                                    } else {
+                                      const lastUnderscore = val.lastIndexOf('_');
+                                      const module = val.substring(0, lastUnderscore);
+                                      const id = val.substring(lastUnderscore + 1);
+                                      updateMapping(mapping.id, 'unaModule', module);
+                                      updateMapping(mapping.id, 'unaId', id);
+                                    }
+                                  }}
+                                >
+                                  <option value="">Select Crowd/Space...</option>
+                                  {unaData.crowds.length > 0 && (
+                                    <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
+                                      {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
+                                    </optgroup>
+                                  )}
+                                  {unaData.spaces.length > 0 && (
+                                    <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
+                                      {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
+                                    </optgroup>
+                                  )}
+                                </select>
+                              </div>
+
+                              <div className="md:pt-5 w-full md:w-auto">
+                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                        <button 
+                          onClick={saveMappingsToDatabase}
+                          disabled={isSaving}
+                          className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          {saveSuccess ? 'Saved!' : 'Save Configuration'}
+                        </button>
+                      </div>
+                  </>
+                )}
 
               </div>
             </div>
