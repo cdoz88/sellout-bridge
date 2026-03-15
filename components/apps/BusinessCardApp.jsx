@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -46,15 +46,9 @@ const SelloutIcon = ({ size=20, className="" }) => (
         <path d="m46.61,298.67v-.13c-.77.11-2,.29-2.54.24.9-.21,2.86-.23,3.49-.52.16.01.45-.02.6,0,2.1-.47,4.44-.52,6.63-.92-.95.46-3.25.26-4.34.75-.19,0,0-.03.12-.05-.98.12-2.74.26-3.97.63Z" />
         <path d="m47.93,302.65c-.18.08-.51.14-.71.22-.11,0,.46-.27.71-.22Z" />
         <path d="m289.44,296.4c.54.04,1.14-.05,1.7-.01,1.32.08,2.5.28,3.84.3,1.18,0,2.3-.03,3.53.04.91.06,1.21.04,1.82.05,1.78.05,3.23.25,4.03-.01,1.26-.1,2.84-.08,3.95-.18.17-.02.54.04.61.03,2.82-.25,4.61-.93,7.92-.99.31-.16.53-.42,1.11-.6.26-.08.83-.1,1.02-.19.71-.34.18-.9,1.46-1.09.08-.09-.14-.14-.2-.22.13-.8-.3-1.52.08-2.11-.82-.45-.58-.85-1.21-1.26-.39-.25-1.18-.53-1.69-.79-.58-.29-1.2-.54-1.69-.82.03-.24-.74-.36-.87-.58-.93-.24-1.63-.51-2.57-.75-.08-.09-.31-.16-.32-.26-1.98-.6-3.97-1.31-6.73-1.73-.25-.04-.78-.12-1.09-.14-2.06-.19-5.22-.57-6.27-.99-.37-.06-.37.02-.74-.04-.22-.19-1.29-.53-2.24-.59-.33-.02-.91.15-1.63.15-1.07-.01-2.06-.36-3.02-.37-.44,0-.92.15-1.39.16-1.21.04-3.63-.2-4.63-.33-.79-.1-1.08-.27-1.68-.28-.55,0-.97.14-.93.39-1.59.45-5.58-.23-7.99-.14-1.75-.33-3.45-.02-5.14-.13-.34-.02-.74-.1-1.09-.11-.58-.02-1.35.06-2.1.07-1.27.02-2.39-.03-3.43.01-1.6-.38-2.8-.05-4.16-.11-.51-.02-1-.15-1.57-.16-.48-.02-.95.06-1.47.03-.52-.03-1.07-.15-1.57-.16-.38-.01-.68.04-.98.02-.4-.02-.66-.11-1.09-.11-.45,0-.91.11-1.36.1-1.66-.02-3.45-.18-5.02.05-2.83-.24-5.3.06-8.65-.2-.84.05-1.45.09-2.32.02-.19.02-.19.1-.5.09-1.74-.12-3.58.13-5.37,0-.06.04-.14.07-.25.09-2.48-.2-5.62-.24-7.56-.02-1.51-.15-3.27.05-5.12.07-.88,0-1.74-.07-2.56-.03-1.6.08-3.7.02-5.25.07-.46.02-.91.11-1.35.13-.81.03-1.69-.05-2.56,0-3.35.18-7.19.18-10.12.25-.91.02-1.68.15-2.69.21-1.68.11-3.43-.02-5.11.07-.42.02-.83.1-1.22.12-1.01.06-1.98.02-3.04.06-2.61.08-5.22.32-7.68.29-3.12.35-7.69.47-11.33.66-.81.21-1.59.09-2.44.15-2.6.18-5.92.51-8.65.55-5.72.48-11.56.86-17.38,1.25-5.82.45-11.63.92-17.27,1.49-.9-.07-2.26.1-3.03.27-.17-.07-.69-.02-1.09-.02-1.4.33-3.19.3-4.98.5-.44.25-1.53.18-2.19.39-.3-.09.38-.13-.12-.15-1.13.48-5.05.62-6.8.87.12,0,.15.05,0,.07-.43-.06-.62.15-1.09.18-3.18.33-5.42.92-8.12,1.31-.35-.02-1.27-.1-1.57.07.49-.02,1.11-.09,1.09.07-.82.02-1.89.2-2.42.37-1.01.11-1.53.07-2.42.27-.22.02.23.14-.24.18-1.42.05-2.12.25-3.39.3-.35.19-1.83.38-2.3.35-.41.11.47.08.12.15-1.14.17-2.2.34-3.27.35-.25.1-.42.21-.85.28-.29.04.07-.15-.36-.06-.4.13.33.12.24.24-.57.11-.45.18-.72.3-.81,0-1.34.23-2.06.36-.74.13-1.58.16-2.3.29-.62.1-.87.24-1.57.32-.57.06-1.06,0-1.69.08-.33.06.24.09-.24.16-2.21.29-4.42.57-6.04.96,2.48-.53,4.34-.47,6.52-.95.35.11.98-.2,1.33-.04.14-.1-.38-.1.12-.14.16,0,.23.02.48-.02-.29.21.17.16.37.25,1.87-.23,3.34-.41,4.95-.61.3-.07-.22-.08.12-.14.61-.09,1.09-.12,1.81-.24.23.11.73.12.48.31-2.19.22-5.13.77-7.73,1.07-.79.1-1.62.06-2.05.31,1.16-.19,2.12-.08,3.14-.16,1.32-.11,2.7-.46,3.99-.55.36-.02.52.02.84-.02.26-.03.68-.17.97-.19.31-.03.34.04.6,0,.55-.07.96-.22,1.57-.28,1.02-.1,2.03-.08,3.14-.24.21.04.13.19-.12.24-1.32.14-1.55.17-2.9.31.15,0,.25.02.24.07-.42.03-.57,0-.85.11,1-.11.94.15.61.3-2.5.21-5.55.64-7.61.76-.22.09-.35.2-.72.26-2.3.34-4.89.55-7.36.9,2.84-.12,5.78-.59,9.05-1,.13.02.04.12.36.06,1.39-.24,3.02-.38,4.1-.52.5.09.98.18,1.45.28,3.43-.47,6-.17,9.29-.46,0,.1.25.1.36.16-.26.1-.42.23-.72.32-.54.06-1.09.16-1.57.14-2.75.54-6.7.77-10.13,1.28-.4.2-.06.29.24.4,1.67-.08,3.16-.46,4.94-.44.67.32.03.65-1.32.81-2.25.27-6.13.63-7.59.73-6.57.94-13.12,1.59-19.84,2.6,3.76-.37,7.19-1.02,10.57-1.24-.02-.07.1-.11.36-.14,3.31-.32,6.98-.77,9.87-1.18,1.24.11,3.56-.41,4.82-.3-.27.4-1.26.67-2.53.89,1.3-.16,2.52-.16,3.61-.25.9-.07,2.43-.34,2.89-.31.11,0-.09.1.12.09-.37.03.65-.09.72-.1.48-.09.39-.11.96-.16.74-.06.73-.06,1.2-.01,2.56-.18,5.04-.53,7.59-.69.27-.02.8-.07.84-.07.24,0,.04.08.36.07.18,0,.09-.08.36-.1,1-.06,2.14-.14,3.13-.24,2.49-.27,5.45-.41,7.48-.59.46-.01-.13.15.48.09,3.51-.21,7.22-.45,10.97-.73.28-.01.07.15.48.09.52-.02.38-.17.85-.19.29.02.56.05.72.12,4.31-.18,8.73-.63,13.16-1,4.13-.36,8.28-.6,12.2-.84,3.09-.2,6.05-.51,8.82-.57,1.85-.16,3.58-.29,5.29-.39,1.7-.08,3.38-.16,5.11-.24,2.51-.12,5.27-.16,7.38-.33.36-.03.79-.12,1.22-.14.64-.03,1.29.05,1.93.03,1.73-.07,3.49-.28,5.21-.35,1.93-.07,3.79-.08,5.68-.12,1.07-.02,2.09-.15,3.15-.19.7-.02,1.44.04,2.17.02,2.04-.06,4.12-.26,6.06-.28,2.59-.02,5.24.02,7.86-.16,2.9.06,6.42.04,9.19-.04,2.25.24,4.59-.05,7.13,0,.27,0,.45.05.72.06,1.92.08,3.96.02,5.9-.03,1.94-.02,3.79-.04,5.35.07,1.17-.15,2.17.04,3.26.1,1.17.06,2.26-.04,3.39-.03.37,0,.71.07,1.08.09,1.14.04,2.26-.05,3.52-.06,1.88,0,3.88.3,6.03.15,1.66.12,4.12.39,6.03.3,3.21.36,6.47.19,9.77.42,1.11.08,2.12.29,3.25.17,1.16.22,2.55.16,3.97.24,1.4.07,2.86.22,4.32.36,2.08.19,4.68.21,6.22.66.67.78,2.11-.21,3.76.04.87.2.74.4,1.1.69.78.16,1.52.14,2.29.13.89.13,1.51.5,2.7.58Zm-211.94-2.69s-.03-.06-.12-.05c.24-.18.84-.01.12.05Zm-.24.09c-1,.12-2.4.41-3.14.37-.2.02.19.17-.12.24-.44-.04-.95-.04-1.69.03-.08-.26,1.41-.25,1.45-.5.57-.04.85-.05,1.09-.2,1.17-.03,1.41-.22,2.3-.22-.22.18.17.1.12.28Z" />
-        <path d="m148.83,143.24c-9.14-8.94-14.98-21.48-17.42-34.23-2.71-12.63-3.99-25.75-3.66-38.65-1.16-30.21,23.88-54.66,54.06-53.06,22.34-1.51,46.43,14.47,52.05,39.42,1.57,7.33,1.33,14.78,1.23,22.28-1.11,21.91-4.06,46.24-19.83,62.79,3.23-5.34,5.74-11.05,7.47-17.01,4.63-17.88,4.25-36.6,2.76-54.91-.23-2.78-.55-5.83-1.29-8.51-4.26-19.24-23.49-33.41-43.08-31.71-18.12-1.21-35.99,10.94-41.4,28.36-1.43,3.93-1.93,8.62-2.32,12.81-.63,6.25-.82,12.37-.86,18.6.04,18.58,1.52,37.98,12.3,53.83h0Z" />
-        <path d="m100.25,272.48L2.2,43.53c-2.95-6.9-2.94-14.8.04-21.68,2.98-6.89,8.73-12.31,15.78-14.88l14.49-5.29c13.79-5.03,29.02,1.64,34.68,15.17l43.74,100.47c.82,1.89,1.25,3.93,1.25,5.99l-8.6,12.94L52.51,22.98c-2.37-5.67-8.76-8.47-14.54-6.36l-14.49,5.29c-3,1.09-5.36,3.31-6.62,6.25-1.27,2.93-1.27,6.16-.02,9.1l82.74,198.35c.79,1.9,1.19,3.95,1.15,6.01l-.48,30.86Z" />
-        <path d="m262.6,272.48l98.05-228.95c2.95-6.9,2.94-14.8-.04-21.68-2.98-6.89-8.73-12.31-15.78-14.88l-14.49-5.29c-13.79-5.03-29.02,1.64-34.68,15.17l-43.74,100.47c-.82,1.89-1.25,3.93-1.25,5.99l8.6,12.94,51.07-113.26c2.37-5.67,8.76-8.47,14.54-6.36l14.49,5.29c3,1.09,5.36,3.31,6.62,6.25,1.27,2.93,1.27,6.16.02,9.1l-82.74,198.35c-.79,1.9-1.19,3.95-1.15,6.01l.48,30.86Z" />
-        <path d="m155.38,190.44h-18.92v15.88c0,4.32,3.15,6.49,9.46,6.49,8.25,0,15.13,2.2,20.64,6.6,5.87,4.68,8.81,10.87,8.81,18.56v20.76c0,3.81-1.47,7.06-4.4,9.76-2.9,2.66-6.35,3.99-10.35,3.99h-29.39c-4.01,0-7.46-1.33-10.35-3.99-2.94-2.7-4.4-5.95-4.4-9.76v-20.29h19.99v15.41h18.92v-15.88c0-4.32-3.15-6.48-9.46-6.48-8.25,0-15.13-2.2-20.64-6.6-5.87-4.68-8.81-10.87-8.81-18.56v-20.76c0-3.81,1.47-7.06,4.4-9.76,2.89-2.66,6.35-3.99,10.35-3.99h29.39c4.01,0,7.46,1.33,10.35,3.99,2.93,2.7,4.4,5.95,4.4,9.76v20.23h-19.99v-15.35Z" />
-        <path d="m226.39,190.44h-18.92v63.42h18.92v-15.41h19.99v20.29c0,3.81-1.47,7.06-4.4,9.76-2.9,2.66-6.35,3.99-10.35,3.99h-29.39c-4.01,0-7.46-1.33-10.35-3.99-2.94-2.7-4.4-5.95-4.4-9.76v-73.18c0-3.81,1.47-7.06,4.4-9.76,2.89-2.66,6.35-3.99,10.35-3.99h29.39c4.01,0,7.46,1.33,10.35,3.99,2.93,2.7,4.4,5.95,4.4,9.76v20.23h-19.99v-15.35Z" />
     </svg>
 );
 
-// --- THE NEW LINK ENGINE ARCHITECTURE ---
 const DEFAULT_LINKS = [
     { id: 'phone', type: 'phone', title: 'Phone Number', defaultSubtitle: 'Call or Text', url: '' },
     { id: 'email', type: 'email', title: 'Email Address', defaultSubtitle: 'Email me', url: '' },
@@ -131,9 +125,8 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [notes, setNotes] = useState('');
     const [showPhoneAction, setShowPhoneAction] = useState(false);
-    const [activePhoneString, setActivePhoneString] = useState(''); // Tracks which phone number they tapped
+    const [activePhoneString, setActivePhoneString] = useState(''); 
 
-    // Get the primary identifier to securely save local notes
     const activeLinks = data.links || [];
     const emailLink = activeLinks.find(l => l.type === 'email' && l.url.trim());
     const primaryId = emailLink ? emailLink.url : data.name;
@@ -165,7 +158,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
         if (data.company) parts.push(`ORG:${escapeVCardValue(data.company)}`);
         if (data.title) parts.push(`TITLE:${escapeVCardValue(data.title)}`);
         
-        // Inject all mapped links from the new structure into the vCard
         activeLinks.forEach(link => {
             if (!link.url || link.url.trim() === '') return;
             if (link.type === 'phone') parts.push(`TEL;TYPE=WORK,VOICE:${link.url}`);
@@ -204,7 +196,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const arrowClass = isLight ? 'text-gray-400' : 'text-gray-500';
 
-    // Format the links for rendering
     const renderLinks = activeLinks.filter(l => l.url && l.url.trim() !== '').map(link => {
         let formattedUrl = link.url.trim();
         if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
@@ -244,7 +235,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                 <p className="text-sm font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.company}</p>
                 <p className={`text-xs font-medium mt-1 ${textCompanyClass}`}>{data.title}</p>
 
-                {/* THE NEW SLEEK WIDE BUTTONS */}
                 <div className="mt-10 space-y-3 text-left">
                     {renderLinks.map(link => {
                         if (link.type === 'phone') {
@@ -277,7 +267,6 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                     })}
                 </div>
 
-                {/* ACTION BUTTONS (Notes + Save) */}
                 <div className="mt-8 flex gap-3">
                     <button onClick={() => setShowNotesModal(true)} className={`flex-1 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}>
                         <FileText size={16} /> Notes
@@ -357,11 +346,16 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState({ avatar: false, logo: false, qrLogo: false });
+    const [isUploading, setIsUploading] = useState({ avatar: false, logo: false, qrLogo: false, contactPic: false });
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
 
-    // MIGRATION SCRIPT: Smoothly converts old static fields into the new Link Engine array!
+    // Address Book State
+    const [contacts, setContacts] = useState([]);
+    const [contactView, setContactView] = useState('list'); 
+    const [editingContact, setEditingContact] = useState(null);
+    const [editingContactIndex, setEditingContactIndex] = useState(-1);
+
     useEffect(() => {
         if (!session) return;
         fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
@@ -381,6 +375,9 @@ export default function BusinessCardApp({ session, activeTab }) {
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
+
+        const savedContacts = localStorage.getItem('sc_address_book');
+        if (savedContacts) setContacts(JSON.parse(savedContacts));
     }, [session]);
 
     const handleSave = async () => {
@@ -423,7 +420,11 @@ export default function BusinessCardApp({ session, activeTab }) {
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.success) {
-                setCardData(prev => ({ ...prev, [fieldName]: result.url }));
+                if (fieldName === 'contactPic') {
+                    setEditingContact({ ...editingContact, photo: result.url });
+                } else {
+                    setCardData(prev => ({ ...prev, [fieldName]: result.url }));
+                }
             } else {
                 alert("Upload failed.");
             }
@@ -442,11 +443,11 @@ export default function BusinessCardApp({ session, activeTab }) {
         }
     };
 
-    // --- DRAG AND DROP ENGINE ---
     const handleDragStart = (e, index) => {
         setDraggedIndex(index);
         e.dataTransfer.effectAllowed = 'move';
     };
+    
     const handleDragOver = (e, index) => {
         e.preventDefault();
         if (draggedIndex === null || draggedIndex === index) return;
@@ -457,6 +458,7 @@ export default function BusinessCardApp({ session, activeTab }) {
         setDraggedIndex(index);
         setCardData({ ...cardData, links: newLinks });
     };
+    
     const handleDragEnd = () => {
         setDraggedIndex(null);
     };
@@ -498,6 +500,94 @@ export default function BusinessCardApp({ session, activeTab }) {
         alert("Public link copied to clipboard!");
     };
 
+    // --- ADDRESS BOOK FUNCTIONS ---
+    const handleExportCSV = () => {
+        if (contacts.length === 0) {
+            alert("No contacts to export!");
+            return;
+        }
+        const headers = "Name,Title,Company,Phone,Email,Website,Notes";
+        const csvContent = contacts.map(c => {
+            const sanitize = (field) => `"${(field || '').toString().replace(/"/g, '""')}"`;
+            return [
+                sanitize(c.name), sanitize(c.title), sanitize(c.company),
+                sanitize(c.phone), sanitize(c.email), sanitize(c.website),
+                sanitize(c.notes)
+            ].join(',');
+        }).join('\n');
+        
+        const fullCsv = `${headers}\n${csvContent}`;
+        const blob = new Blob([fullCsv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "sc_contacts.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadContactVCard = (contact) => {
+         const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
+         let parts = ['BEGIN:VCARD', 'VERSION:3.0'];
+         const nameParts = (contact.name || 'Contact').trim().split(/\s+/);
+         const lastName = nameParts.pop() || '';
+         const firstName = nameParts.join(' ');
+         
+         parts.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)}`);
+         parts.push(`FN:${escapeVCardValue(contact.name)}`);
+         if (contact.company) parts.push(`ORG:${escapeVCardValue(contact.company)}`);
+         if (contact.title) parts.push(`TITLE:${escapeVCardValue(contact.title)}`);
+         if (contact.phone) parts.push(`TEL;TYPE=WORK,VOICE:${contact.phone}`);
+         if (contact.email) parts.push(`EMAIL:${contact.email}`);
+         if (contact.website) parts.push(`URL:https://${contact.website.replace(/^https?:\/\//,'')}`);
+         if (contact.notes) parts.push(`NOTE:${escapeVCardValue(contact.notes)}`);
+         
+         parts.push('END:VCARD');
+         const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
+         const link = document.createElement('a');
+         link.href = URL.createObjectURL(blob);
+         link.download = `${(contact.name || 'contact').replace(/\s/g, '_')}.vcf`;
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+    };
+
+    const openNewContactForm = () => {
+        setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' });
+        setEditingContactIndex(-1);
+        setContactView('form');
+    };
+
+    const openEditContactForm = (contact, index) => {
+        setEditingContact({ ...contact });
+        setEditingContactIndex(index);
+        setContactView('form');
+    };
+
+    const saveAddressBookContact = () => {
+        if (!editingContact.name) {
+            alert("Name is required"); return;
+        }
+        let newContacts = [...contacts];
+        if (editingContactIndex >= 0) {
+            newContacts[editingContactIndex] = editingContact;
+        } else {
+            newContacts.push({ ...editingContact, id: Date.now() });
+        }
+        setContacts(newContacts);
+        localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
+        setContactView('list');
+    };
+
+    const deleteAddressBookContact = (index) => {
+        if (window.confirm("Are you sure you want to delete this contact?")) {
+            let newContacts = [...contacts];
+            newContacts.splice(index, 1);
+            setContacts(newContacts);
+            localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
+        }
+    };
+
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
 
     return (
@@ -505,26 +595,28 @@ export default function BusinessCardApp({ session, activeTab }) {
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
                 <div>
                     <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white">
-                        {activeTab === 'design' ? 'Design & Theme' : 'Card Builder'}
+                        {activeTab === 'design' ? 'Design & Theme' : activeTab === 'address-book' ? 'Address Book' : 'Card Builder'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : 'Update your contact and social information.'}
+                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : activeTab === 'address-book' ? 'Manage and export your saved contacts.' : 'Update your contact and social information.'}
                     </p>
                 </div>
-                <div className="flex gap-3">
-                    <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
-                        <QrCode size={14} /> Get QR Code
-                    </button>
-                    <button onClick={copyShareLink} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                        <Share2 size={14} /> Copy Link
-                    </button>
-                </div>
+                {activeTab !== 'address-book' && (
+                    <div className="flex gap-3">
+                        <button onClick={() => slug ? setShowQrModal(true) : alert('Save your custom link first!')} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center gap-2">
+                            <QrCode size={14} /> Get QR Code
+                        </button>
+                        <button onClick={copyShareLink} className="px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                            <Share2 size={14} /> Copy Link
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="grid lg:grid-cols-12 gap-8">
                 
-                {/* LEFT: THE FORMS */}
-                <div className="lg:col-span-7 space-y-6">
+                {/* LEFT: THE FORMS OR FULL-WIDTH ADDRESS BOOK */}
+                <div className={`space-y-6 ${activeTab === 'address-book' ? 'lg:col-span-12' : 'lg:col-span-7'}`}>
                     
                     {/* TAB 1: BUILDER (CORE DETAILS & LINKS) */}
                     {activeTab === 'builder' && (
@@ -786,23 +878,145 @@ export default function BusinessCardApp({ session, activeTab }) {
                             </div>
                         </div>
                     )}
+
+                    {/* TAB 3: ADDRESS BOOK CRM */}
+                    {activeTab === 'address-book' && (
+                        <div className="animate-in fade-in duration-300">
+                            {contactView === 'list' ? (
+                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-[60vh]">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                                        <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2">
+                                            <Users size={18} className="text-[#9df01c]"/> Connections
+                                        </h3>
+                                        <div className="flex gap-3">
+                                            <button onClick={handleExportCSV} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+                                                <Download size={14}/> Export CSV
+                                            </button>
+                                            <button onClick={openNewContactForm} className="px-4 py-2 bg-[#9df01c] text-black hover:bg-[#8ce015] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+                                                <Plus size={14}/> Add Contact
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {contacts.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                            {contacts.map((contact, i) => (
+                                                <div key={contact.id || i} className="bg-black p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors group flex items-center gap-4">
+                                                    {contact.photo ? (
+                                                        <img src={contact.photo} className="w-12 h-12 rounded-full object-cover border border-white/10 bg-[#111]" alt="Contact" />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-gray-500">
+                                                            {contact.name?.charAt(0) || '?'}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditContactForm(contact, i)}>
+                                                        <p className="text-sm font-bold text-white truncate group-hover:text-[#9df01c] transition-colors">{contact.name}</p>
+                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest truncate mt-0.5">{contact.company || contact.title || 'No company listed'}</p>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => handleDownloadContactVCard(contact)} className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Download vCard">
+                                                            <Download size={14}/>
+                                                        </button>
+                                                        <button onClick={() => deleteAddressBookContact(i)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Contact">
+                                                            <Trash2 size={14}/>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
+                                            <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                                            <p className="text-sm font-medium">Your address book is empty.</p>
+                                            <p className="text-[10px] mt-1">Contacts you manually add will appear here.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative">
+                                    <button onClick={() => setContactView('list')} className="absolute top-8 right-8 text-gray-500 hover:text-white p-2 bg-white/5 rounded-full transition-colors">
+                                        <X size={16}/>
+                                    </button>
+                                    
+                                    <h3 className="text-lg font-black uppercase tracking-tighter mb-8 text-white flex items-center gap-2">
+                                        <ChevronLeft size={18} className="cursor-pointer hover:text-[#9df01c] transition-colors" onClick={() => setContactView('list')}/>
+                                        {editingContactIndex >= 0 ? 'Edit Contact' : 'New Contact'}
+                                    </h3>
+                                    
+                                    <div className="flex items-center gap-6 mb-8">
+                                        {editingContact.photo ? (
+                                            <img src={editingContact.photo} alt="Avatar" className="w-20 h-20 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
+                                        ) : (
+                                            <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={24} className="text-gray-500" /></div>
+                                        )}
+                                        <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center gap-2 border border-white/10 ${isUploading.contactPic ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {isUploading.contactPic ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                            {isUploading.contactPic ? 'Uploading...' : 'Upload Photo'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'contactPic')} />
+                                        </label>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="sm:col-span-2">
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name *</label>
+                                            <input type="text" value={editingContact.name} onChange={e => setEditingContact({...editingContact, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label>
+                                            <input type="text" value={editingContact.title} onChange={e => setEditingContact({...editingContact, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label>
+                                            <input type="text" value={editingContact.company} onChange={e => setEditingContact({...editingContact, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Phone Number</label>
+                                            <input type="tel" value={editingContact.phone} onChange={e => setEditingContact({...editingContact, phone: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Email Address</label>
+                                            <input type="email" value={editingContact.email} onChange={e => setEditingContact({...editingContact, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Website</label>
+                                            <input type="text" value={editingContact.website} onChange={e => setEditingContact({...editingContact, website: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                        </div>
+                                        <div className="sm:col-span-2">
+                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Personal Notes</label>
+                                            <textarea rows="3" value={editingContact.notes} onChange={e => setEditingContact({...editingContact, notes: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
+                                        <button onClick={saveAddressBookContact} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                            <Save className="w-4 h-4"/>
+                                            Save Contact
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                {/* RIGHT: THE LIVE PREVIEW */}
-                <div className="lg:col-span-5">
-                    <div className="sticky top-24">
-                        <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                            <MonitorSmartphone size={14} /> Live Preview
-                        </div>
-                        {/* We wrap the preview in a simulated screen background so they can see the full effect! */}
-                        <div className={`p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
-                           <PublicCardView data={cardData} />
+                {/* RIGHT: THE LIVE PREVIEW (Hidden if viewing Address Book) */}
+                {activeTab !== 'address-book' && (
+                    <div className="lg:col-span-5">
+                        <div className="sticky top-24">
+                            <div className="flex items-center justify-center gap-2 mb-4 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                                <MonitorSmartphone size={14} /> Live Preview
+                            </div>
+                            <div className={`p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
+                               <PublicCardView data={cardData} />
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
-            {/* QR CODE MODAL - FEATURING THE EMBEDDED LOGO */}
+            {/* QR CODE MODAL */}
             {showQrModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-sm p-8 flex flex-col items-center shadow-2xl relative">

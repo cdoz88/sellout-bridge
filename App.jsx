@@ -89,7 +89,7 @@ export default function App() {
   useEffect(() => {
     if (isPublicBio) return; 
 
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = newSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && !hasAttemptedLogin.current) {
       hasAttemptedLogin.current = true;
@@ -271,14 +271,8 @@ export default function App() {
                 {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'business-card' && (
-                    (activeTab === 'builder' || activeTab === 'design') ? (
+                    (activeTab === 'builder' || activeTab === 'design' || activeTab === 'address-book') ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
-                    ) : activeTab === 'address-book' ? (
-                        <PlaceholderApp 
-                            title="Address Book" 
-                            icon={<LayoutDashboard size={64}/>} 
-                            description="Manage and export the contacts you collect from your digital business card." 
-                        />
                     ) : (
                         <PlaceholderApp 
                             title="Card Settings" 
