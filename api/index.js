@@ -1,13 +1,13 @@
 /**
  * api/index.js - THE BACKEND ENGINE
  * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
- * ADDED: OAuth Provider capabilities for WordPress connections
+ * ADDED: OAuth Provider capabilities and WordPress API Proxy
  */
 
 import express from 'express';
 import { neon } from '@neondatabase/serverless';
 import Stripe from 'stripe'; 
-import crypto from 'crypto'; // <-- Added for generating secure tokens
+import crypto from 'crypto'; 
 
 const app = express();
 
@@ -30,22 +30,26 @@ async function ensureSchema() {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
         await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
-        
-        // Safely add the custom_slug column for vanity URLs
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 
-        // --- NEW OAUTH TABLES ---
+        // --- NEW OAUTH TABLES WITH PROFILE LINK STORAGE ---
         await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (
             code VARCHAR(255) PRIMARY KEY, 
             user_id INTEGER, 
+            profile_link TEXT,
             redirect_uri TEXT, 
             expires_at TIMESTAMP
         )`;
         await sql`CREATE TABLE IF NOT EXISTS wp_access_tokens (
             token VARCHAR(255) PRIMARY KEY, 
             user_id INTEGER, 
+            profile_link TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
+        
+        // Safety checks for existing databases
+        try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
     } catch (e) {
         console.error("Schema check notice:", e.message);
     }
@@ -136,7 +140,6 @@ app.get('/api/get-communities', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch community assets" }); }
 });
 
-// --- SETTINGS & MAPPINGS ---
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -188,7 +191,6 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
-// --- BUSINESS CARD STORAGE ENDPOINTS ---
 app.get('/api/get-card', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -239,7 +241,6 @@ app.get('/api/public-card/:slug', async (req, res) => {
     }
 });
 
-// --- REMAINDER OF STRIPE / PATREON ENDPOINTS ---
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -448,12 +449,10 @@ app.post('/api/stripe-webhook', async (req, res) => {
 });
 
 // ==========================================
-// OAUTH PROVIDER ENDPOINTS (NEW)
+// OAUTH PROVIDER ENDPOINTS
 // ==========================================
 
-// 1. Frontend calls this when the user clicks "Approve"
 app.post('/api/oauth/approve', async (req, res) => {
-    // Verify the user is actually logged into the Hub
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
 
@@ -466,15 +465,16 @@ app.post('/api/oauth/approve', async (req, res) => {
     try {
         await ensureSchema();
         
-        // Generate a random, short-lived authorization code
+        let profileLink = user.profile_link || '';
+        profileLink = profileLink.replace('https://studio.', 'https://www.');
+        if (!profileLink.includes('www.')) { profileLink = profileLink.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
+
         const code = crypto.randomBytes(16).toString('hex');
-        
-        // Code expires in 5 minutes
         const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
 
         await sql`
-            INSERT INTO wp_oauth_codes (code, user_id, redirect_uri, expires_at) 
-            VALUES (${code}, ${user.id}, ${redirect_uri}, ${expiresAt})
+            INSERT INTO wp_oauth_codes (code, user_id, profile_link, redirect_uri, expires_at) 
+            VALUES (${code}, ${user.id}, ${profileLink}, ${redirect_uri}, ${expiresAt})
         `;
 
         res.json({ success: true, code: code });
@@ -484,11 +484,7 @@ app.post('/api/oauth/approve', async (req, res) => {
     }
 });
 
-// 2. WordPress background call to exchange the code for a token
 app.post('/oauth/token', async (req, res) => {
-    // Note: This endpoint does NOT require a Hub session token, 
-    // because it's coming server-to-server from WordPress!
-    
     const { grant_type, client_id, code, redirect_uri } = req.body;
 
     if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
@@ -498,8 +494,7 @@ app.post('/oauth/token', async (req, res) => {
     try {
         await ensureSchema();
 
-        // Find the code in the database
-        const rows = await sql`SELECT user_id, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
+        const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
         
         if (rows.length === 0) {
             return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
@@ -507,25 +502,20 @@ app.post('/oauth/token', async (req, res) => {
 
         const authCode = rows[0];
 
-        // Ensure it hasn't expired and the redirect URI matches
         if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
-            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; // Clean up
+            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; 
             return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
         }
 
-        // It's valid! Delete the code so it can't be used again
         await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
 
-        // Generate the permanent Access Token
         const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
 
-        // Save the token to the database linked to the user
         await sql`
-            INSERT INTO wp_access_tokens (token, user_id) 
-            VALUES (${accessToken}, ${authCode.user_id})
+            INSERT INTO wp_access_tokens (token, user_id, profile_link) 
+            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
         `;
 
-        // Send it back to WordPress
         res.json({
             access_token: accessToken,
             token_type: "bearer"
@@ -534,6 +524,66 @@ app.post('/oauth/token', async (req, res) => {
     } catch (error) {
         console.error("Token exchange error:", error);
         res.status(500).json({ error: "server_error" });
+    }
+});
+
+// ==========================================
+// WORDPRESS API PROXY ENDPOINTS
+// ==========================================
+
+// Proxy to fetch fields/communities
+app.post('/api/wp/get-fields', async (req, res) => {
+    const { access_token, domain } = req.body;
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
+
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        formData.append('user', rows[0].profile_link);
+        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+
+        const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', body: formData });
+        const data = await fsanRes.text();
+        res.send(data);
+    } catch (error) {
+        console.error("WP Proxy get-fields error:", error);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+// Proxy to handle posts (create, edit, delete)
+app.post('/api/wp/:action', async (req, res) => {
+    const { action } = req.params;
+    const validActions = ['create-post', 'edit-post', 'delete-post'];
+    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
+
+    const { access_token, user, domain, data } = req.body;
+    
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
+
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        // Important: Use the individual WP author's URL if provided. If missing, fallback to the site Admin's profile.
+        formData.append('user', user || rows[0].profile_link);
+        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+
+        // Format nested JSON object for URLSearchParams
+        if (data && typeof data === 'object') {
+            for (const key in data) {
+                formData.append(`data[${key}]`, data[key]);
+            }
+        }
+
+        const endpoint = `https://fantasysportsadvice.network/m/fsan/wordpress/${action}`;
+        const fsanRes = await fetch(endpoint, { method: 'POST', body: formData });
+        const text = await fsanRes.text();
+        res.send(text);
+    } catch (error) {
+        console.error(`WP Proxy ${action} error:`, error);
+        res.status(500).json({ error: "Server error" });
     }
 });
 

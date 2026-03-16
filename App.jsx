@@ -8,12 +8,24 @@ import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardA
 import AddressBookApp from './components/apps/AddressBookApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
+// --- NEW: CUSTOM WORDPRESS SVG COMPONENT ---
+const WordPressIcon = ({ className }) => (
+    <svg viewBox="0 0 447.674 447.674" className={className}>
+        <g>
+            <path d="M134.289,138.16h-24.722l67.399,190.521l37.732-107.825l-29.254-82.696H159.36v-18.154h115.508v18.154h-27.049l67.398,190.521l24.227-69.234c31.781-88.702-26.048-116.333-26.048-136.129s16.048-35.843,35.843-35.843c1.071,0,2.111,0.058,3.13,0.153c-33.541-31.663-78.768-51.08-128.534-51.08c-65.027,0-122.306,33.146-155.884,83.458h66.336v18.154L134.289,138.16L134.289,138.16z" fill="currentColor"/>
+            <path d="M36.548,223.837c0,71.704,40.302,133.986,99.483,165.458l-84.52-238.919C41.883,172.932,36.548,197.761,36.548,223.837z" fill="currentColor"/>
+            <path d="M386.833,131.547c2.679,15.774,1.868,33.503-2.243,51.301h0.745l-2.832,8.092l0,0c-1.678,5.843-3.791,11.82-6.191,17.693l-64.444,180.541c59.057-31.51,99.256-93.725,99.256-165.338C411.124,190.279,402.29,158.788,386.833,131.547z" fill="currentColor"/>
+            <path d="M166.075,402.033c18.195,5.894,37.603,9.091,57.762,9.091c19.228,0,37.777-2.902,55.239-8.285l-54.784-154.862L166.075,402.033z" fill="currentColor"/>
+            <path d="M382.113,65.56C339.836,23.283,283.625,0,223.836,0S107.837,23.283,65.56,65.56S0,164.047,0,223.837c0,59.789,23.283,115.999,65.56,158.276s98.488,65.56,158.277,65.56s115.999-23.283,158.277-65.56c42.277-42.277,65.56-98.488,65.56-158.276C447.673,164.047,424.39,107.837,382.113,65.56z M223.836,431.883c-114.717,0-208.046-93.329-208.046-208.046S109.119,15.79,223.836,15.79s208.046,93.33,208.046,208.047S338.554,431.883,223.836,431.883z" fill="currentColor"/>
+        </g>
+    </svg>
+);
+
 export default function App() {
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicBioError, setPublicBioError] = useState(false);
 
-  // --- NEW: OAUTH STATE VARIABLES ---
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
   const [oauthParams, setOauthParams] = useState(null);
   const [oauthApproving, setOauthApproving] = useState(false);
@@ -60,7 +72,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- NEW: INTERCEPT OAUTH AUTHORIZE URL ---
   useEffect(() => {
       const pathname = window.location.pathname;
       if (pathname === '/oauth/authorize') {
@@ -100,7 +111,6 @@ export default function App() {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
       
-      // Skip public bio checks if we are on the OAuth routes
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
@@ -179,14 +189,12 @@ export default function App() {
         fetchUser(data.access_token); 
         syncCommunities(data.access_token);
 
-        // --- NEW: RESUME OAUTH FLOW IF THEY WERE INTERRUPTED TO LOGIN ---
         const pendingOAuth = localStorage.getItem('hub_pending_oauth');
         if (pendingOAuth) {
             localStorage.removeItem('hub_pending_oauth');
-            window.location.href = pendingOAuth; // Force reload onto the auth screen
+            window.location.href = pendingOAuth; 
             return;
         }
-
       } else {
         setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
       }
@@ -227,7 +235,6 @@ export default function App() {
   };
 
   const startLogin = () => {
-    // If they are trying to OAuth, remember the URL before sending them to log in
     if (isOAuthFlow) {
         localStorage.setItem('hub_pending_oauth', window.location.pathname + window.location.search);
     }
@@ -254,7 +261,6 @@ export default function App() {
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
   };
 
-  // --- NEW: HANDLE OAUTH APPROVAL CLICK ---
   const handleApproveOAuth = async () => {
       setOauthApproving(true);
       setOauthError(null);
@@ -272,7 +278,6 @@ export default function App() {
               const redirectUrl = new URL(oauthParams.redirect_uri);
               redirectUrl.searchParams.set('code', data.code);
               if (oauthParams.state) redirectUrl.searchParams.set('state', oauthParams.state);
-              // Send them back to WordPress!
               window.location.href = redirectUrl.toString();
           } else {
               setOauthError(data.error || "Failed to generate authorization code.");
@@ -319,7 +324,6 @@ export default function App() {
       );
   }
 
-  // --- NEW: OAUTH APPROVAL SCREEN RENDERER ---
   if (isOAuthFlow && session) {
       return (
           <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -332,7 +336,8 @@ export default function App() {
                       </div>
                       <div className="w-8 h-0.5 bg-white/10 self-center -mx-2 z-0"></div>
                       <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
-                          <LayoutDashboard size={28} className="text-blue-400" />
+                          {/* --- IMPLEMENTED WORDPRESS SVG ICON --- */}
+                          <WordPressIcon className="w-8 h-8 text-[#00769d]" />
                       </div>
                   </div>
 
