@@ -8,7 +8,7 @@ import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardA
 import AddressBookApp from './components/apps/AddressBookApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
-// --- NEW: CUSTOM WORDPRESS SVG COMPONENT ---
+// --- CUSTOM WORDPRESS SVG COMPONENT ---
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
         <g>
@@ -362,7 +362,14 @@ export default function App() {
                       </button>
                       
                       <button 
-                          onClick={() => window.location.href = `${oauthParams?.redirect_uri}?error=access_denied`}
+                          onClick={() => {
+                              if (oauthParams?.redirect_uri) {
+                                  // FIX: Safely parse the URL to append the parameters without corrupting WP core requests
+                                  const redirectUrl = new URL(oauthParams.redirect_uri);
+                                  redirectUrl.searchParams.set('soc_error', 'access_denied');
+                                  window.location.href = redirectUrl.toString();
+                              }
+                          }}
                           className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors">
                           Cancel & Return
                       </button>
