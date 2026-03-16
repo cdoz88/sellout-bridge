@@ -532,20 +532,19 @@ app.post('/oauth/token', async (req, res) => {
 // ==========================================
 
 app.post('/api/wp/get-fields', async (req, res) => {
-    // FIX: Extract 'user' from req.body so it isn't ignored
+    // FIX: Safely parse the 'user' parameter sent by the WordPress remote post
     const { access_token, user, domain } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // FIX: Prioritize the 'user' sent from the WordPress plugin, fallback to DB
+        // FIX: Extract target user from the request body or fallback to DB
         let targetUser = user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // PERFECTLY MIMICS PHP ARRAY (Native URL-encoded string)
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
@@ -555,7 +554,7 @@ app.post('/api/wp/get-fields', async (req, res) => {
             method: 'POST', 
             body: formData,
             headers: {
-                'User-Agent': 'UNA', // <-- CRITICAL: Disguise as UNA
+                'User-Agent': 'UNA',
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
