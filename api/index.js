@@ -515,9 +515,11 @@ app.post('/oauth/token', async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
         `;
 
+        // SENDING THE PROFILE URL BACK TO WORDPRESS HERE!
         res.json({
             access_token: accessToken,
-            token_type: "bearer"
+            token_type: "bearer",
+            profile_url: authCode.profile_link 
         });
 
     } catch (error) {
@@ -530,16 +532,14 @@ app.post('/oauth/token', async (req, res) => {
 // WORDPRESS API PROXY ENDPOINTS
 // ==========================================
 
-// Proxy to fetch fields/communities
 app.post('/api/wp/get-fields', async (req, res) => {
-    // We expect WP to pass the specifically configured "master_user" URL!
-    const { access_token, domain, master_user } = req.body;
+    // Look for 'user' passed directly from WordPress
+    const { access_token, domain, user } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // Use the explicitly defined master_user passed from WP
-        let targetUser = master_user || rows[0].profile_link || '';
+        let targetUser = user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
@@ -559,13 +559,11 @@ app.post('/api/wp/get-fields', async (req, res) => {
     }
 });
 
-// Proxy to handle posts (create, edit, delete)
 app.post('/api/wp/:action', async (req, res) => {
     const { action } = req.params;
     const validActions = ['create-post', 'edit-post', 'delete-post'];
     if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
-    // The individual writer's URL is passed in the "user" field to credit them correctly!
     const { access_token, user, domain, data } = req.body;
     
     try {
