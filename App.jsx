@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
@@ -12,6 +12,12 @@ export default function App() {
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicBioError, setPublicBioError] = useState(false);
+
+  // --- NEW: OAUTH STATE VARIABLES ---
+  const [isOAuthFlow, setIsOAuthFlow] = useState(false);
+  const [oauthParams, setOauthParams] = useState(null);
+  const [oauthApproving, setOauthApproving] = useState(false);
+  const [oauthError, setOauthError] = useState(null);
 
   const [session, setSession] = useState(() => localStorage.getItem('bridge_session') || null);
   const [unaData, setUnaData] = useState(() => {
@@ -54,8 +60,23 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
+  // --- NEW: INTERCEPT OAUTH AUTHORIZE URL ---
   useEffect(() => {
-      if (!isPublicBio && session) {
+      const pathname = window.location.pathname;
+      if (pathname === '/oauth/authorize') {
+          setIsOAuthFlow(true);
+          const params = new URLSearchParams(window.location.search);
+          setOauthParams({
+              client_id: params.get('client_id'),
+              redirect_uri: params.get('redirect_uri'),
+              response_type: params.get('response_type'),
+              state: params.get('state')
+          });
+      }
+  }, []);
+
+  useEffect(() => {
+      if (!isPublicBio && !isOAuthFlow && session) {
           try {
               const url = new URL(window.location);
               url.searchParams.set('app', currentApp);
@@ -63,20 +84,27 @@ export default function App() {
               window.history.replaceState({}, '', url);
           } catch(e) {}
       }
-  }, [currentApp, activeTab, isPublicBio, session]);
+  }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session]);
 
   useEffect(() => {
       if (isPublicBio && publicCardData?.name) {
           document.title = `${publicCardData.name} | Contact`;
+      } else if (isOAuthFlow) {
+          document.title = "Authorize Connection | SC Hub";
       } else {
           document.title = "Sellout Crowds Hub";
       }
-  }, [isPublicBio, publicCardData]);
+  }, [isPublicBio, publicCardData, isOAuthFlow]);
 
   useEffect(() => {
       const hostname = window.location.hostname;
-      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && window.location.pathname.length > 1)) {
-          const pathSlug = window.location.pathname.substring(1); 
+      const pathname = window.location.pathname;
+      
+      // Skip public bio checks if we are on the OAuth routes
+      if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
+
+      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
+          const pathSlug = pathname.substring(1); 
           if (pathSlug && pathSlug !== '') {
               setIsPublicBio(true);
               setIsLoading(true);
@@ -150,6 +178,15 @@ export default function App() {
         setSession(data.access_token);
         fetchUser(data.access_token); 
         syncCommunities(data.access_token);
+
+        // --- NEW: RESUME OAUTH FLOW IF THEY WERE INTERRUPTED TO LOGIN ---
+        const pendingOAuth = localStorage.getItem('hub_pending_oauth');
+        if (pendingOAuth) {
+            localStorage.removeItem('hub_pending_oauth');
+            window.location.href = pendingOAuth; // Force reload onto the auth screen
+            return;
+        }
+
       } else {
         setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
       }
@@ -190,6 +227,10 @@ export default function App() {
   };
 
   const startLogin = () => {
+    // If they are trying to OAuth, remember the URL before sending them to log in
+    if (isOAuthFlow) {
+        localStorage.setItem('hub_pending_oauth', window.location.pathname + window.location.search);
+    }
     const origin = window.location.origin;
     const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
     const state = Math.random().toString(36).substring(7);
@@ -211,6 +252,36 @@ export default function App() {
   const triggerMobileAddContact = () => {
       handleAppSwitch('address-book', 'contacts');
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
+  };
+
+  // --- NEW: HANDLE OAUTH APPROVAL CLICK ---
+  const handleApproveOAuth = async () => {
+      setOauthApproving(true);
+      setOauthError(null);
+      try {
+          const res = await fetch('/api/oauth/approve', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  client_id: oauthParams.client_id, 
+                  redirect_uri: oauthParams.redirect_uri 
+              })
+          });
+          const data = await res.json();
+          if (data.success) {
+              const redirectUrl = new URL(oauthParams.redirect_uri);
+              redirectUrl.searchParams.set('code', data.code);
+              if (oauthParams.state) redirectUrl.searchParams.set('state', oauthParams.state);
+              // Send them back to WordPress!
+              window.location.href = redirectUrl.toString();
+          } else {
+              setOauthError(data.error || "Failed to generate authorization code.");
+              setOauthApproving(false);
+          }
+      } catch (err) {
+          setOauthError("Server error during approval. Please try again.");
+          setOauthApproving(false);
+      }
   };
 
   if (isPublicBio) {
@@ -248,6 +319,54 @@ export default function App() {
       );
   }
 
+  // --- NEW: OAUTH APPROVAL SCREEN RENDERER ---
+  if (isOAuthFlow && session) {
+      return (
+          <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
+              <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
+                  
+                  <div className="flex justify-center mb-6 relative z-10">
+                      <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
+                          <img src={logoUrl} alt="SC" className="w-10 h-10 object-contain" />
+                      </div>
+                      <div className="w-8 h-0.5 bg-white/10 self-center -mx-2 z-0"></div>
+                      <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
+                          <LayoutDashboard size={28} className="text-blue-400" />
+                      </div>
+                  </div>
+
+                  <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Connect WordPress</h2>
+                  <p className="text-gray-400 mb-8 text-sm font-medium leading-relaxed relative z-10">
+                      Do you want to allow this WordPress site to view your communities and publish posts on your behalf?
+                  </p>
+
+                  {oauthError && (
+                      <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold relative z-10">
+                          {oauthError}
+                      </div>
+                  )}
+
+                  <div className="space-y-3 relative z-10">
+                      <button 
+                          onClick={handleApproveOAuth}
+                          disabled={oauthApproving}
+                          className="w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2">
+                          {oauthApproving ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle2 className="w-4 h-4"/>}
+                          {oauthApproving ? 'Approving...' : 'Approve Connection'}
+                      </button>
+                      
+                      <button 
+                          onClick={() => window.location.href = `${oauthParams?.redirect_uri}?error=access_denied`}
+                          className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors">
+                          Cancel & Return
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -276,7 +395,9 @@ export default function App() {
           <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
           <h1 className="text-2xl font-black mb-4 uppercase tracking-tight relative z-10">Creator Hub</h1>
           <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed relative z-10">
-            Login with your Sellout Crowds credentials to access your business tools and integrations.
+            {isOAuthFlow 
+                ? "Please log in to authorize the connection to your WordPress site."
+                : "Login with your Sellout Crowds credentials to access your business tools and integrations."}
           </p>
           <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
             Login to Hub
