@@ -33,7 +33,6 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 
-        // --- NEW OAUTH TABLES WITH PROFILE LINK STORAGE ---
         await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (
             code VARCHAR(255) PRIMARY KEY, 
             user_id INTEGER, 
@@ -48,7 +47,6 @@ async function ensureSchema() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
         
-        // Safety checks for existing databases
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
     } catch (e) {
@@ -532,15 +530,16 @@ app.post('/oauth/token', async (req, res) => {
 // WORDPRESS API PROXY ENDPOINTS
 // ==========================================
 
-// Proxy to fetch fields/communities (Strictly uses the Admin's Master Token)
+// Proxy to fetch fields/communities
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, domain } = req.body;
+    // We expect WP to pass the specifically configured "master_user" URL!
+    const { access_token, domain, master_user } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // FORCE the use of the Admin's Profile Link that authorized the connection
-        let targetUser = rows[0].profile_link || '';
+        // Use the explicitly defined master_user passed from WP
+        let targetUser = master_user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
@@ -566,7 +565,7 @@ app.post('/api/wp/:action', async (req, res) => {
     const validActions = ['create-post', 'edit-post', 'delete-post'];
     if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
-    // We STILL accept the individual user's URL here, to credit the post correctly!
+    // The individual writer's URL is passed in the "user" field to credit them correctly!
     const { access_token, user, domain, data } = req.body;
     
     try {
