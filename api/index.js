@@ -26,14 +26,28 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
-// NEW HELPER: Formats the URL so UNA doesn't crash on lookup
-function formatProfileUrl(url) {
-    if (!url) return '';
-    let cleanUrl = url;
-    // UNA's DB expects the public domain, but OAuth returns the studio domain.
-    cleanUrl = cleanUrl.replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
-    cleanUrl = cleanUrl.replace('https://www.selloutcrowds.com', 'https://selloutcrowds.com');
-    return cleanUrl;
+// NEW: Safely constructs a multipart/form-data payload without crashing Vercel's Node environment
+function createMultipartPayload(params) {
+    const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
+    let body = '';
+    
+    const appendField = (key, value) => {
+        body += `--${boundary}\r\n`;
+        body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
+        body += `${value}\r\n`;
+    };
+
+    for (const [key, value] of Object.entries(params)) {
+        if (typeof value === 'object' && value !== null) {
+            for (const [subKey, subValue] of Object.entries(value)) {
+                appendField(`${key}[${subKey}]`, subValue);
+            }
+        } else if (value !== undefined && value !== null) {
+            appendField(key, value);
+        }
+    }
+    body += `--${boundary}--\r\n`;
+    return { body, boundary };
 }
 
 async function ensureSchema() {
@@ -122,14 +136,23 @@ app.get('/api/get-communities', async (req, res) => {
     const meData = await getAuthenticatedUser(req.headers.authorization);
     if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
     try {
-        let userProfileUrl = formatProfileUrl(meData.profile_link);
-        
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN); 
-        formData.append('user', userProfileUrl);
-        formData.append('domain', 'https://bridge.selloutcrowds.com');
-        
-        const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
+        let userProfileUrl = meData.profile_link;
+
+        const { body, boundary } = createMultipartPayload({
+            api_key: FSAN_TOKEN,
+            user: userProfileUrl,
+            domain: 'https://bridge.selloutcrowds.com'
+        });
+
+        const fsanRes = await fetch(FSAN_ENDPOINT, { 
+            method: 'POST', 
+            body: body,
+            headers: {
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            }
+        });
+
         const text = await fsanRes.text();
         let parsedData = null;
         try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
@@ -475,7 +498,6 @@ app.post('/api/oauth/approve', async (req, res) => {
         await ensureSchema();
         
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
-        profileLink = formatProfileUrl(profileLink); // Formats before saving
         
         const code = crypto.randomBytes(16).toString('hex');
         const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
@@ -551,20 +573,21 @@ app.post('/api/wp/get-fields', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        let targetUser = user || rows[0].profile_link || '';
-        targetUser = formatProfileUrl(targetUser); // Forces the URL to match the public facing domain UNA expects
+        const targetUser = user || rows[0].profile_link || '';
 
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+        // FIX: Construct a safe multipart payload mimicking PHP cURL
+        const { body, boundary } = createMultipartPayload({
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com'
+        });
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
         
@@ -572,7 +595,7 @@ app.post('/api/wp/get-fields', async (req, res) => {
 
         try {
             const json = JSON.parse(text);
-            json._debug_user = targetUser; // Passed back for debugging in WP
+            json._debug_user = targetUser; 
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
@@ -598,27 +621,24 @@ app.post('/api/wp/:action', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
-        let targetUser = user || rows[0].profile_link || '';
-        targetUser = formatProfileUrl(targetUser); // Protects POST actions too
+        const targetUser = user || rows[0].profile_link || '';
 
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+        const payloadData = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com',
+            data: data
+        };
 
-        if (data && typeof data === 'object') {
-            for (const key in data) {
-                formData.append(`data[${key}]`, data[key]);
-            }
-        }
+        const { body, boundary } = createMultipartPayload(payloadData);
 
         const endpoint = `https://fantasysportsadvice.network/m/fsan/wordpress/${action}`;
         const fsanRes = await fetch(endpoint, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
         const text = await fsanRes.text();
