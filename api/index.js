@@ -17,8 +17,6 @@ const UNA_CLIENT_ID = "yxxnxsihu2";
 const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
-
-// This is the Master Token used by the Hub
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
 const sql = neon(process.env.DATABASE_URL);
@@ -27,6 +25,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
 // --- HELPER FUNCTIONS ---
+
+function createMultipartPayload(params) {
+    const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
+    let body = '';
+    
+    const appendField = (key, value) => {
+        body += `--${boundary}\r\n`;
+        body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
+        body += `${value}\r\n`;
+    };
+
+    for (const [key, value] of Object.entries(params)) {
+        if (typeof value === 'object' && value !== null) {
+            for (const [subKey, subValue] of Object.entries(value)) {
+                appendField(`${key}[${subKey}]`, subValue);
+            }
+        } else if (value !== undefined && value !== null) {
+            appendField(key, value);
+        }
+    }
+    body += `--${boundary}--\r\n`;
+    return { body, boundary };
+}
 
 async function ensureSchema() {
     try {
@@ -121,7 +142,7 @@ app.get('/api/get-communities', async (req, res) => {
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
-        formData.append('domain', 'https://bridge.selloutcrowds.com'); // Enforce Hub Domain
+        formData.append('domain', 'https://hub.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
@@ -534,7 +555,7 @@ app.post('/oauth/token', async (req, res) => {
 // ==========================================
 
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, user } = req.body;
+    const { access_token, user, domain } = req.body;
     
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
@@ -544,27 +565,21 @@ app.post('/api/wp/get-fields', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        let targetUser = user || rows[0].profile_link || '';
-        
-        // Ensure formatting matches exact UNA requirements
-        targetUser = targetUser.replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
-        targetUser = targetUser.replace('https://www.selloutcrowds.com', 'https://selloutcrowds.com');
+        const targetUser = user || rows[0].profile_link || '';
+        const hubDomain = 'https://hub.selloutcrowds.com';
 
-        // We forcefully use the Hub domain here to guarantee the Master Token is validated by UNA
-        const hubDomain = 'https://bridge.selloutcrowds.com';
-
-        // Utilize standard, crash-proof URLSearchParams
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', hubDomain); 
+        const { body, boundary } = createMultipartPayload({
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: hubDomain
+        });
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
         
@@ -572,8 +587,6 @@ app.post('/api/wp/get-fields', async (req, res) => {
 
         try {
             const json = JSON.parse(text);
-            json._debug_user = targetUser; 
-            json._debug_domain = hubDomain;
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
@@ -589,7 +602,7 @@ app.post('/api/wp/:action', async (req, res) => {
     const validActions = ['create-post', 'edit-post', 'delete-post'];
     if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
-    const { access_token, user, data } = req.body;
+    const { access_token, user, domain, data } = req.body;
     
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
@@ -599,33 +612,27 @@ app.post('/api/wp/:action', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
-        let targetUser = user || rows[0].profile_link || '';
-        targetUser = targetUser.replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
-        targetUser = targetUser.replace('https://www.selloutcrowds.com', 'https://selloutcrowds.com');
+        const targetUser = user || rows[0].profile_link || '';
+        const hubDomain = 'https://hub.selloutcrowds.com';
 
-        const hubDomain = 'https://bridge.selloutcrowds.com';
+        const payloadData = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: hubDomain,
+            data: data
+        };
 
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', hubDomain); 
-
-        if (data && typeof data === 'object') {
-            for (const key in data) {
-                formData.append(`data[${key}]`, data[key]);
-            }
-        }
+        const { body, boundary } = createMultipartPayload(payloadData);
 
         const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
         const fsanRes = await fetch(endpoint, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
-        
         const text = await fsanRes.text();
         
         try {
