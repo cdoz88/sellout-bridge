@@ -26,21 +26,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
-// Custom Multipart Generator to perfectly mimic PHP's array sending!
-function buildMultipart(data) {
-    const boundary = '----SelloutCrowdsFormBoundary' + crypto.randomBytes(8).toString('hex');
-    let body = '';
-    for (const [key, value] of Object.entries(data)) {
-        if (value !== undefined && value !== null) {
-            body += `--${boundary}\r\n`;
-            body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
-            body += `${value}\r\n`;
-        }
-    }
-    body += `--${boundary}--\r\n`;
-    return { body, boundary };
-}
-
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -547,31 +532,29 @@ app.post('/oauth/token', async (req, res) => {
 // ==========================================
 
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, domain, user } = req.body;
+    const { access_token, domain } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        let targetUser = user || rows[0].profile_link || '';
+        let targetUser = rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // PERFECTLY MIMICS PHP ARRAY (Forces multipart/form-data universally)
-        const payload = {
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: domain || 'https://bridge.selloutcrowds.com'
-        };
-        const { body, boundary } = buildMultipart(payload);
+        // PERFECTLY MIMICS PHP ARRAY (Native URL-encoded string)
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        formData.append('user', targetUser);
+        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
-            body: body,
+            body: formData,
             headers: {
-                'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
+                'User-Agent': 'UNA', // <-- CRITICAL: Disguise as UNA
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
         
@@ -600,27 +583,24 @@ app.post('/api/wp/:action', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        const payload = {
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: domain || 'https://bridge.selloutcrowds.com'
-        };
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        formData.append('user', targetUser);
+        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
         if (data && typeof data === 'object') {
             for (const key in data) {
-                payload[`data[${key}]`] = data[key];
+                formData.append(`data[${key}]`, data[key]);
             }
         }
-
-        const { body, boundary } = buildMultipart(payload);
 
         const endpoint = `https://fantasysportsadvice.network/m/fsan/wordpress/${action}`;
         const fsanRes = await fetch(endpoint, { 
             method: 'POST', 
-            body: body,
+            body: formData,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
         const text = await fsanRes.text();
