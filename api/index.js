@@ -530,7 +530,6 @@ app.post('/oauth/token', async (req, res) => {
 app.post('/api/wp/get-fields', async (req, res) => {
     const { access_token, user, domain } = req.body;
     
-    // SAFETY CHECK: Never let missing credentials crash the server
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
     }
@@ -539,10 +538,11 @@ app.post('/api/wp/get-fields', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        // Trust the user string explicitly provided by the WordPress site
-        const targetUser = user || rows[0].profile_link || '';
+        // Grab user safely
+        let targetUser = user || rows[0].profile_link || '';
 
-        const formData = new URLSearchParams();
+        // FIX: Use FormData (multipart/form-data) to match your old PHP cURL script
+        const formData = new FormData();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
@@ -551,16 +551,19 @@ app.post('/api/wp/get-fields', async (req, res) => {
             method: 'POST', 
             body: formData,
             headers: {
-                'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'User-Agent': 'UNA'
+                // fetch automatically sets Content-Type to multipart/form-data when passing FormData
             }
         });
         
         const text = await fsanRes.text();
 
-        // Ensure we always return JSON to WordPress so wp_remote_post doesn't choke on HTML errors
         try {
             const json = JSON.parse(text);
+            
+            // Pass the targetUser back into the payload so we can explicitly verify what URL UNA actually checked
+            json._debug_user = targetUser;
+            
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
@@ -588,6 +591,8 @@ app.post('/api/wp/:action', async (req, res) => {
 
         const targetUser = user || rows[0].profile_link || '';
 
+        // For create/edit/delete, UNA expects URLSearchParams (application/x-www-form-urlencoded) 
+        // This matches the `http_build_query` format from your old plugin.
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
@@ -613,13 +618,4 @@ app.post('/api/wp/:action', async (req, res) => {
         try {
             const json = JSON.parse(text);
             return res.json(json);
-        } catch(e) {
-            return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
-        }
-    } catch (error) {
-        console.error(`WP Proxy ${action} error:`, error);
-        return res.status(200).json({ error: "Hub Server Error: " + error.message });
-    }
-});
-
-export default app;
+        } catch(e)
