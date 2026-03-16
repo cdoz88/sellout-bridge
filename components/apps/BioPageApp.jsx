@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus } from 'lucide-react';
+import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -98,7 +98,11 @@ const DEFAULT_BIO_PAGE = {
     cardBgType: "dark",
     qrLogoEnabled: false, 
     qrLogoUrl: "", 
-    qrLogoBg: "#ffffff"
+    qrLogoBg: "#ffffff",
+    // NEW: PROMO BANNER CONFIG
+    promoEnabled: false,
+    promoText: "Use code PROMO for 20% off!",
+    promoHighlight: "PROMO"
 };
 
 const PRESETS = [
@@ -112,8 +116,6 @@ const PRESETS = [
 
 const getIconForType = (type) => {
     switch(type) {
-        case 'phone': return Phone;
-        case 'email': return Mail;
         case 'website': return Globe;
         case 'shop': return ShoppingBag;
         case 'sellout': return SelloutIcon;
@@ -182,7 +184,27 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
             <div className={`pt-6 pb-2 px-6 text-center ${!data.logoUrl ? 'pt-12' : ''}`}>
                 <h1 className={`text-2xl font-black uppercase tracking-tight ${textNameClass}`}>{data.pageTitle || "Links"}</h1>
 
-                <div className="mt-8 space-y-3 text-left">
+                {/* NEW PROMO BANNER */}
+                {data.promoEnabled && data.promoText && (
+                    <div className="mt-6 mb-2 p-4 rounded-2xl border text-sm font-medium leading-relaxed flex items-center justify-center flex-wrap gap-y-1" style={{ borderColor: `${data.theme}40`, backgroundColor: `${data.theme}0D`, color: isLight ? '#4b5563' : '#d1d5db' }}>
+                        {data.promoHighlight && data.promoText.includes(data.promoHighlight) ? (
+                            data.promoText.split(data.promoHighlight).map((part, i, arr) => (
+                                <React.Fragment key={i}>
+                                    {part}
+                                    {i !== arr.length - 1 && (
+                                        <span className="px-2 py-0.5 rounded-md font-black mx-1 whitespace-nowrap" style={{ backgroundColor: data.theme, color: cardBgColor }}>
+                                            {data.promoHighlight}
+                                        </span>
+                                    )}
+                                </React.Fragment>
+                            ))
+                        ) : (
+                            <span>{data.promoText}</span>
+                        )}
+                    </div>
+                )}
+
+                <div className="mt-6 space-y-3 text-left">
                     {renderLinks.map(link => (
                         <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
@@ -239,6 +261,14 @@ export default function BioPageApp({ session, activeTab }) {
                             fetchedCard.links = [...fetchedCard.links, ...missingLinks];
                         }
                     }
+
+                    // ENSURE MIGRATION OF PROMO SETTINGS IF OLDER DATA
+                    if (fetchedCard.promoEnabled === undefined) {
+                        fetchedCard.promoEnabled = false;
+                        fetchedCard.promoText = "Use code PROMO for 20% off!";
+                        fetchedCard.promoHighlight = "PROMO";
+                    }
+
                     setCardData({ ...DEFAULT_BIO_PAGE, ...fetchedCard, logoOffsetX: fetchedCard.logoOffsetX || 0 }); 
                 }
                 if (data.slug) setSlug(data.slug);
@@ -369,6 +399,30 @@ export default function BioPageApp({ session, activeTab }) {
                                 <div className="mb-6 pb-6 border-b border-white/5">
                                     <h3 className="text-lg font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2"><Type size={18} className="text-[#9df01c]"/> Title</h3>
                                     <div><input type="text" value={cardData.pageTitle} onChange={e => setCardData({...cardData, pageTitle: e.target.value})} placeholder="e.g. My Awesome Links" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
+                                </div>
+
+                                {/* NEW: PROMO BANNER SECTION */}
+                                <div className="mb-6 pb-6 border-b border-white/5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2"><Megaphone size={18} className="text-[#9df01c]"/> Promo Banner</h3>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Display a highlighted message or promo code.</p>
+                                        </div>
+                                        <button onClick={() => setCardData({...cardData, promoEnabled: !cardData.promoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.promoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.promoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
+                                    </div>
+                                    
+                                    {cardData.promoEnabled && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in">
+                                            <div className="sm:col-span-2">
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Banner Text</label>
+                                                <input type="text" value={cardData.promoText} onChange={e => setCardData({...cardData, promoText: e.target.value})} placeholder="If you saw us at FSGA, use promocode FSGA50 to save 50%" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Text to Highlight</label>
+                                                <input type="text" value={cardData.promoHighlight} onChange={e => setCardData({...cardData, promoHighlight: e.target.value})} placeholder="FSGA50" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="">
