@@ -5,6 +5,7 @@ import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
 import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
+import BioPageApp, { PublicBioView } from './components/apps/BioPageApp';
 import AddressBookApp from './components/apps/AddressBookApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
@@ -24,6 +25,7 @@ const WordPressIcon = ({ className }) => (
 export default function App() {
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
+  const [publicPageType, setPublicPageType] = useState(null); // 'card' or 'bio'
   const [publicBioError, setPublicBioError] = useState(false);
 
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
@@ -72,8 +74,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // --- NEW: GLOBAL UNAUTHORIZED LISTENER ---
-  // Automatically triggers handleLogout() if any sub-component fires this event due to an expired token
   useEffect(() => {
       const handleUnauthorized = () => {
           handleLogout();
@@ -108,8 +108,8 @@ export default function App() {
   }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session]);
 
   useEffect(() => {
-      if (isPublicBio && publicCardData?.name) {
-          document.title = `${publicCardData.name} | Contact`;
+      if (isPublicBio && publicCardData) {
+          document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
       } else if (isOAuthFlow) {
           document.title = "Authorize Connection | SC Hub";
       } else {
@@ -117,6 +117,7 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData, isOAuthFlow]);
 
+  // --- NEW: PUBLIC BIO PAGE ROUTING ---
   useEffect(() => {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
@@ -124,24 +125,45 @@ export default function App() {
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
-          const pathSlug = pathname.substring(1); 
-          if (pathSlug && pathSlug !== '') {
-              setIsPublicBio(true);
-              setIsLoading(true);
-              fetch(`/api/public-card/${pathSlug}`)
-                  .then(res => res.json())
-                  .then(data => {
-                      if (data.success && data.card) {
-                          setPublicCardData(data.card);
-                      } else {
+          
+          if (pathname.startsWith('/page/')) {
+              // It's a Bio Page!
+              const pathSlug = pathname.replace('/page/', '');
+              if (pathSlug && pathSlug !== '') {
+                  setIsPublicBio(true);
+                  setPublicPageType('bio');
+                  setIsLoading(true);
+                  fetch(`/api/public-bio-page/${pathSlug}`)
+                      .then(res => res.json())
+                      .then(data => {
+                          if (data.success && data.page) setPublicCardData(data.page);
+                          else setPublicBioError(true);
+                          setIsLoading(false);
+                      })
+                      .catch(() => {
                           setPublicBioError(true);
-                      }
-                      setIsLoading(false);
-                  })
-                  .catch(() => {
-                      setPublicBioError(true);
-                      setIsLoading(false);
-                  });
+                          setIsLoading(false);
+                      });
+              }
+          } else {
+              // It's a standard Business Card!
+              const pathSlug = pathname.substring(1); 
+              if (pathSlug && pathSlug !== '') {
+                  setIsPublicBio(true);
+                  setPublicPageType('card');
+                  setIsLoading(true);
+                  fetch(`/api/public-card/${pathSlug}`)
+                      .then(res => res.json())
+                      .then(data => {
+                          if (data.success && data.card) setPublicCardData(data.card);
+                          else setPublicBioError(true);
+                          setIsLoading(false);
+                      })
+                      .catch(() => {
+                          setPublicBioError(true);
+                          setIsLoading(false);
+                      });
+              }
           }
       }
   }, []);
@@ -262,7 +284,11 @@ export default function App() {
   };
 
   const triggerMobileQRCode = () => {
-      handleAppSwitch('business-card', 'builder');
+      if (currentApp === 'linktree') {
+          handleAppSwitch('linktree', 'links');
+      } else {
+          handleAppSwitch('business-card', 'builder');
+      }
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-qr-modal')), 100);
   };
 
@@ -327,7 +353,11 @@ export default function App() {
 
       return (
           <div className={`min-h-screen flex flex-col items-center pt-8 pb-12 px-4 transition-colors duration-300`} style={{ backgroundColor: fullScreenBgColor }}>
-              <PublicCardView data={publicCardData} isFullScreen={true} />
+              {publicPageType === 'bio' ? (
+                  <PublicBioView data={publicCardData} isFullScreen={true} />
+              ) : (
+                  <PublicCardView data={publicCardData} isFullScreen={true} />
+              )}
               <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
                   Powered by Sellout Crowds
               </a>
@@ -468,7 +498,14 @@ export default function App() {
 
                 {currentApp === 'address-book' && <AddressBookApp />}
                 
-                {currentApp === 'linktree' && <PlaceholderApp title="Bio Page Tool" icon={<Link2 size={64}/>} description="Create your custom link tree for your social media bios to drive traffic to your community." />}
+                {currentApp === 'linktree' && (
+                    ['links', 'design', 'url'].includes(activeTab) ? (
+                        <BioPageApp session={session} activeTab={activeTab} />
+                    ) : (
+                        <PlaceholderApp title="Bio Page Settings" icon={<Link2 size={64}/>} description="Analytics coming soon." />
+                    )
+                )}
+
                 {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<ImageIcon size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
                 {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
             </main>

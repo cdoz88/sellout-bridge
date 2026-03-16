@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Email Alias Translation Layer
+ * ADDED: Bio Page Storage and Endpoints
  */
 
 import express from 'express';
@@ -55,6 +55,10 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 
+        // NEW: BIO PAGES TABLE
+        await sql`CREATE TABLE IF NOT EXISTS bridge_bio_pages (user_id INTEGER PRIMARY KEY, page_data JSONB)`;
+        try { await sql`ALTER TABLE bridge_bio_pages ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
+
         await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (
             code VARCHAR(255) PRIMARY KEY, 
             user_id INTEGER, 
@@ -72,7 +76,6 @@ async function ensureSchema() {
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
         
-        // Manual Users Table
         try { 
             await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
                 id SERIAL PRIMARY KEY, 
@@ -85,7 +88,6 @@ async function ensureSchema() {
             )`; 
         } catch(e) {}
 
-        // NEW: Email Alias Table
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_email_aliases (
                 id SERIAL PRIMARY KEY,
@@ -187,7 +189,6 @@ app.get('/api/get-communities', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch community assets" }); }
 });
 
-// --- NEW: EMAIL ALIAS ENDPOINTS ---
 app.get('/api/get-aliases', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -229,7 +230,6 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
-// --- MANUAL USER ENDPOINTS ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -276,7 +276,6 @@ app.post('/api/remove-manual-user', async (req, res) => {
 });
 
 
-// --- SETTINGS & MAPPINGS ---
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -328,6 +327,7 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
+// --- BUSINESS CARD ---
 app.get('/api/get-card', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -378,7 +378,58 @@ app.get('/api/public-card/:slug', async (req, res) => {
     }
 });
 
-// --- STRIPE / PATREON ENDPOINTS ---
+// --- BIO PAGE ---
+app.get('/api/get-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${userId}`;
+        res.json({ page: rows.length > 0 ? rows[0].page_data : null, slug: rows.length > 0 ? rows[0].custom_slug : '' });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch bio page" }); }
+});
+
+app.post('/api/save-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        const pageData = req.body.page;
+        const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
+
+        if (slug) {
+            const check = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${userId}`;
+            if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
+        }
+
+        await sql`
+            INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) 
+            VALUES (${userId}, ${pageData}, ${slug})
+            ON CONFLICT (user_id) 
+            DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to save bio page" }); }
+});
+
+app.get('/api/public-bio-page/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const slug = req.params.slug.toLowerCase().trim();
+        const rows = await sql`SELECT page_data FROM bridge_bio_pages WHERE custom_slug = ${slug}`;
+        if (rows.length > 0) {
+            res.json({ success: true, page: rows[0].page_data });
+        } else {
+            res.status(404).json({ error: "Bio page not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to load bio page" });
+    }
+});
+
+// --- STRIPE / PATREON ---
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -398,7 +449,6 @@ app.post('/api/patreon-import', async (req, res) => {
     try {
         await ensureSchema();
 
-        // Load Aliases to map emails
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
         aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
@@ -632,6 +682,181 @@ app.post('/api/stripe-webhook', async (req, res) => {
         }
     } catch (error) { console.error('Webhook Error Processing:', error); }
     res.json({ received: true });
+});
+
+// ==========================================
+// OAUTH PROVIDER ENDPOINTS
+// ==========================================
+
+app.post('/api/oauth/approve', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { client_id, redirect_uri } = req.body;
+    
+    if (client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "Invalid client_id" });
+    }
+
+    try {
+        await ensureSchema();
+        
+        let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
+        
+        const code = crypto.randomBytes(16).toString('hex');
+        const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
+
+        await sql`
+            INSERT INTO wp_oauth_codes (code, user_id, profile_link, redirect_uri, expires_at) 
+            VALUES (${code}, ${user.id}, ${profileLink}, ${redirect_uri}, ${expiresAt})
+        `;
+
+        res.json({ success: true, code: code });
+    } catch (error) {
+        console.error("Failed to generate auth code:", error);
+        res.status(500).json({ error: "Server error generating code" });
+    }
+});
+
+app.post('/oauth/token', async (req, res) => {
+    const { grant_type, client_id, code, redirect_uri } = req.body;
+
+    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "invalid_request" });
+    }
+
+    try {
+        await ensureSchema();
+
+        const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
+        
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
+        }
+
+        const authCode = rows[0];
+
+        if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
+            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; 
+            return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
+        }
+
+        await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
+
+        const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
+
+        await sql`
+            INSERT INTO wp_access_tokens (token, user_id, profile_link) 
+            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
+        `;
+
+        res.json({
+            access_token: accessToken,
+            token_type: "bearer",
+            profile_url: authCode.profile_link 
+        });
+
+    } catch (error) {
+        console.error("Token exchange error:", error);
+        res.status(500).json({ error: "server_error" });
+    }
+});
+
+// ==========================================
+// WORDPRESS API PROXY ENDPOINTS
+// ==========================================
+
+app.post('/api/wp/get-fields', async (req, res) => {
+    const { access_token, user, domain } = req.body;
+    
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
+
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
+
+        const targetUser = user || rows[0].profile_link || '';
+        const hubDomain = 'https://bridge.selloutcrowds.com';
+
+        const { body, boundary } = createMultipartPayload({
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: hubDomain
+        });
+
+        const fsanRes = await fetch(FSAN_ENDPOINT, { 
+            method: 'POST', 
+            body: body,
+            headers: {
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            }
+        });
+        
+        const text = await fsanRes.text();
+
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
+        }
+    } catch (error) {
+        console.error("WP Proxy get-fields error:", error);
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
+    }
+});
+
+app.post('/api/wp/:action', async (req, res) => {
+    const { action } = req.params;
+    const validActions = ['create-post', 'edit-post', 'delete-post'];
+    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
+
+    const { access_token, user, domain, data } = req.body;
+    
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
+    
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
+
+        const targetUser = user || rows[0].profile_link || '';
+        const hubDomain = 'https://bridge.selloutcrowds.com';
+
+        const payloadData = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: hubDomain,
+            data: data
+        };
+
+        const { body, boundary } = createMultipartPayload(payloadData);
+
+        const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
+        const fsanRes = await fetch(endpoint, { 
+            method: 'POST', 
+            body: body,
+            headers: {
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            }
+        });
+        const text = await fsanRes.text();
+        
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
+        }
+    } catch (error) {
+        console.error(`WP Proxy ${action} error:`, error);
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
+    }
 });
 
 export default app;
