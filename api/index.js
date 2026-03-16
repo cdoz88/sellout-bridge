@@ -115,6 +115,8 @@ app.get('/api/get-communities', async (req, res) => {
         let userProfileUrl = meData.profile_link;
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
         if (!userProfileUrl.includes('www.')) { userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
+        
+        // This is correctly using URLSearchParams because it's hitting the proxy.
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
@@ -532,20 +534,24 @@ app.post('/oauth/token', async (req, res) => {
 // ==========================================
 
 app.post('/api/wp/get-fields', async (req, res) => {
-    // FIX: Safely parse the 'user' parameter sent by the WordPress remote post
     const { access_token, user, domain } = req.body;
+    
+    if (!access_token) {
+        return res.status(401).json({ error: "Invalid or missing access token" });
+    }
+
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // FIX: Extract target user from the request body or fallback to DB
         let targetUser = user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        const formData = new URLSearchParams();
+        // FIX: Use FormData to send a multipart/form-data request to perfectly match your old PHP plugin
+        const formData = new FormData();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
@@ -554,8 +560,8 @@ app.post('/api/wp/get-fields', async (req, res) => {
             method: 'POST', 
             body: formData,
             headers: {
-                'User-Agent': 'UNA',
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'User-Agent': 'UNA'
+                // NOTE: DO NOT set Content-Type header manually here. Fetch will set it automatically with the boundary!
             }
         });
         
@@ -574,6 +580,10 @@ app.post('/api/wp/:action', async (req, res) => {
 
     const { access_token, user, domain, data } = req.body;
     
+    if (!access_token) {
+        return res.status(401).json({ error: "Invalid or missing access token" });
+    }
+    
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
@@ -584,6 +594,7 @@ app.post('/api/wp/:action', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
+        // The old plugin used http_build_query for creating/editing posts, which is URLSearchParams
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
