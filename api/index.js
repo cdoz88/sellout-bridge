@@ -532,12 +532,14 @@ app.post('/oauth/token', async (req, res) => {
 // ==========================================
 
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, domain } = req.body;
+    // FIX: Extract 'user' from req.body so it isn't ignored
+    const { access_token, user, domain } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        let targetUser = rows[0].profile_link || '';
+        // FIX: Prioritize the 'user' sent from the WordPress plugin, fallback to DB
+        let targetUser = user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
