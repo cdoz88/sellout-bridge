@@ -72,6 +72,16 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
+  // --- NEW: GLOBAL UNAUTHORIZED LISTENER ---
+  // Automatically triggers handleLogout() if any sub-component fires this event due to an expired token
+  useEffect(() => {
+      const handleUnauthorized = () => {
+          handleLogout();
+      };
+      window.addEventListener('unauthorized', handleUnauthorized);
+      return () => window.removeEventListener('unauthorized', handleUnauthorized);
+  }, []);
+
   useEffect(() => {
       const pathname = window.location.pathname;
       if (pathname === '/oauth/authorize') {
@@ -209,7 +219,7 @@ export default function App() {
   const fetchUser = async (token) => {
     try {
       const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.status === 401) { handleLogout(); return; }
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       setUnaData(prev => ({ ...prev, user: data.user }));
     } catch (err) { console.error("Could not load user data"); }
@@ -224,7 +234,7 @@ export default function App() {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' }
       });
-      if (res.status === 401) { handleLogout(); return; }
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
     } catch (err) { 
@@ -273,6 +283,7 @@ export default function App() {
                   redirect_uri: oauthParams.redirect_uri 
               })
           });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.success) {
               const redirectUrl = new URL(oauthParams.redirect_uri);
@@ -336,7 +347,6 @@ export default function App() {
                       </div>
                       <div className="w-8 h-0.5 bg-white/10 self-center -mx-2 z-0"></div>
                       <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
-                          {/* --- IMPLEMENTED WORDPRESS SVG ICON --- */}
                           <WordPressIcon className="w-8 h-8 text-[#00769d]" />
                       </div>
                   </div>
@@ -364,7 +374,6 @@ export default function App() {
                       <button 
                           onClick={() => {
                               if (oauthParams?.redirect_uri) {
-                                  // FIX: Safely parse the URL to append the parameters without corrupting WP core requests
                                   const redirectUrl = new URL(oauthParams.redirect_uri);
                                   redirectUrl.searchParams.set('soc_error', 'access_denied');
                                   window.location.href = redirectUrl.toString();

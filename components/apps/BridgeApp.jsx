@@ -43,6 +43,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const fetchDatabaseSettings = async (token) => {
     try {
       const res = await fetch('/api/get-settings', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.settings && data.settings.stripe_secret_key) {
         setApiKey(data.settings.stripe_secret_key);
@@ -57,6 +58,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const fetchDatabaseMappings = async (token) => {
     try {
       const res = await fetch('/api/get-mappings', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.mappings) setMappings(data.mappings);
     } catch (err) {
@@ -68,6 +70,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (!token) return;
       try {
           const res = await fetch('/api/get-manual-users', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.users) setManualUsers(data.users);
       } catch (err) {
@@ -90,6 +93,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ apiKey: keyToTest })
         });
+        if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         
@@ -159,6 +163,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     setIsStatsLoading(true);
     try {
         const res = await fetch('/api/get-subscribers', { headers: { 'Authorization': `Bearer ${activeToken}` } });
+        if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
         const data = await res.json();
         if (data.stats) {
             setAudienceStats(data.stats);
@@ -181,6 +186,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings })
       });
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (!res.ok) throw new Error("Server rejected the save.");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -201,6 +207,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
       });
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
@@ -225,6 +232,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ users: patreonUsers, mappings: patreonMappings })
           });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
           setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
@@ -239,11 +247,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const toggleUserAccess = async (email, action) => {
       setProcessingUser(email);
       try {
-          await fetch('/api/toggle-user-access', {
+          const res = await fetch('/api/toggle-user-access', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ email, productId: modalData.productId, action })
           });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           await fetchAudienceStats(); 
       } catch (err) {
           console.error("Failed to toggle access.");
@@ -269,6 +278,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: manualEmail, unaModule: module, unaId: id })
           });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           if (res.ok) {
               setManualEmail('');
               setManualUnaSelect('');
@@ -286,11 +296,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const handleRemoveManualUser = async (user) => {
       try {
-          await fetch('/api/remove-manual-user', {
+          const res = await fetch('/api/remove-manual-user', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: user.id, email: user.email, unaModule: user.una_module, unaId: user.una_content_id })
           });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchManualUsers();
       } catch (err) {
           console.error("Failed to remove manual user.");
@@ -312,11 +323,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     const newMappings = mappings.filter(m => m.id !== id);
     setMappings(newMappings);
     try {
-      await fetch('/api/save-mappings', {
+      const res = await fetch('/api/save-mappings', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mappings: newMappings })
       });
+      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
       console.error("Failed to delete mapping.");

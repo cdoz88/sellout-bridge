@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Link, Users, ChevronLeft } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, Settings, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Users, ChevronLeft } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -81,7 +81,6 @@ const DEFAULT_LINKS = [
     { id: 'facebook', type: 'facebook', title: 'Facebook', defaultSubtitle: 'Connect on Facebook', url: '' },
     { id: 'twitter', type: 'twitter', title: 'X', defaultSubtitle: 'Follow for updates', url: '' },
     { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', defaultSubtitle: 'Professional network', url: '' },
-    // NEW LINKS ADDED HERE
     { id: 'whatsapp', type: 'whatsapp', title: 'WhatsApp', defaultSubtitle: 'Chat with me', url: '' },
     { id: 'bluesky', type: 'bluesky', title: 'Bluesky', defaultSubtitle: 'Follow me', url: '' },
     { id: 'twitch', type: 'twitch', title: 'Twitch', defaultSubtitle: 'Watch my stream', url: '' }
@@ -352,14 +351,16 @@ export default function BusinessCardApp({ session, activeTab }) {
     useEffect(() => {
         if (!session) return;
         fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
-            .then(res => res.json())
+            .then(res => {
+                if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); throw new Error('401'); }
+                return res.json();
+            })
             .then(data => {
                 if (data.card) {
                     let fetchedCard = data.card;
                     if (!fetchedCard.links) {
                         fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({ ...defaultLink, url: fetchedCard[defaultLink.type] || '' }));
                     } else {
-                        // MERGE SCRIPT: Ensures existing users automatically get the 3 new fields added to their list!
                         const existingTypes = new Set(fetchedCard.links.map(l => l.type));
                         const missingLinks = DEFAULT_LINKS.filter(l => !existingTypes.has(l.type));
                         if (missingLinks.length > 0) {
@@ -379,6 +380,7 @@ export default function BusinessCardApp({ session, activeTab }) {
         setIsSaving(true);
         try {
             const res = await fetch('/api/save-card', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ card: cardData, slug: slug }) });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const result = await res.json();
             if (result.error) { alert(result.error); setIsSaving(false); return; }
             setTimeout(() => setIsSaving(false), 1000);
