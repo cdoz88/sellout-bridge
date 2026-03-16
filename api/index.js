@@ -26,6 +26,21 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
+// Custom Multipart Generator to perfectly mimic PHP's array sending!
+function buildMultipart(data) {
+    const boundary = '----SelloutCrowdsFormBoundary' + crypto.randomBytes(8).toString('hex');
+    let body = '';
+    for (const [key, value] of Object.entries(data)) {
+        if (value !== undefined && value !== null) {
+            body += `--${boundary}\r\n`;
+            body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
+            body += `${value}\r\n`;
+        }
+    }
+    body += `--${boundary}--\r\n`;
+    return { body, boundary };
+}
+
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -543,19 +558,23 @@ app.post('/api/wp/get-fields', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // FIX: Swapped back to URLSearchParams to avoid server crashes
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+        // PERFECTLY MIMICS PHP ARRAY (Forces multipart/form-data universally)
+        const payload = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com'
+        };
+        const { body, boundary } = buildMultipart(payload);
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
-                'User-Agent': 'UNA'
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
+        
         const data = await fsanRes.text();
         res.send(data);
     } catch (error) {
@@ -581,24 +600,27 @@ app.post('/api/wp/:action', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // FIX: Swapped back to URLSearchParams to avoid server crashes
-        const formData = new URLSearchParams();
-        formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
-        formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
+        const payload = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com'
+        };
 
         if (data && typeof data === 'object') {
             for (const key in data) {
-                formData.append(`data[${key}]`, data[key]);
+                payload[`data[${key}]`] = data[key];
             }
         }
+
+        const { body, boundary } = buildMultipart(payload);
 
         const endpoint = `https://fantasysportsadvice.network/m/fsan/wordpress/${action}`;
         const fsanRes = await fetch(endpoint, { 
             method: 'POST', 
-            body: formData,
+            body: body,
             headers: {
-                'User-Agent': 'UNA'
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
             }
         });
         const text = await fsanRes.text();
