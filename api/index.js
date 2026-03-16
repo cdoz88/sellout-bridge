@@ -142,7 +142,7 @@ app.get('/api/get-communities', async (req, res) => {
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
-        formData.append('domain', 'https://hub.selloutcrowds.com');
+        formData.append('domain', 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
@@ -566,7 +566,7 @@ app.post('/api/wp/get-fields', async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
         const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://hub.selloutcrowds.com';
+        const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const { body, boundary } = createMultipartPayload({
             api_key: FSAN_TOKEN,
@@ -613,7 +613,7 @@ app.post('/api/wp/:action', async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
         const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://hub.selloutcrowds.com';
+        const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const payloadData = {
             api_key: FSAN_TOKEN,
