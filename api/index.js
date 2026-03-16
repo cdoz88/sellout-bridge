@@ -532,15 +532,15 @@ app.post('/oauth/token', async (req, res) => {
 // WORDPRESS API PROXY ENDPOINTS
 // ==========================================
 
-// Proxy to fetch fields/communities
+// Proxy to fetch fields/communities (Strictly uses the Admin's Master Token)
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, domain, user } = req.body;
+    const { access_token, domain } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // Format the URL properly for the strict API
-        let targetUser = user || rows[0].profile_link || '';
+        // FORCE the use of the Admin's Profile Link that authorized the connection
+        let targetUser = rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
@@ -566,13 +566,13 @@ app.post('/api/wp/:action', async (req, res) => {
     const validActions = ['create-post', 'edit-post', 'delete-post'];
     if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
+    // We STILL accept the individual user's URL here, to credit the post correctly!
     const { access_token, user, domain, data } = req.body;
     
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        // Format the URL properly for the strict API
         let targetUser = user || rows[0].profile_link || '';
         targetUser = targetUser.replace('https://studio.', 'https://www.');
         if (targetUser && !targetUser.includes('www.')) { 
