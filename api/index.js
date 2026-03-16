@@ -26,6 +26,16 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
+// NEW HELPER: Formats the URL so UNA doesn't crash on lookup
+function formatProfileUrl(url) {
+    if (!url) return '';
+    let cleanUrl = url;
+    // UNA's DB expects the public domain, but OAuth returns the studio domain.
+    cleanUrl = cleanUrl.replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
+    cleanUrl = cleanUrl.replace('https://www.selloutcrowds.com', 'https://selloutcrowds.com');
+    return cleanUrl;
+}
+
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -112,11 +122,13 @@ app.get('/api/get-communities', async (req, res) => {
     const meData = await getAuthenticatedUser(req.headers.authorization);
     if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
     try {
-        let userProfileUrl = meData.profile_link;
+        let userProfileUrl = formatProfileUrl(meData.profile_link);
+        
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
         formData.append('domain', 'https://bridge.selloutcrowds.com');
+        
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
         let parsedData = null;
@@ -463,6 +475,7 @@ app.post('/api/oauth/approve', async (req, res) => {
         await ensureSchema();
         
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
+        profileLink = formatProfileUrl(profileLink); // Formats before saving
         
         const code = crypto.randomBytes(16).toString('hex');
         const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
@@ -530,7 +543,6 @@ app.post('/oauth/token', async (req, res) => {
 app.post('/api/wp/get-fields', async (req, res) => {
     const { access_token, user, domain } = req.body;
     
-    // SAFETY CHECK: Never let missing credentials crash the server
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
     }
@@ -539,8 +551,8 @@ app.post('/api/wp/get-fields', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        // Trust the exact user string explicitly provided by the WordPress site. NO REPLACEMENTS.
-        const targetUser = user || rows[0].profile_link || '';
+        let targetUser = user || rows[0].profile_link || '';
+        targetUser = formatProfileUrl(targetUser); // Forces the URL to match the public facing domain UNA expects
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
@@ -558,11 +570,9 @@ app.post('/api/wp/get-fields', async (req, res) => {
         
         const text = await fsanRes.text();
 
-        // Ensure we always return JSON to WordPress so wp_remote_post doesn't choke on HTML errors
         try {
             const json = JSON.parse(text);
-            // Pass the targetUser back into the payload so we can explicitly verify what URL UNA actually checked
-            json._debug_user = targetUser;
+            json._debug_user = targetUser; // Passed back for debugging in WP
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
@@ -588,7 +598,8 @@ app.post('/api/wp/:action', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
-        const targetUser = user || rows[0].profile_link || '';
+        let targetUser = user || rows[0].profile_link || '';
+        targetUser = formatProfileUrl(targetUser); // Protects POST actions too
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
