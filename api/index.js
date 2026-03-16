@@ -113,10 +113,6 @@ app.get('/api/get-communities', async (req, res) => {
     if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
     try {
         let userProfileUrl = meData.profile_link;
-        userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
-        if (!userProfileUrl.includes('www.')) { userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
-        
-        // This is correctly using URLSearchParams because it's hitting the proxy.
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
@@ -467,9 +463,7 @@ app.post('/api/oauth/approve', async (req, res) => {
         await ensureSchema();
         
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
-        profileLink = profileLink.replace('https://studio.', 'https://www.');
-        if (profileLink && !profileLink.includes('www.')) { profileLink = profileLink.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
-
+        
         const code = crypto.randomBytes(16).toString('hex');
         const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
 
@@ -536,22 +530,16 @@ app.post('/oauth/token', async (req, res) => {
 app.post('/api/wp/get-fields', async (req, res) => {
     const { access_token, user, domain } = req.body;
     
-    if (!access_token) {
-        return res.status(401).json({ error: "Invalid or missing access token" });
-    }
+    if (!access_token) return res.status(401).json({ error: "Invalid or missing access token" });
 
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        let targetUser = user || rows[0].profile_link || '';
-        targetUser = targetUser.replace('https://studio.', 'https://www.');
-        if (targetUser && !targetUser.includes('www.')) { 
-            targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
-        }
+        // Pass the user exactly as provided, removing the forced replacements.
+        const targetUser = user || rows[0].profile_link || '';
 
-        // FIX: Use FormData to send a multipart/form-data request to perfectly match your old PHP plugin
-        const formData = new FormData();
+        const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
@@ -560,8 +548,8 @@ app.post('/api/wp/get-fields', async (req, res) => {
             method: 'POST', 
             body: formData,
             headers: {
-                'User-Agent': 'UNA'
-                // NOTE: DO NOT set Content-Type header manually here. Fetch will set it automatically with the boundary!
+                'User-Agent': 'UNA',
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
         
@@ -580,21 +568,14 @@ app.post('/api/wp/:action', async (req, res) => {
 
     const { access_token, user, domain, data } = req.body;
     
-    if (!access_token) {
-        return res.status(401).json({ error: "Invalid or missing access token" });
-    }
+    if (!access_token) return res.status(401).json({ error: "Invalid or missing access token" });
     
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
-        let targetUser = user || rows[0].profile_link || '';
-        targetUser = targetUser.replace('https://studio.', 'https://www.');
-        if (targetUser && !targetUser.includes('www.')) { 
-            targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
-        }
+        const targetUser = user || rows[0].profile_link || '';
 
-        // The old plugin used http_build_query for creating/editing posts, which is URLSearchParams
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
