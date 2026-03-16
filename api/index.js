@@ -466,7 +466,6 @@ app.post('/api/oauth/approve', async (req, res) => {
     try {
         await ensureSchema();
         
-        // Smarter URL extraction to handle different UNA configurations
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
         profileLink = profileLink.replace('https://studio.', 'https://www.');
         if (profileLink && !profileLink.includes('www.')) { profileLink = profileLink.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
@@ -540,10 +539,16 @@ app.post('/api/wp/get-fields', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
+        // Format the URL properly for the strict API
+        let targetUser = user || rows[0].profile_link || '';
+        targetUser = targetUser.replace('https://studio.', 'https://www.');
+        if (targetUser && !targetUser.includes('www.')) { 
+            targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
+        }
+
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        // Uses the passed Author URL. Falls back to the admin's saved URL if blank!
-        formData.append('user', user || rows[0].profile_link);
+        formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', body: formData });
@@ -567,9 +572,16 @@ app.post('/api/wp/:action', async (req, res) => {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
+        // Format the URL properly for the strict API
+        let targetUser = user || rows[0].profile_link || '';
+        targetUser = targetUser.replace('https://studio.', 'https://www.');
+        if (targetUser && !targetUser.includes('www.')) { 
+            targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
+        }
+
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', user || rows[0].profile_link);
+        formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
         if (data && typeof data === 'object') {
