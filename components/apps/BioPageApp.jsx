@@ -99,7 +99,6 @@ const DEFAULT_BIO_PAGE = {
     qrLogoEnabled: false, 
     qrLogoUrl: "", 
     qrLogoBg: "#ffffff",
-    // NEW: PROMO BANNER CONFIG
     promoEnabled: false,
     promoText: "Use code PROMO for 20% off!",
     promoHighlight: "PROMO"
@@ -140,7 +139,14 @@ const getSubtitle = (link) => {
     return link.defaultSubtitle;
 };
 
-// --- THE PUBLIC BIO PAGE COMPONENT ---
+// --- NEW: YOUTUBE ID EXTRACTOR ---
+const getYoutubeId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
+
 export const PublicBioView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
@@ -159,15 +165,6 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
     const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const arrowClass = isLight ? 'text-gray-400' : 'text-gray-500';
 
-    const renderLinks = activeLinks.filter(l => l.url && l.url.trim() !== '').map(link => {
-        let formattedUrl = link.url.trim();
-        if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
-        else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
-        else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
-
-        return { ...link, subtitle: getSubtitle(link), url: formattedUrl, rawUrl: link.url.trim(), icon: getIconForType(link.type) };
-    });
-
     return (
         <div className={containerClasses} style={containerStyle}>
             {data.logoUrl && (
@@ -184,7 +181,6 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
             <div className={`pt-6 pb-2 px-6 text-center ${!data.logoUrl ? 'pt-12' : ''}`}>
                 <h1 className={`text-2xl font-black uppercase tracking-tight ${textNameClass}`}>{data.pageTitle || "Links"}</h1>
 
-                {/* NEW PROMO BANNER */}
                 {data.promoEnabled && data.promoText && (
                     <div className="mt-6 mb-2 p-4 rounded-2xl border text-sm font-medium leading-relaxed flex items-center justify-center flex-wrap gap-y-1" style={{ borderColor: `${data.theme}40`, backgroundColor: `${data.theme}0D`, color: isLight ? '#4b5563' : '#d1d5db' }}>
                         {data.promoHighlight && data.promoText.includes(data.promoHighlight) ? (
@@ -205,18 +201,49 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
                 )}
 
                 <div className="mt-6 space-y-3 text-left">
-                    {renderLinks.map(link => (
-                        <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
-                                <link.icon size={20} />
-                            </div>
-                            <div className="flex-1 min-w-0 py-1">
-                                <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
-                                <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
-                            </div>
-                            <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
-                        </a>
-                    ))}
+                    {activeLinks.map(link => {
+                        if (!link.url || link.url.trim() === '') return null;
+
+                        // --- NEW: YOUTUBE EMBED RENDERER ---
+                        if (link.type === 'youtube_embed') {
+                            const ytId = getYoutubeId(link.url);
+                            if (!ytId) return null;
+                            return (
+                                <div key={link.id} className={`overflow-hidden rounded-2xl border ${isLight ? 'border-black/5 shadow-sm' : 'border-white/5 shadow-lg'}`}>
+                                    <div className="relative w-full pb-[56.25%] bg-black">
+                                        <iframe 
+                                            className="absolute top-0 left-0 w-full h-full"
+                                            src={`https://www.youtube.com/embed/${ytId}`} 
+                                            title="YouTube video player" 
+                                            frameBorder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        let formattedUrl = link.url.trim();
+                        if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
+                        else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
+                        else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
+
+                        const IconComp = getIconForType(link.type);
+
+                        return (
+                            <a key={link.id} href={formattedUrl} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
+                                    <IconComp size={20} />
+                                </div>
+                                <div className="flex-1 min-w-0 py-1">
+                                    <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
+                                    <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{getSubtitle(link)}</p>
+                                </div>
+                                <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
+                            </a>
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -262,7 +289,6 @@ export default function BioPageApp({ session, activeTab }) {
                         }
                     }
 
-                    // ENSURE MIGRATION OF PROMO SETTINGS IF OLDER DATA
                     if (fetchedCard.promoEnabled === undefined) {
                         fetchedCard.promoEnabled = false;
                         fetchedCard.promoText = "Use code PROMO for 20% off!";
@@ -325,10 +351,18 @@ export default function BioPageApp({ session, activeTab }) {
     const updateLink = (id, field, value) => {
         setCardData({ ...cardData, links: cardData.links.map(l => l.id === id ? { ...l, [field]: value } : l) });
     };
+
     const addCustomLink = () => {
         const newLink = { id: 'custom_' + Date.now(), type: 'custom', title: 'Custom Link', defaultSubtitle: 'Click here', url: '' };
         setCardData({ ...cardData, links: [...cardData.links, newLink] });
     };
+
+    // --- NEW: ADD YOUTUBE EMBED ROW ---
+    const addYoutubeEmbed = () => {
+        const newLink = { id: 'yt_' + Date.now(), type: 'youtube_embed', title: 'YouTube Video', defaultSubtitle: '', url: '' };
+        setCardData({ ...cardData, links: [...cardData.links, newLink] });
+    };
+
     const removeLink = (id) => setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
 
     const getShareUrl = () => slug ? `https://crowds.bio/page/${slug}` : '';
@@ -401,7 +435,6 @@ export default function BioPageApp({ session, activeTab }) {
                                     <div><input type="text" value={cardData.pageTitle} onChange={e => setCardData({...cardData, pageTitle: e.target.value})} placeholder="e.g. My Awesome Links" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
                                 </div>
 
-                                {/* NEW: PROMO BANNER SECTION */}
                                 <div className="mb-6 pb-6 border-b border-white/5">
                                     <div className="flex items-center justify-between mb-4">
                                         <div>
@@ -431,34 +464,52 @@ export default function BioPageApp({ session, activeTab }) {
                                     
                                     <div className="flex flex-col gap-3">
                                         {cardData.links.map((link, index) => {
-                                            const IconComponent = getIconForType(link.type);
+                                            const IconComponent = link.type === 'youtube_embed' ? null : getIconForType(link.type);
                                             return (
                                                 <div key={link.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDragEnd={handleDragEnd} className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-black p-3 sm:p-2.5 rounded-xl border transition-all ${draggedIndex === index ? 'border-[#9df01c] opacity-50' : 'border-white/10 focus-within:border-white/30'}`}>
                                                     <div className="flex items-center w-full sm:w-auto">
                                                         <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0 ml-1 mr-2 sm:mr-0" />
-                                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0 mx-2"><IconComponent size={16} /></div>
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0 mx-2">
+                                                            {link.type === 'youtube_embed' ? <Youtube size={16} className="text-red-500" /> : <IconComponent size={16} />}
+                                                        </div>
+                                                        
                                                         {link.type === 'custom' ? (
                                                             <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none flex-1 sm:w-1/3 sm:hidden" placeholder="Link Title" />
+                                                        ) : link.type === 'youtube_embed' ? (
+                                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex-1 sm:hidden">YouTube Video</span>
                                                         ) : (
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex-1 sm:hidden">{link.title}</span>
                                                         )}
-                                                        {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
+                                                        
+                                                        {['custom', 'youtube_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
                                                     </div>
                                                     
                                                     <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
                                                         {link.type === 'custom' ? (
                                                             <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
+                                                        ) : link.type === 'youtube_embed' ? (
+                                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center gap-2">YouTube Video</span>
                                                         ) : (
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
                                                         )}
-                                                        <input type="text" value={link.url} onChange={(e) => updateLink(link.id, 'url', e.target.value)} placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : 'URL or username...'} className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" />
+                                                        <input 
+                                                            type="text" 
+                                                            value={link.url} 
+                                                            onChange={(e) => updateLink(link.id, 'url', e.target.value)} 
+                                                            placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : link.type === 'youtube_embed' ? 'Paste YouTube URL...' : 'URL or username...'} 
+                                                            className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" 
+                                                        />
                                                     </div>
-                                                    {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
+                                                    {['custom', 'youtube_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                    <button onClick={addCustomLink} className="mt-4 w-full py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Plus size={14} /> Add Custom Link</button>
+                                    
+                                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                                        <button onClick={addCustomLink} className="flex-1 py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Plus size={14} /> Add Custom Link</button>
+                                        <button onClick={addYoutubeEmbed} className="flex-1 py-3 rounded-xl border border-dashed border-red-500/30 text-red-500 hover:text-white hover:bg-red-500 hover:border-red-500 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Youtube size={14} /> Embed YouTube Video</button>
+                                    </div>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
