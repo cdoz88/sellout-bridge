@@ -6,6 +6,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/oauth/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

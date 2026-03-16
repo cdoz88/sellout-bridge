@@ -1,11 +1,13 @@
 /**
  * api/index.js - THE BACKEND ENGINE
  * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
+ * ADDED: OAuth Provider capabilities for WordPress connections
  */
 
 import express from 'express';
 import { neon } from '@neondatabase/serverless';
 import Stripe from 'stripe'; 
+import crypto from 'crypto'; // <-- Added for generating secure tokens
 
 const app = express();
 
@@ -29,8 +31,21 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         
-        // NEW: Safely add the custom_slug column for vanity URLs
+        // Safely add the custom_slug column for vanity URLs
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
+
+        // --- NEW OAUTH TABLES ---
+        await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (
+            code VARCHAR(255) PRIMARY KEY, 
+            user_id INTEGER, 
+            redirect_uri TEXT, 
+            expires_at TIMESTAMP
+        )`;
+        await sql`CREATE TABLE IF NOT EXISTS wp_access_tokens (
+            token VARCHAR(255) PRIMARY KEY, 
+            user_id INTEGER, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`;
     } catch (e) {
         console.error("Schema check notice:", e.message);
     }
@@ -194,7 +209,6 @@ app.post('/api/save-card', async (req, res) => {
         const cardData = req.body.card;
         const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
 
-        // Ensure no one else has already claimed this link!
         if (slug) {
             const check = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${userId}`;
             if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
@@ -210,8 +224,6 @@ app.post('/api/save-card', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save card" }); }
 });
 
-// --- NEW PUBLIC ENDPOINT FOR CROWDS.BIO ---
-// This endpoint doesn't require authentication, allowing the internet to fetch public profiles
 app.get('/api/public-card/:slug', async (req, res) => {
     try {
         await ensureSchema();
@@ -433,6 +445,96 @@ app.post('/api/stripe-webhook', async (req, res) => {
         }
     } catch (error) { console.error('Webhook Error Processing:', error); }
     res.json({ received: true });
+});
+
+// ==========================================
+// OAUTH PROVIDER ENDPOINTS (NEW)
+// ==========================================
+
+// 1. Frontend calls this when the user clicks "Approve"
+app.post('/api/oauth/approve', async (req, res) => {
+    // Verify the user is actually logged into the Hub
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { client_id, redirect_uri } = req.body;
+    
+    if (client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "Invalid client_id" });
+    }
+
+    try {
+        await ensureSchema();
+        
+        // Generate a random, short-lived authorization code
+        const code = crypto.randomBytes(16).toString('hex');
+        
+        // Code expires in 5 minutes
+        const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
+
+        await sql`
+            INSERT INTO wp_oauth_codes (code, user_id, redirect_uri, expires_at) 
+            VALUES (${code}, ${user.id}, ${redirect_uri}, ${expiresAt})
+        `;
+
+        res.json({ success: true, code: code });
+    } catch (error) {
+        console.error("Failed to generate auth code:", error);
+        res.status(500).json({ error: "Server error generating code" });
+    }
+});
+
+// 2. WordPress background call to exchange the code for a token
+app.post('/oauth/token', async (req, res) => {
+    // Note: This endpoint does NOT require a Hub session token, 
+    // because it's coming server-to-server from WordPress!
+    
+    const { grant_type, client_id, code, redirect_uri } = req.body;
+
+    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "invalid_request" });
+    }
+
+    try {
+        await ensureSchema();
+
+        // Find the code in the database
+        const rows = await sql`SELECT user_id, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
+        
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
+        }
+
+        const authCode = rows[0];
+
+        // Ensure it hasn't expired and the redirect URI matches
+        if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
+            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; // Clean up
+            return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
+        }
+
+        // It's valid! Delete the code so it can't be used again
+        await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
+
+        // Generate the permanent Access Token
+        const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
+
+        // Save the token to the database linked to the user
+        await sql`
+            INSERT INTO wp_access_tokens (token, user_id) 
+            VALUES (${accessToken}, ${authCode.user_id})
+        `;
+
+        // Send it back to WordPress
+        res.json({
+            access_token: accessToken,
+            token_type: "bearer"
+        });
+
+    } catch (error) {
+        console.error("Token exchange error:", error);
+        res.status(500).json({ error: "server_error" });
+    }
 });
 
 export default app;
