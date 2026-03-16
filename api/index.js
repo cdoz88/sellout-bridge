@@ -21,7 +21,9 @@ const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO";
 
 const sql = neon(process.env.DATABASE_URL);
 
+// --- THE FIX: Tell the backend to parse both JSON and URL-Encoded (WordPress) payloads ---
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); 
 
 // --- HELPER FUNCTIONS ---
 
