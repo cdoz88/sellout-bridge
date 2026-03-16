@@ -380,6 +380,73 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+app.post('/api/stripe-webhook', async (req, res) => {
+    const event = req.body;
+    try {
+        await ensureSchema();
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            const customerEmail = session.customer_details?.email;
+            const customerId = session.customer; 
+            const stripeProductId = session.metadata?.product_id;
+            let bridgeStatus = 'pending';
+            if (stripeProductId && customerEmail) {
+                const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                if (rows.length > 0) {
+                    const result = await grantCommunityAccess(customerEmail, rows[0].una_module, rows[0].una_content_id);
+                    bridgeStatus = result.success ? 'bridged' : 'pending';
+                }
+            }
+            if (customerId && customerEmail) {
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${customerId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+            }
+        } 
+        else if (event.type === 'customer.subscription.deleted') {
+            const sub = event.data.object;
+            const customerId = sub.customer;
+            const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+            if (customerId && stripeProductId) {
+                const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                if (customerRows.length > 0) {
+                    const customerEmail = customerRows[0].email;
+                    const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    if (mapRows.length > 0) {
+                        await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                        await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                    }
+                }
+            }
+        }
+        else if (event.type === 'customer.subscription.updated') {
+             const sub = event.data.object;
+             const status = sub.status; 
+             const customerId = sub.customer;
+             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+             if (customerId && stripeProductId) {
+                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                 if (customerRows.length > 0) {
+                     const customerEmail = customerRows[0].email;
+                     const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     if (mapRows.length > 0) {
+                         const currentStatus = customerRows[0].bridge_status;
+                         if (currentStatus !== 'revoked') {
+                             if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
+                                 await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                             } else if (status === 'active') {
+                                 const result = await grantCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 const newStatus = result.success ? 'bridged' : 'pending';
+                                 await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${customerEmail}`;
+                             }
+                         }
+                     }
+                 }
+             }
+        }
+    } catch (error) { console.error('Webhook Error Processing:', error); }
+    res.json({ received: true });
+});
+
 // ==========================================
 // OAUTH PROVIDER ENDPOINTS
 // ==========================================
@@ -476,8 +543,8 @@ app.post('/api/wp/get-fields', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // FIX: Reverted to FormData object to perfectly mimic PHP's array/multipart request
-        const formData = new FormData();
+        // FIX: Swapped back to URLSearchParams to avoid server crashes
+        const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
@@ -486,7 +553,7 @@ app.post('/api/wp/get-fields', async (req, res) => {
             method: 'POST', 
             body: formData,
             headers: {
-                'User-Agent': 'UNA' // Keeps the disguise on!
+                'User-Agent': 'UNA'
             }
         });
         const data = await fsanRes.text();
@@ -514,8 +581,8 @@ app.post('/api/wp/:action', async (req, res) => {
             targetUser = targetUser.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); 
         }
 
-        // FIX: Uses FormData object for creating/editing posts as well
-        const formData = new FormData();
+        // FIX: Swapped back to URLSearchParams to avoid server crashes
+        const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
