@@ -21,7 +21,6 @@ const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO";
 
 const sql = neon(process.env.DATABASE_URL);
 
-// --- THE FIX: Tell the backend to parse both JSON and URL-Encoded (WordPress) payloads ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
@@ -467,9 +466,10 @@ app.post('/api/oauth/approve', async (req, res) => {
     try {
         await ensureSchema();
         
-        let profileLink = user.profile_link || '';
+        // Smarter URL extraction to handle different UNA configurations
+        let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
         profileLink = profileLink.replace('https://studio.', 'https://www.');
-        if (!profileLink.includes('www.')) { profileLink = profileLink.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
+        if (profileLink && !profileLink.includes('www.')) { profileLink = profileLink.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
 
         const code = crypto.randomBytes(16).toString('hex');
         const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
@@ -535,14 +535,15 @@ app.post('/oauth/token', async (req, res) => {
 
 // Proxy to fetch fields/communities
 app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, domain } = req.body;
+    const { access_token, domain, user } = req.body;
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', rows[0].profile_link);
+        // Uses the passed Author URL. Falls back to the admin's saved URL if blank!
+        formData.append('user', user || rows[0].profile_link);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', body: formData });
@@ -568,11 +569,9 @@ app.post('/api/wp/:action', async (req, res) => {
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        // Important: Use the individual WP author's URL if provided. If missing, fallback to the site Admin's profile.
         formData.append('user', user || rows[0].profile_link);
         formData.append('domain', domain || 'https://bridge.selloutcrowds.com');
 
-        // Format nested JSON object for URLSearchParams
         if (data && typeof data === 'object') {
             for (const key in data) {
                 formData.append(`data[${key}]`, data[key]);
