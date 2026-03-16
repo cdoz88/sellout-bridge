@@ -530,13 +530,16 @@ app.post('/oauth/token', async (req, res) => {
 app.post('/api/wp/get-fields', async (req, res) => {
     const { access_token, user, domain } = req.body;
     
-    if (!access_token) return res.status(401).json({ error: "Invalid or missing access token" });
+    // SAFETY CHECK: Never let missing credentials crash the server
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
 
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        // Pass the user exactly as provided, removing the forced replacements.
+        // Trust the user string explicitly provided by the WordPress site
         const targetUser = user || rows[0].profile_link || '';
 
         const formData = new URLSearchParams();
@@ -553,11 +556,18 @@ app.post('/api/wp/get-fields', async (req, res) => {
             }
         });
         
-        const data = await fsanRes.text();
-        res.send(data);
+        const text = await fsanRes.text();
+
+        // Ensure we always return JSON to WordPress so wp_remote_post doesn't choke on HTML errors
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
+        }
     } catch (error) {
         console.error("WP Proxy get-fields error:", error);
-        res.status(500).json({ error: "Server error" });
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
     }
 });
 
@@ -568,11 +578,13 @@ app.post('/api/wp/:action', async (req, res) => {
 
     const { access_token, user, domain, data } = req.body;
     
-    if (!access_token) return res.status(401).json({ error: "Invalid or missing access token" });
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
     
     try {
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(401).json({ error: "Invalid or missing access token" });
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
         const targetUser = user || rows[0].profile_link || '';
 
@@ -597,10 +609,16 @@ app.post('/api/wp/:action', async (req, res) => {
             }
         });
         const text = await fsanRes.text();
-        res.send(text);
+        
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
+        }
     } catch (error) {
         console.error(`WP Proxy ${action} error:`, error);
-        res.status(500).json({ error: "Server error" });
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
     }
 });
 
