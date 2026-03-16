@@ -1,7 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
- * ADDED: OAuth Provider capabilities and WordPress API Proxy
+ * ADDED: Email Alias Translation Layer
  */
 
 import express from 'express';
@@ -72,6 +71,30 @@ async function ensureSchema() {
         
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
+        
+        // Manual Users Table
+        try { 
+            await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
+                id SERIAL PRIMARY KEY, 
+                user_id INTEGER, 
+                email VARCHAR(255), 
+                una_module VARCHAR(50), 
+                una_content_id INTEGER, 
+                status VARCHAR(50) DEFAULT 'bridged', 
+                UNIQUE(user_id, email, una_module, una_content_id)
+            )`; 
+        } catch(e) {}
+
+        // NEW: Email Alias Table
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_email_aliases (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                original_email VARCHAR(255),
+                alias_email VARCHAR(255),
+                UNIQUE(user_id, original_email)
+            )`;
+        } catch(e) {}
     } catch (e) {
         console.error("Schema check notice:", e.message);
     }
@@ -164,6 +187,96 @@ app.get('/api/get-communities', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch community assets" }); }
 });
 
+// --- NEW: EMAIL ALIAS ENDPOINTS ---
+app.get('/api/get-aliases', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT * FROM bridge_email_aliases WHERE user_id = ${user.id} ORDER BY id DESC`;
+        res.json({ aliases: rows });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch aliases" }); }
+});
+
+app.post('/api/add-alias', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { originalEmail, aliasEmail } = req.body;
+    if (!originalEmail || !aliasEmail) return res.status(400).json({ error: "Missing fields" });
+    
+    try {
+        await ensureSchema();
+        const cleanOriginal = originalEmail.trim().toLowerCase();
+        const cleanAlias = aliasEmail.trim().toLowerCase();
+        
+        await sql`
+            INSERT INTO bridge_email_aliases (user_id, original_email, alias_email)
+            VALUES (${user.id}, ${cleanOriginal}, ${cleanAlias})
+            ON CONFLICT (user_id, original_email) 
+            DO UPDATE SET alias_email = EXCLUDED.alias_email
+        `;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to add alias" }); }
+});
+
+app.post('/api/remove-alias', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { id } = req.body;
+    try {
+        await sql`DELETE FROM bridge_email_aliases WHERE id = ${id} AND user_id = ${user.id}`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
+});
+
+// --- MANUAL USER ENDPOINTS ---
+app.get('/api/get-manual-users', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
+        res.json({ users: rows });
+    } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
+});
+
+app.post('/api/add-manual-user', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { email, unaModule, unaId } = req.body;
+    if (!email || !unaModule || !unaId) return res.status(400).json({ error: "Missing fields" });
+    
+    try {
+        await ensureSchema();
+        const cleanEmail = email.trim().toLowerCase();
+        const result = await grantCommunityAccess(cleanEmail, unaModule, unaId);
+        const newStatus = result.success ? 'bridged' : 'pending';
+        
+        await sql`
+            INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status)
+            VALUES (${user.id}, ${cleanEmail}, ${unaModule}, ${unaId}, ${newStatus})
+            ON CONFLICT (user_id, email, una_module, una_content_id) 
+            DO UPDATE SET status = EXCLUDED.status
+        `;
+        res.json({ success: true, result });
+    } catch (error) { res.status(500).json({ error: "Failed to add manual user" }); }
+});
+
+app.post('/api/remove-manual-user', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { id, email, unaModule, unaId } = req.body;
+    
+    try {
+        await ensureSchema();
+        await revokeCommunityAccess(email, unaModule, unaId);
+        await sql`DELETE FROM bridge_manual_users WHERE id = ${id} AND user_id = ${user.id}`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: "Failed to remove manual user" }); }
+});
+
+
+// --- SETTINGS & MAPPINGS ---
 app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -265,6 +378,7 @@ app.get('/api/public-card/:slug', async (req, res) => {
     }
 });
 
+// --- STRIPE / PATREON ENDPOINTS ---
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -283,8 +397,15 @@ app.post('/api/patreon-import', async (req, res) => {
     const { users, mappings } = req.body; 
     try {
         await ensureSchema();
+
+        // Load Aliases to map emails
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
         const mappingsMap = {};
         mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+        
         const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
         const incomingMap = {};
         users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
@@ -293,7 +414,10 @@ app.post('/api/patreon-import', async (req, res) => {
         for (const dbUser of existingDb) {
             if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
                 const oldMapping = mappingsMap[dbUser.tier];
-                if (oldMapping) await revokeCommunityAccess(dbUser.email, oldMapping.module, oldMapping.id);
+                if (oldMapping) {
+                    const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
+                    await revokeCommunityAccess(targetEmail, oldMapping.module, oldMapping.id);
+                }
                 await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
                 revokeCount++;
                 await new Promise(resolve => setTimeout(resolve, 250)); 
@@ -301,7 +425,9 @@ app.post('/api/patreon-import', async (req, res) => {
         }
         for (const [email, tier] of Object.entries(incomingMap)) {
             const { module, id } = mappingsMap[tier];
-            const result = await grantCommunityAccess(email, module, id);
+            const targetEmail = aliasesMap[email] || email;
+            const result = await grantCommunityAccess(targetEmail, module, id);
+            
             const newStatus = result.success ? 'bridged' : 'pending';
             await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
             if (result.success) importCount++;
@@ -316,14 +442,21 @@ app.get('/api/get-subscribers', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         await ensureSchema();
+        
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
         if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) return res.json({ stats: [] });
+        
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
         const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id}`;
         const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
         const products = await stripe.products.list({ active: true, limit: 100 });
         const productMap = {};
         products.data.forEach(p => productMap[p.id] = p.name);
+        
         const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
         const statusMap = {};
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status || 'pending');
@@ -336,7 +469,11 @@ app.get('/api/get-subscribers', async (req, res) => {
                 stats[productId] = { productId: productId, productName: productMap[productId] || 'Unknown Product', isMapped: mappedProductIds.has(productId), totalCount: 0, bridgedCount: 0, users: [] };
             }
             stats[productId].totalCount++;
+            
             const email = sub.customer?.email || 'No email';
+            const alias = aliasesMap[email];
+            const displayEmail = alias ? `${email} ➔ ${alias}` : email;
+            
             let displayStatus = 'Stripe Only'; let isRevoked = false; let isBridged = false;
 
             if (mappedProductIds.has(productId)) {
@@ -345,7 +482,7 @@ app.get('/api/get-subscribers', async (req, res) => {
                 else if (dbStatus === 'bridged') { displayStatus = 'Active'; isBridged = true; stats[productId].bridgedCount++; } 
                 else { displayStatus = 'Inactive'; }
             }
-            stats[productId].users.push({ name: sub.customer?.name || 'Customer', email: email, status: displayStatus, isRevoked: isRevoked, isBridged: isBridged });
+            stats[productId].users.push({ name: sub.customer?.name || 'Customer', email: email, displayEmail: displayEmail, status: displayStatus, isRevoked: isRevoked, isBridged: isBridged });
         }
         res.json({ stats: Object.values(stats) });
     } catch (error) { res.status(500).json({ error: "Failed to fetch subscriber stats." }); }
@@ -356,6 +493,11 @@ app.post('/api/sync-subscribers', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         await ensureSchema();
+        
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
         if (settingsRows.length === 0) return res.status(400).json({ error: "Stripe key not found." });
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
@@ -372,8 +514,11 @@ app.post('/api/sync-subscribers', async (req, res) => {
             const customerEmail = sub.customer?.email;
             if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
                 if (statusMap[customerEmail] === 'revoked') continue;
+                
                 const { module, id } = mappingsMap[stripeProductId];
-                const result = await grantCommunityAccess(customerEmail, module, id);
+                const targetEmail = aliasesMap[customerEmail] || customerEmail;
+                
+                const result = await grantCommunityAccess(targetEmail, module, id);
                 const newStatus = result.success ? 'bridged' : 'pending';
                 await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
                 if (result.success) syncCount++;
@@ -390,14 +535,19 @@ app.post('/api/toggle-user-access', async (req, res) => {
     const { email, productId, action } = req.body; 
     try {
         await ensureSchema();
+        
+        const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${user.id} AND original_email = ${email}`;
+        const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : email;
+
         const mappingRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND stripe_product_id = ${productId}`;
         if (mappingRows.length === 0) return res.status(400).json({ error: "Mapping not found." });
         const { una_module, una_content_id } = mappingRows[0];
+        
         if (action === 'revoke') {
-            await revokeCommunityAccess(email, una_module, una_content_id);
+            await revokeCommunityAccess(targetEmail, una_module, una_content_id);
             await sql`UPDATE bridge_customers SET bridge_status = 'revoked' WHERE email = ${email}`;
         } else {
-            const result = await grantCommunityAccess(email, una_module, una_content_id);
+            const result = await grantCommunityAccess(targetEmail, una_module, una_content_id);
             const newStatus = result.success ? 'bridged' : 'pending';
             await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${email}`;
         }
@@ -416,9 +566,13 @@ app.post('/api/stripe-webhook', async (req, res) => {
             const stripeProductId = session.metadata?.product_id;
             let bridgeStatus = 'pending';
             if (stripeProductId && customerEmail) {
-                const rows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                 if (rows.length > 0) {
-                    const result = await grantCommunityAccess(customerEmail, rows[0].una_module, rows[0].una_content_id);
+                    const userId = rows[0].user_id;
+                    const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
+                    const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
+                    
+                    const result = await grantCommunityAccess(targetEmail, rows[0].una_module, rows[0].una_content_id);
                     bridgeStatus = result.success ? 'bridged' : 'pending';
                 }
             }
@@ -434,9 +588,13 @@ app.post('/api/stripe-webhook', async (req, res) => {
                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                     if (mapRows.length > 0) {
-                        await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                        const userId = mapRows[0].user_id;
+                        const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
+                        const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
+                        
+                        await revokeCommunityAccess(targetEmail, mapRows[0].una_module, mapRows[0].una_content_id);
                         await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
                     }
                 }
@@ -451,15 +609,19 @@ app.post('/api/stripe-webhook', async (req, res) => {
                  const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                  if (customerRows.length > 0) {
                      const customerEmail = customerRows[0].email;
-                     const mapRows = await sql`SELECT una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
                      if (mapRows.length > 0) {
+                         const userId = mapRows[0].user_id;
+                         const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
+                         const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
+                         
                          const currentStatus = customerRows[0].bridge_status;
                          if (currentStatus !== 'revoked') {
                              if (status === 'unpaid' || status === 'past_due' || status === 'canceled') {
-                                 await revokeCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 await revokeCommunityAccess(targetEmail, mapRows[0].una_module, mapRows[0].una_content_id);
                                  await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
                              } else if (status === 'active') {
-                                 const result = await grantCommunityAccess(customerEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                                 const result = await grantCommunityAccess(targetEmail, mapRows[0].una_module, mapRows[0].una_content_id);
                                  const newStatus = result.success ? 'bridged' : 'pending';
                                  await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${customerEmail}`;
                              }
@@ -470,181 +632,6 @@ app.post('/api/stripe-webhook', async (req, res) => {
         }
     } catch (error) { console.error('Webhook Error Processing:', error); }
     res.json({ received: true });
-});
-
-// ==========================================
-// OAUTH PROVIDER ENDPOINTS
-// ==========================================
-
-app.post('/api/oauth/approve', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-
-    const { client_id, redirect_uri } = req.body;
-    
-    if (client_id !== 'wordpress_global_app') {
-        return res.status(400).json({ error: "Invalid client_id" });
-    }
-
-    try {
-        await ensureSchema();
-        
-        let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
-        
-        const code = crypto.randomBytes(16).toString('hex');
-        const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
-
-        await sql`
-            INSERT INTO wp_oauth_codes (code, user_id, profile_link, redirect_uri, expires_at) 
-            VALUES (${code}, ${user.id}, ${profileLink}, ${redirect_uri}, ${expiresAt})
-        `;
-
-        res.json({ success: true, code: code });
-    } catch (error) {
-        console.error("Failed to generate auth code:", error);
-        res.status(500).json({ error: "Server error generating code" });
-    }
-});
-
-app.post('/oauth/token', async (req, res) => {
-    const { grant_type, client_id, code, redirect_uri } = req.body;
-
-    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
-        return res.status(400).json({ error: "invalid_request" });
-    }
-
-    try {
-        await ensureSchema();
-
-        const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
-        
-        if (rows.length === 0) {
-            return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
-        }
-
-        const authCode = rows[0];
-
-        if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
-            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; 
-            return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
-        }
-
-        await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
-
-        const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
-
-        await sql`
-            INSERT INTO wp_access_tokens (token, user_id, profile_link) 
-            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
-        `;
-
-        res.json({
-            access_token: accessToken,
-            token_type: "bearer",
-            profile_url: authCode.profile_link 
-        });
-
-    } catch (error) {
-        console.error("Token exchange error:", error);
-        res.status(500).json({ error: "server_error" });
-    }
-});
-
-// ==========================================
-// WORDPRESS API PROXY ENDPOINTS
-// ==========================================
-
-app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, user, domain } = req.body;
-    
-    if (!access_token) {
-        return res.status(200).json({ error: "Missing access token" });
-    }
-
-    try {
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
-
-        const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://bridge.selloutcrowds.com';
-
-        const { body, boundary } = createMultipartPayload({
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: hubDomain
-        });
-
-        const fsanRes = await fetch(FSAN_ENDPOINT, { 
-            method: 'POST', 
-            body: body,
-            headers: {
-                'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
-            }
-        });
-        
-        const text = await fsanRes.text();
-
-        try {
-            const json = JSON.parse(text);
-            return res.json(json);
-        } catch(e) {
-            return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
-        }
-    } catch (error) {
-        console.error("WP Proxy get-fields error:", error);
-        return res.status(200).json({ error: "Hub Server Error: " + error.message });
-    }
-});
-
-app.post('/api/wp/:action', async (req, res) => {
-    const { action } = req.params;
-    const validActions = ['create-post', 'edit-post', 'delete-post'];
-    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
-
-    const { access_token, user, domain, data } = req.body;
-    
-    if (!access_token) {
-        return res.status(200).json({ error: "Missing access token" });
-    }
-    
-    try {
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
-
-        const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://bridge.selloutcrowds.com';
-
-        const payloadData = {
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: hubDomain,
-            data: data
-        };
-
-        const { body, boundary } = createMultipartPayload(payloadData);
-
-        const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
-        const fsanRes = await fetch(endpoint, { 
-            method: 'POST', 
-            body: body,
-            headers: {
-                'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
-            }
-        });
-        const text = await fsanRes.text();
-        
-        try {
-            const json = JSON.parse(text);
-            return res.json(json);
-        } catch(e) {
-            return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
-        }
-    } catch (error) {
-        console.error(`WP Proxy ${action} error:`, error);
-        return res.status(200).json({ error: "Hub Server Error: " + error.message });
-    }
 });
 
 export default app;

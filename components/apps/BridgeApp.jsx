@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [apiKey, setApiKey] = useState(''); 
@@ -28,6 +28,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [manualUnaSelect, setManualUnaSelect] = useState(''); 
   const [isManualSaving, setIsManualSaving] = useState(false);
 
+  // --- NEW: EMAIL ALIAS STATE ---
+  const [aliases, setAliases] = useState([]);
+  const [aliasOriginal, setAliasOriginal] = useState('');
+  const [aliasTarget, setAliasTarget] = useState('');
+  const [isAliasSaving, setIsAliasSaving] = useState(false);
+
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
@@ -37,6 +43,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       fetchDatabaseMappings(session);
       fetchDatabaseSettings(session);
       fetchManualUsers(session);
+      fetchAliases(session);
     }
   }, [session, activeTab]);
 
@@ -78,9 +85,21 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  const fetchAliases = async (token = session) => {
+      if (!token) return;
+      try {
+          const res = await fetch('/api/get-aliases', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          const data = await res.json();
+          if (data.aliases) setAliases(data.aliases);
+      } catch (err) {
+          console.error("Failed to load aliases.");
+      }
+  };
+
   const fetchProviderProducts = async (keyToTest, overrideToken) => {
     const activeToken = overrideToken || session;
-    if (!keyToTest || !activeToken || activeTab === 'manual') return;
+    if (!keyToTest || !activeToken || ['manual', 'aliases'].includes(activeTab)) return;
     
     setIsValidatingKey(true);
     setError(null);
@@ -308,6 +327,51 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  const handleAddAlias = async () => {
+      if (!aliasOriginal || !aliasTarget) {
+          setError("Both emails are required.");
+          return;
+      }
+      setIsAliasSaving(true);
+      setError(null);
+      try {
+          const res = await fetch('/api/add-alias', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ originalEmail: aliasOriginal, aliasEmail: aliasTarget })
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          if (res.ok) {
+              setAliasOriginal('');
+              setAliasTarget('');
+              fetchAliases();
+              fetchAudienceStats();
+          } else {
+              const errData = await res.json();
+              throw new Error(errData.error || "Failed to add alias.");
+          }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsAliasSaving(false);
+      }
+  };
+
+  const handleRemoveAlias = async (id) => {
+      try {
+          const res = await fetch('/api/remove-alias', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          fetchAliases();
+          fetchAudienceStats();
+      } catch (err) {
+          console.error("Failed to remove alias.");
+      }
+  };
+
   const getCommunityName = (mod, id) => {
       if (mod === 'bx_groups') {
           return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
@@ -380,7 +444,58 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-6">
               
-              {activeTab === 'manual' ? (
+              {activeTab === 'aliases' ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
+                    <Repeat size={18} className="text-[#9df01c]" />
+                    Create Email Alias
+                  </h3>
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
+                  </p>
+                  <div className="space-y-5 relative z-10">
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        Original Payment Email
+                      </label>
+                      <input 
+                        list="subscriber-emails" 
+                        value={aliasOriginal}
+                        onChange={e => setAliasOriginal(e.target.value)}
+                        placeholder="Select or type original email..."
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                      />
+                      <datalist id="subscriber-emails">
+                          {Array.from(new Set(audienceStats.flatMap(s => s.users.map(u => u.email)))).sort().map(email => (
+                              <option key={email} value={email} />
+                          ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        Alias Email (Sellout Crowds)
+                      </label>
+                      <input 
+                        type="email" 
+                        value={aliasTarget} 
+                        onChange={(e) => setAliasTarget(e.target.value)} 
+                        placeholder="community@example.com" 
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                      />
+                    </div>
+                    <button 
+                      onClick={handleAddAlias}
+                      disabled={isAliasSaving || !aliasOriginal || !aliasTarget}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${!aliasOriginal || !aliasTarget ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      {isAliasSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
+                      {isAliasSaving ? 'Saving...' : 'Link Emails'}
+                    </button>
+                    <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed italic">
+                        After saving, click "Sync Existing Users" on your Integration tab to instantly apply it.
+                    </p>
+                  </div>
+                </div>
+              ) : activeTab === 'manual' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <UserPlus size={18} className="text-[#9df01c]" />
@@ -577,7 +692,50 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             <div className="lg:col-span-8">
               <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
                 
-                {activeTab === 'manual' ? (
+                {activeTab === 'aliases' ? (
+                  <>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                        <div>
+                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
+                            <Repeat className="w-6 h-6 text-[#9df01c]" />
+                            Active Email Aliases
+                          </h3>
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                            Mapped emails for active subscriptions
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4 flex-1">
+                        {aliases.length === 0 ? (
+                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
+                            <Repeat className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Aliases Set</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to link a subscriber's payment email to their account email.</p>
+                          </div>
+                        ) : (
+                            aliases.map((alias) => (
+                                <div key={alias.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
+                                    <div className="flex-1 w-full text-center md:text-left">
+                                        <p className="text-sm font-bold text-white flex flex-col md:flex-row items-center justify-center md:justify-start gap-2">
+                                            <span className="text-gray-500 line-through">{alias.original_email}</span>
+                                            <ArrowRight size={14} className="text-[#9df01c] hidden md:block" />
+                                            <span>{alias.alias_email}</span>
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRemoveAlias(alias.id)}
+                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
+                                        title="Remove Alias"
+                                    >
+                                        <Trash2 size={16} /> <span className="md:hidden">Remove</span>
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                      </div>
+                  </>
+                ) : activeTab === 'manual' ? (
                   <>
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                         <div>
@@ -774,7 +932,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
                                             {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
                                         </p>
-                                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.email}</p>
+                                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
                                     </div>
                                     
                                     <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
