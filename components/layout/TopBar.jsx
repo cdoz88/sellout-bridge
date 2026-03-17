@@ -47,11 +47,11 @@ export default function TopBar({
                                 <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Bio Page
                             </button>
                             
-                            <button onClick={() => handleAppSwitch('assets', 'logos')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'assets' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                            <button onClick={() => handleAppSwitch('assets', 'cat_1')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'assets' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <ImageIcon size={18} className={currentApp === 'assets' ? 'text-[#9df01c]' : ''}/> SC Brand Assets
                             </button>
                             
-                            <button onClick={() => handleAppSwitch('guides', 'getting-started')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'guides' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                            <button onClick={() => handleAppSwitch('guides', 'library')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'guides' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <FileText size={18} className={currentApp === 'guides' ? 'text-[#9df01c]' : ''}/> Help and Guides
                             </button>
 

@@ -1,16 +1,69 @@
-import React from 'react';
-import { CreditCard, Smartphone, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Link2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CreditCard, Smartphone, Contact, Globe, Image as ImageIcon, FileText, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
-    syncCommunities, isSyncingCommunities, setIsMobileMenuOpen 
+    syncCommunities, isSyncingCommunities, setIsMobileMenuOpen, session
 }) {
     const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
     const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
+    const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
+
+    const [categories, setCategories] = useState([]);
+    const [isEditingCats, setIsEditingCats] = useState(false);
+
+    const fetchCategories = async () => {
+        if (!session) return;
+        try {
+            const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+            const data = await res.json();
+            if (data.categories) {
+                setCategories(data.categories);
+                if (currentApp === 'assets' && data.categories.length > 0 && (!activeTab || activeTab === 'logos' || activeTab === 'graphics')) {
+                    setActiveTab(`cat_${data.categories[0].id}`);
+                }
+            }
+        } catch(e) {}
+    };
+
+    useEffect(() => {
+        if (currentApp === 'assets') fetchCategories();
+    }, [currentApp, session]);
+
     const handleNavClick = (tab) => {
         setActiveTab(tab);
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
+    };
+
+    const handleSaveCategories = async () => {
+        for (const cat of categories) {
+            await fetch('/api/assets/categories', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: cat.id.toString().startsWith('temp_') ? null : cat.id, name: cat.name, is_hidden: cat.is_hidden })
+            });
+        }
+        setIsEditingCats(false);
+        fetchCategories();
+        window.dispatchEvent(new CustomEvent('assets-updated'));
+    };
+
+    const handleDeleteCat = async (id) => {
+        if (id.toString().startsWith('temp_')) {
+            setCategories(categories.filter(c => c.id !== id));
+            return;
+        }
+        if(!window.confirm("Delete this category AND all assets inside it?")) return;
+        await fetch('/api/assets/categories/delete', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        fetchCategories();
+        window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
     return (
@@ -83,7 +136,6 @@ export default function Sidebar({
                     </div>
                 )}
 
-                {/* NEW: BIO PAGE MENU */}
                 {currentApp === 'linktree' && (
                     <div className="px-4">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
@@ -114,18 +166,66 @@ export default function Sidebar({
 
                 {currentApp === 'assets' && (
                     <div className="px-4">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Brand Kit</p>
-                        <div className="space-y-1">
-                            <button onClick={() => handleNavClick('logos')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'logos' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <ImageIcon size={16} /> SC Logos
-                            </button>
-                            <button onClick={() => handleNavClick('graphics')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'graphics' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Download size={16} /> Promo Graphics
-                            </button>
+                        <div className="flex items-center justify-between mb-3 px-2">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Brand Kit</p>
+                            {isAdmin && !isEditingCats && (
+                                <button onClick={() => setIsEditingCats(true)} className="text-gray-500 hover:text-[#9df01c] transition-colors" title="Manage Categories">
+                                    <Settings size={14} />
+                                </button>
+                            )}
                         </div>
+
+                        {isEditingCats ? (
+                            <div className="space-y-2 animate-in fade-in zoom-in-95">
+                                {categories.map(cat => (
+                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10">
+                                        <input 
+                                            type="text" 
+                                            value={cat.name} 
+                                            onChange={(e) => setCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
+                                            className="bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
+                                        />
+                                        <div className="flex justify-between px-1">
+                                            <button 
+                                                onClick={() => setCategories(cats => cats.map(c => c.id === cat.id ? {...c, is_hidden: !c.is_hidden} : c))} 
+                                                className="text-[9px] text-gray-400 font-bold uppercase tracking-widest hover:text-white">
+                                                {cat.is_hidden ? 'Unhide' : 'Hide'}
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteCat(cat.id)} 
+                                                className="text-[9px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button 
+                                    onClick={() => setCategories([...categories, { id: `temp_${Date.now()}`, name: 'New Category', is_hidden: false }])} 
+                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2">
+                                    <Plus size={14} /> Add Category
+                                </button>
+                                <button 
+                                    onClick={handleSaveCategories} 
+                                    className="w-full py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors mt-2">
+                                    Save Changes
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {categories.length === 0 ? (
+                                    <p className="text-[10px] text-gray-600 px-2 italic">No categories found.</p>
+                                ) : (
+                                    categories.map(cat => (
+                                        <button key={cat.id} onClick={() => handleNavClick(`cat_${cat.id}`)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === `cat_${cat.id}` ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                            <div className="flex items-center gap-3"><Folder size={16} /> {cat.name}</div>
+                                            {cat.is_hidden && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">Hidden</span>}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
-
             </div>
         </div>
     );

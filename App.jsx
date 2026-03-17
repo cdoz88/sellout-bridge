@@ -7,10 +7,9 @@ import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
 import BioPageApp, { PublicBioView } from './components/apps/BioPageApp';
 import AddressBookApp from './components/apps/AddressBookApp';
-
-// NEW: Importing your Admin/Content apps!
 import AssetsApp from './components/apps/AssetsApp';
 import GuidesApp from './components/apps/GuidesApp';
+import PlaceholderApp from './components/apps/PlaceholderApp';
 
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
@@ -472,6 +471,7 @@ export default function App() {
                 syncCommunities={syncCommunities}
                 isSyncingCommunities={isSyncingCommunities}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
+                session={session}
             />
         </div>
 
@@ -504,8 +504,8 @@ export default function App() {
                     )
                 )}
 
-                {currentApp === 'assets' && <AssetsApp unaData={unaData} />}
-                {currentApp === 'guides' && <GuidesApp unaData={unaData} />}
+                {currentApp === 'assets' && <AssetsApp session={session} unaData={unaData} activeTab={activeTab} />}
+                {currentApp === 'guides' && <GuidesApp session={session} unaData={unaData} activeTab={activeTab} />}
             </main>
         </div>
 
