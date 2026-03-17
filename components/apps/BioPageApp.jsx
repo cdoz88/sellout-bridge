@@ -31,6 +31,7 @@ const TwitchIcon = ({ size=20, className="" }) => (
     </svg>
 );
 
+// FIXED: Converted HTML attributes to React camelCase (fillRule, strokeWidth)
 const SelloutIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 362.85 305.65" fill="currentColor" className={className}>
         <g>
@@ -127,7 +128,7 @@ const getIconForType = (type) => {
         case 'whatsapp': return WhatsappIcon;
         case 'bluesky': return BlueskyIcon;
         case 'twitch': return TwitchIcon;
-        case 'image_embed': return ImageIcon; // NEW
+        case 'image_embed': return ImageIcon; 
         case 'custom': return Link2; 
         default: return Link2;
     }
@@ -216,7 +217,6 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
                             );
                         }
 
-                        // --- NEW: IMAGE EMBED RENDERER ---
                         if (link.type === 'image_embed') {
                             return (
                                 <div key={link.id} className="w-full flex justify-center py-2">
@@ -257,7 +257,7 @@ export default function BioPageApp({ session, activeTab }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ logo: false, qrLogo: false });
-    const [isUploadingLink, setIsUploadingLink] = useState(null); // NEW: Track which link image is uploading
+    const [isUploadingLink, setIsUploadingLink] = useState(null); 
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [mobileView, setMobileView] = useState('edit');
@@ -291,7 +291,6 @@ export default function BioPageApp({ session, activeTab }) {
                         }
                     }
 
-                    // Ensure existing users get the updated title
                     fetchedCard.links = fetchedCard.links.map(link => {
                         if (link.type === 'shop' && link.title === 'Shop URL') return { ...link, title: 'Official Shop' };
                         return link;
@@ -338,7 +337,6 @@ export default function BioPageApp({ session, activeTab }) {
         finally { setIsUploading(prev => ({ ...prev, [fieldName]: false })); }
     };
 
-    // --- NEW: LINK IMAGE UPLOAD SYSTEM ---
     const handleLinkImageUpload = async (e, linkId) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -515,47 +513,48 @@ export default function BioPageApp({ session, activeTab }) {
                                                         {['custom', 'youtube_embed', 'image_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
                                                     </div>
                                                     
-                                                    {/* NEW: IMAGE UPLOADER UI */}
-                                                    {link.type === 'image_embed' ? (
-                                                        <div className="flex-1 flex flex-col gap-2 w-full items-start pl-8 sm:pl-0 pr-2 pb-2 sm:pb-0">
-                                                            <div className="flex items-center gap-4 w-full border-t border-white/5 pt-2 sm:border-none sm:pt-0">
-                                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
-                                                                    {link.url ? <img src={link.url} className="max-w-full max-h-full object-cover" /> : <ImageIcon size={16} className="text-gray-500" />}
-                                                                </div>
-                                                                <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 flex-1 sm:flex-none ${isUploadingLink === link.id ? 'opacity-50 pointer-events-none' : ''}`}>
-                                                                    {isUploadingLink === link.id ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}
-                                                                    Upload Image
-                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLinkImageUpload(e, link.id)} />
-                                                                </label>
-                                                            </div>
-                                                            {link.url && (
-                                                                <div className="w-full mt-2 bg-white/5 p-2 rounded-xl">
-                                                                    <div className="flex justify-between items-center mb-1">
-                                                                        <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Image Width</label>
-                                                                        <span className="text-[9px] text-[#9df01c] font-bold">{link.width || 100}%</span>
+                                                    <div className="flex-1 flex flex-col gap-2 w-full items-start pl-8 sm:pl-0 pr-2 pb-2 sm:pb-0">
+                                                        {link.type === 'image_embed' ? (
+                                                            <>
+                                                                <div className="flex items-center gap-4 w-full border-t border-white/5 pt-2 sm:border-none sm:pt-0">
+                                                                    <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
+                                                                        {link.url ? <img src={link.url} className="max-w-full max-h-full object-cover" /> : <ImageIcon size={16} className="text-gray-500" />}
                                                                     </div>
-                                                                    <input type="range" min="10" max="100" value={link.width || 100} onChange={e => updateLink(link.id, 'width', parseInt(e.target.value))} className="w-full accent-[#9df01c] cursor-pointer" />
+                                                                    <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 flex-1 sm:flex-none ${isUploadingLink === link.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                                        {isUploadingLink === link.id ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}
+                                                                        Upload Image
+                                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLinkImageUpload(e, link.id)} />
+                                                                    </label>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
-                                                            {link.type === 'custom' ? (
-                                                                <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
-                                                            ) : link.type === 'youtube_embed' ? (
-                                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center gap-2">YouTube Video</span>
-                                                            ) : (
-                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
-                                                            )}
-                                                            <input 
-                                                                type="text" 
-                                                                value={link.url} 
-                                                                onChange={(e) => updateLink(link.id, 'url', e.target.value)} 
-                                                                placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : link.type === 'youtube_embed' ? 'Paste YouTube URL...' : 'URL or username...'} 
-                                                                className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" 
-                                                            />
-                                                        </div>
-                                                    )}
+                                                                {link.url && (
+                                                                    <div className="w-full mt-2 bg-white/5 p-2 rounded-xl">
+                                                                        <div className="flex justify-between items-center mb-1">
+                                                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Image Width</label>
+                                                                            <span className="text-[9px] text-[#9df01c] font-bold">{link.width || 100}%</span>
+                                                                        </div>
+                                                                        <input type="range" min="10" max="100" value={link.width || 100} onChange={e => updateLink(link.id, 'width', parseInt(e.target.value))} className="w-full accent-[#9df01c] cursor-pointer" />
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
+                                                                {link.type === 'custom' ? (
+                                                                    <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
+                                                                ) : link.type === 'youtube_embed' ? (
+                                                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center gap-2">YouTube Video</span>
+                                                                ) : (
+                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
+                                                                )}
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={link.url} 
+                                                                    onChange={(e) => updateLink(link.id, 'url', e.target.value)} 
+                                                                    placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : link.type === 'youtube_embed' ? 'Paste YouTube URL...' : 'URL or username...'} 
+                                                                    className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" 
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     
                                                     {['custom', 'youtube_embed', 'image_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
                                                 </div>
