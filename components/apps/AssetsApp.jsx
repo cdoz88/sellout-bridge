@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Plus, Loader2, Trash2, Download } from 'lucide-react';
+import { Image as ImageIcon, Plus, Loader2, Trash2, Download, X } from 'lucide-react';
 
 export default function AssetsApp({ session, unaData, activeTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
