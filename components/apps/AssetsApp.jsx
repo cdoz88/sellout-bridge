@@ -13,6 +13,9 @@ export default function AssetsApp({ session, unaData, activeTab }) {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadData, setUploadData] = useState({ title: '', category_id: '', file_url: '' });
 
+    // NEW: Track which asset is currently being downloaded
+    const [downloadingId, setDownloadingId] = useState(null);
+
     const fetchAssets = async () => {
         try {
             const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
@@ -88,6 +91,47 @@ export default function AssetsApp({ session, unaData, activeTab }) {
         } catch(e) {}
     };
 
+    // --- NEW: FORCE DOWNLOAD FUNCTION ---
+    const forceDownload = async (url, title, id) => {
+        setDownloadingId(id);
+        try {
+            // Fetch the file as a raw blob to bypass cross-origin restrictions
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            // Create a hidden anchor tag to trigger the local file save
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = blobUrl;
+            
+            // Generate a clean filename based on the title
+            let ext = url.split('.').pop().split(/\#|\?/)[0];
+            if (!ext || ext.length > 4) ext = 'png'; // Fallback extension
+            const sanitizedTitle = title ? title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'sc_asset';
+            
+            a.download = `${sanitizedTitle}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            window.URL.revokeObjectURL(blobUrl);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Download failed:', error);
+            // Fallback to opening in new tab if the server blocks the raw fetch
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.download = title || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
     const activeCatId = activeTab ? parseInt(activeTab.replace('cat_', '')) : null;
     const activeCategory = categories.find(c => c.id === activeCatId);
     const visibleAssets = assets.filter(a => a.category_id === activeCatId);
@@ -142,9 +186,15 @@ export default function AssetsApp({ session, unaData, activeTab }) {
                             </div>
                             <p className="text-sm font-bold text-white truncate mb-4 px-1">{asset.title}</p>
                             
-                            <a href={asset.file_url} download target="_blank" rel="noreferrer" className="w-full bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
-                                <Download size={14} /> Download
-                            </a>
+                            {/* UPDATED DOWNLOAD BUTTON */}
+                            <button 
+                                onClick={() => forceDownload(asset.file_url, asset.title, asset.id)}
+                                disabled={downloadingId === asset.id}
+                                className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${downloadingId === asset.id ? 'bg-[#9df01c] text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            >
+                                {downloadingId === asset.id ? <Loader2 size={14} className="animate-spin"/> : <Download size={14} />} 
+                                {downloadingId === asset.id ? 'Downloading...' : 'Download'}
+                            </button>
 
                             {isAdmin && (
                                 <button onClick={() => handleDeleteAsset(asset.id)} className="absolute top-6 right-6 bg-red-500/90 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-xl">
