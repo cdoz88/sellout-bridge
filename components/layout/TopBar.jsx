@@ -1,18 +1,18 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, Image as ImageIcon, Link2, FileText, Users, Contact } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout
 }) {
     const getAppConfig = () => {
         switch(currentApp) {
-            case 'business-card': return { name: 'Business Card', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
+            case 'business-card': return { name: 'Business Card', icon: <Contact size={20} className="text-[#9df01c]" /> };
             case 'address-book': return { name: 'Address Book', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'bridge': return { name: 'Subscription Bridge', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
             case 'linktree': return { name: 'Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
-            default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
+            default: return { name: 'Creator Hub', icon: <Contact size={20} className="text-[#9df01c]" /> };
         }
     };
     const config = getAppConfig();
@@ -32,7 +32,7 @@ export default function TopBar({
                         <div className="absolute top-full left-0 mt-2 w-64 bg-[#111] rounded-2xl shadow-2xl border border-white/10 overflow-hidden z-50 py-2 animate-in slide-in-from-top-2 duration-200">
                             
                             <button onClick={() => handleAppSwitch('business-card', 'builder')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'business-card' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <LayoutDashboard size={18} className={currentApp === 'business-card' ? 'text-[#9df01c]' : ''}/> Business Card
+                                <Contact size={18} className={currentApp === 'business-card' ? 'text-[#9df01c]' : ''}/> Business Card
                             </button>
                             
                             <button onClick={() => handleAppSwitch('address-book', 'contacts')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'address-book' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>

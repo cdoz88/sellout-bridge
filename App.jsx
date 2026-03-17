@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
@@ -7,9 +7,11 @@ import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
 import BioPageApp, { PublicBioView } from './components/apps/BioPageApp';
 import AddressBookApp from './components/apps/AddressBookApp';
-import PlaceholderApp from './components/apps/PlaceholderApp';
 
-// --- CUSTOM WORDPRESS SVG COMPONENT ---
+// NEW: Importing your Admin/Content apps!
+import AssetsApp from './components/apps/AssetsApp';
+import GuidesApp from './components/apps/GuidesApp';
+
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
         <g>
@@ -25,7 +27,7 @@ const WordPressIcon = ({ className }) => (
 export default function App() {
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
-  const [publicPageType, setPublicPageType] = useState(null); // 'card' or 'bio'
+  const [publicPageType, setPublicPageType] = useState(null); 
   const [publicBioError, setPublicBioError] = useState(false);
 
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
@@ -117,7 +119,6 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData, isOAuthFlow]);
 
-  // --- NEW: PUBLIC BIO PAGE ROUTING ---
   useEffect(() => {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
@@ -127,7 +128,6 @@ export default function App() {
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
           
           if (pathname.startsWith('/page/')) {
-              // It's a Bio Page!
               const pathSlug = pathname.replace('/page/', '');
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
@@ -146,7 +146,6 @@ export default function App() {
                       });
               }
           } else {
-              // It's a standard Business Card!
               const pathSlug = pathname.substring(1); 
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
@@ -486,28 +485,27 @@ export default function App() {
             />
 
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
-                
                 {currentApp === 'business-card' && (
                     ['builder', 'design', 'url'].includes(activeTab) ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
                     ) : (
-                        <PlaceholderApp title="Card Settings" icon={<LayoutDashboard size={64}/>} description="Analytics and custom domain settings coming soon." />
+                        <BusinessCardApp session={session} activeTab="builder" />
                     )
                 )}
 
                 {currentApp === 'address-book' && <AddressBookApp />}
+                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'linktree' && (
                     ['links', 'design', 'url'].includes(activeTab) ? (
                         <BioPageApp session={session} activeTab={activeTab} />
                     ) : (
-                        <PlaceholderApp title="Bio Page Settings" icon={<Link2 size={64}/>} description="Analytics coming soon." />
+                        <BioPageApp session={session} activeTab="links" />
                     )
                 )}
 
-                {currentApp === 'assets' && <PlaceholderApp title="Brand Assets" icon={<ImageIcon size={64}/>} description="Download official logos, graphics, and promotional materials to market your space." />}
-                {currentApp === 'guides' && <PlaceholderApp title="Creator Guides" icon={<FileText size={64}/>} description="Learn how to grow your community, maximize your revenue, and optimize your funnels." />}
+                {currentApp === 'assets' && <AssetsApp unaData={unaData} />}
+                {currentApp === 'guides' && <GuidesApp unaData={unaData} />}
             </main>
         </div>
 
