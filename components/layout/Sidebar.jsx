@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, Globe, Image as ImageIcon, FileText, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2 } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 

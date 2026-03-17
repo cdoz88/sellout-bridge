@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, Image as ImageIcon, Link2, FileText, Users, Contact } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout
@@ -12,7 +12,7 @@ export default function TopBar({
             case 'linktree': return { name: 'Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
-            default: return { name: 'Creator Hub', icon: <Contact size={20} className="text-[#9df01c]" /> };
+            default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
     const config = getAppConfig();
