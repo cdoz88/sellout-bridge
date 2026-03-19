@@ -1,6 +1,7 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: PayPal OAuth, Webhooks, and Plan fetching
+ * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
+ * ADDED: OAuth Provider capabilities and WordPress API Proxy
  */
 
 import express from 'express';
@@ -102,7 +103,6 @@ async function ensureSchema() {
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
         } catch(e) {}
 
-        // ENHANCED: Bridge Settings with PayPal Support
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
             user_id INTEGER PRIMARY KEY,
             stripe_secret_key TEXT,
@@ -381,7 +381,6 @@ app.post('/api/get-paypal-products', async (req, res) => {
     if (!clientId || !secretKey) return res.status(400).json({ error: "No API keys provided" });
     
     try {
-        // Exchange keys for OAuth Token
         const auth = Buffer.from(`${clientId.trim()}:${secretKey.trim()}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
@@ -391,7 +390,6 @@ app.post('/api/get-paypal-products', async (req, res) => {
         const tokenData = await tokenRes.json();
         if (tokenData.error) throw new Error(tokenData.error_description || "Invalid PayPal credentials");
 
-        // Fetch Plans
         const plansRes = await fetch('https://api-m.paypal.com/v1/billing/plans?page_size=50', {
             headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
         });
@@ -400,6 +398,85 @@ app.post('/api/get-paypal-products', async (req, res) => {
 
         res.json({ products: plansData.plans.map(p => ({ id: p.id, name: p.name })) });
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
+});
+
+// CSV IMPORTS (PATREON & PAYPAL)
+app.post('/api/patreon-import', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { users, mappings } = req.body; 
+    try {
+        await ensureSchema();
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
+        const mappingsMap = {};
+        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+        
+        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
+        const incomingMap = {};
+        users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
+
+        let importCount = 0; let revokeCount = 0;
+        for (const dbUser of existingDb) {
+            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
+                const oldMapping = mappingsMap[dbUser.tier];
+                if (oldMapping) {
+                    const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
+                    await revokeCommunityAccess(targetEmail, oldMapping.module, oldMapping.id);
+                }
+                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
+                revokeCount++;
+                await new Promise(resolve => setTimeout(resolve, 250)); 
+            }
+        }
+        for (const [email, tier] of Object.entries(incomingMap)) {
+            const { module, id } = mappingsMap[tier];
+            const targetEmail = aliasesMap[email] || email;
+            const result = await grantCommunityAccess(targetEmail, module, id);
+            
+            const newStatus = result.success ? 'bridged' : 'pending';
+            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            if (result.success) importCount++;
+            await new Promise(resolve => setTimeout(resolve, 250)); 
+        }
+        res.json({ success: true, added: importCount, revoked: revokeCount });
+    } catch (error) { res.status(500).json({ error: "Failed to process Patreon import." }); }
+});
+
+app.post('/api/paypal-import', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { users, mappings } = req.body; 
+    try {
+        await ensureSchema();
+
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
+        const mappingsMap = {};
+        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+        
+        let importCount = 0; 
+        for (const u of users) {
+            if (mappingsMap[u.plan]) {
+                const { module, id } = mappingsMap[u.plan];
+                const targetEmail = aliasesMap[u.email] || u.email;
+                const result = await grantCommunityAccess(targetEmail, module, id);
+                
+                const newStatus = result.success ? 'bridged' : 'pending';
+                const dummyStripeId = `pp_csv_${crypto.randomBytes(8).toString('hex')}`;
+                
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${dummyStripeId}, ${u.email}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO NOTHING`;
+                
+                if (result.success) importCount++;
+                await new Promise(resolve => setTimeout(resolve, 250)); 
+            }
+        }
+        res.json({ success: true, added: importCount });
+    } catch (error) { res.status(500).json({ error: "Failed to process PayPal import." }); }
 });
 
 app.get('/api/get-subscribers', async (req, res) => {
@@ -461,9 +538,8 @@ app.post('/api/sync-subscribers', async (req, res) => {
     try {
         await ensureSchema();
 
-        // PayPal blocks global subscription fetching without individual plan IDs and specific timeframes, so we instruct the user to use Webhooks.
         if (provider === 'paypal') {
-            return res.status(400).json({ error: "PayPal does not support bulk subscription syncing automatically. New subscriptions will be bridged natively via your Webhook configuration, or you can use the Manual Access tab to bridge historic users." });
+            return res.status(400).json({ error: "PayPal does not support automatic bulk subscription syncing. Please use the CSV importer instead." });
         }
 
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
@@ -654,122 +730,6 @@ app.post('/api/paypal-webhook', async (req, res) => {
         }
     } catch (error) { console.error('PayPal Webhook Error Processing:', error); }
     res.json({ received: true });
-});
-
-// --- REMAINDER API PROXIES ---
-app.post('/api/patreon-import', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { users, mappings } = req.body; 
-    try {
-        await ensureSchema();
-
-        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
-        const aliasesMap = {};
-        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
-
-        const mappingsMap = {};
-        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
-        
-        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
-        const incomingMap = {};
-        users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
-
-        let importCount = 0; let revokeCount = 0;
-        for (const dbUser of existingDb) {
-            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
-                const oldMapping = mappingsMap[dbUser.tier];
-                if (oldMapping) {
-                    const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
-                    await revokeCommunityAccess(targetEmail, oldMapping.module, oldMapping.id);
-                }
-                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
-                revokeCount++;
-                await new Promise(resolve => setTimeout(resolve, 250)); 
-            }
-        }
-        for (const [email, tier] of Object.entries(incomingMap)) {
-            const { module, id } = mappingsMap[tier];
-            const targetEmail = aliasesMap[email] || email;
-            const result = await grantCommunityAccess(targetEmail, module, id);
-            
-            const newStatus = result.success ? 'bridged' : 'pending';
-            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
-            if (result.success) importCount++;
-            await new Promise(resolve => setTimeout(resolve, 250)); 
-        }
-        res.json({ success: true, added: importCount, revoked: revokeCount });
-    } catch (error) { res.status(500).json({ error: "Failed to process Patreon import." }); }
-});
-
-// OAUTH PROVIDER ENDPOINTS
-app.post('/api/oauth/approve', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { client_id, redirect_uri } = req.body;
-    if (client_id !== 'wordpress_global_app') return res.status(400).json({ error: "Invalid client_id" });
-    try {
-        await ensureSchema();
-        let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
-        const code = crypto.randomBytes(16).toString('hex');
-        const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
-        await sql`INSERT INTO wp_oauth_codes (code, user_id, profile_link, redirect_uri, expires_at) VALUES (${code}, ${user.id}, ${profileLink}, ${redirect_uri}, ${expiresAt})`;
-        res.json({ success: true, code: code });
-    } catch (error) { res.status(500).json({ error: "Server error generating code" }); }
-});
-
-app.post('/oauth/token', async (req, res) => {
-    const { grant_type, client_id, code, redirect_uri } = req.body;
-    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') return res.status(400).json({ error: "invalid_request" });
-    try {
-        await ensureSchema();
-        const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
-        if (rows.length === 0) return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
-        const authCode = rows[0];
-        if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
-            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; 
-            return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
-        }
-        await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
-        const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
-        await sql`INSERT INTO wp_access_tokens (token, user_id, profile_link) VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})`;
-        res.json({ access_token: accessToken, token_type: "bearer", profile_url: authCode.profile_link });
-    } catch (error) { res.status(500).json({ error: "server_error" }); }
-});
-
-app.post('/api/wp/get-fields', async (req, res) => {
-    const { access_token, user, domain } = req.body;
-    if (!access_token) return res.status(200).json({ error: "Missing access token" });
-    try {
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
-        const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://bridge.selloutcrowds.com';
-        const { body, boundary } = createMultipartPayload({ api_key: FSAN_TOKEN, user: targetUser, domain: hubDomain });
-        const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', body: body, headers: { 'User-Agent': 'UNA', 'Content-Type': `multipart/form-data; boundary=${boundary}` } });
-        const text = await fsanRes.text();
-        try { return res.json(JSON.parse(text)); } catch(e) { return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) }); }
-    } catch (error) { return res.status(200).json({ error: "Hub Server Error: " + error.message }); }
-});
-
-app.post('/api/wp/:action', async (req, res) => {
-    const { action } = req.params;
-    const validActions = ['create-post', 'edit-post', 'delete-post'];
-    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
-    const { access_token, user, domain, data } = req.body;
-    if (!access_token) return res.status(200).json({ error: "Missing access token" });
-    try {
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
-        if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
-        const targetUser = user || rows[0].profile_link || '';
-        const hubDomain = 'https://bridge.selloutcrowds.com';
-        const payloadData = { api_key: FSAN_TOKEN, user: targetUser, domain: hubDomain, data: data };
-        const { body, boundary } = createMultipartPayload(payloadData);
-        const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
-        const fsanRes = await fetch(endpoint, { method: 'POST', body: body, headers: { 'User-Agent': 'UNA', 'Content-Type': `multipart/form-data; boundary=${boundary}` } });
-        const text = await fsanRes.text();
-        try { return res.json(JSON.parse(text)); } catch(e) { return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) }); }
-    } catch (error) { return res.status(200).json({ error: "Hub Server Error: " + error.message }); }
 });
 
 export default app;

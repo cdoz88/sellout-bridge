@@ -24,6 +24,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [processingUser, setProcessingUser] = useState(null); 
 
   const [patreonUsers, setPatreonUsers] = useState([]);
+  const [paypalUsers, setPaypalUsers] = useState([]); // NEW: For PayPal CSV
   const [error, setError] = useState(null);
 
   const [manualUsers, setManualUsers] = useState([]);
@@ -195,6 +196,53 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       reader.readAsText(file);
   };
 
+  const handlePaypalUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const text = event.target.result;
+          const lines = text.split(/\r?\n/);
+          if (lines.length < 2) { setError("CSV file appears to be empty."); return; }
+          
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+          
+          const emailIdx = headers.findIndex(h => h.includes('email'));
+          const planIdx = headers.findIndex(h => h.includes('item name') || h.includes('plan') || h.includes('subscription'));
+          
+          if (emailIdx === -1 || planIdx === -1) {
+              setError("Could not find 'Email' and 'Plan/Item' columns. Are you sure this is a PayPal Subscription CSV?"); return;
+          }
+
+          const parsedUsers = [];
+          const uniquePlans = new Set();
+
+          for (let i = 1; i < lines.length; i++) {
+              if (!lines[i].trim()) continue;
+              const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+              const cleanRow = row.map(col => col.replace(/^"|"$/g, '').trim());
+              const email = cleanRow[emailIdx];
+              const plan = cleanRow[planIdx];
+              
+              if (email && email.includes('@') && plan) {
+                  parsedUsers.push({ email, plan });
+                  uniquePlans.add(plan);
+              }
+          }
+          setPaypalUsers(parsedUsers);
+          
+          if (providerProducts.paypal.length === 0) {
+              setProviderProducts(prev => ({ ...prev, paypal: [...uniquePlans].map(t => ({ id: t, name: t })) }));
+          }
+          
+          setKeySuccess(true);
+          setTimeout(() => setKeySuccess(false), 3000);
+          setError(null);
+      };
+      reader.readAsText(file);
+  };
+
   const fetchAudienceStats = async (overrideToken) => {
     const activeToken = overrideToken || session;
     if (!activeToken) return;
@@ -278,6 +326,30 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setTimeout(() => setSyncSubsResult(null), 5000);
       } catch (err) {
           setError(err.message || "Failed to import Patreon users.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
+  };
+
+  const runPaypalImport = async () => {
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
+      try {
+          const ppMappings = mappings.filter(m => m.provider === 'paypal');
+          if (ppMappings.length === 0) throw new Error("Please map at least one PayPal Plan first.");
+          const res = await fetch('/api/paypal-import', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: paypalUsers, mappings: ppMappings })
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to import PayPal users.");
+          setSyncSubsResult({ success: true, text: `Imported ${data.added} Historic Users!` });
+          setTimeout(() => setSyncSubsResult(null), 5000);
+      } catch (err) {
+          setError(err.message || "Failed to import PayPal users.");
       } finally {
           setIsSyncingSubs(false);
       }
@@ -663,7 +735,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {['stripe', 'paypal'].includes(activeTab) && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5">
+                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -689,29 +761,47 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6">
                     <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
                       {activeTab === 'patreon' ? (
                          <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
+                      ) : activeTab === 'paypal' ? (
+                         <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                       ) : (
-                         <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                         <img src={stripeIcon} alt="Stripe" className="w-5 h-5 object-contain" />
                       )}
-                      {activeTab === 'patreon' ? 'Import CSV Data' : 'Sync Subscribers'}
+                      {['patreon', 'paypal'].includes(activeTab) ? 'Import CSV Data' : 'Sync Subscribers'}
                     </h3>
                     <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                       {activeTab === 'patreon' 
                         ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
-                        : `Pull in your existing ${activeTab === 'stripe' ? 'Stripe' : 'PayPal'} subscribers and automatically grant them access.`}
+                        : activeTab === 'paypal'
+                        ? 'PayPal does not support automatic bulk syncing. Upload your active PayPal subscriptions CSV to bridge your historic users. Going forward, the Webhook will handle new signups!'
+                        : 'Pull in your existing Stripe subscribers and automatically grant them access.'}
                     </p>
                     
+                    {['patreon', 'paypal'].includes(activeTab) && (
+                      <div className="mb-6">
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                          {activeTab === 'patreon' ? 'Patreon Audience CSV' : 'PayPal Subscriptions CSV'}
+                        </label>
+                        <input 
+                          type="file" 
+                          accept=".csv"
+                          onChange={activeTab === 'patreon' ? handlePatreonUpload : handlePaypalUpload}
+                          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#9df01c] transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:tracking-widest file:bg-[#9df01c]/10 file:text-[#9df01c] hover:file:bg-[#9df01c]/20 file:transition-colors cursor-pointer" 
+                        />
+                      </div>
+                    )}
+
                     <button 
-                      onClick={activeTab === 'patreon' ? runPatreonImport : syncExistingSubscribers}
-                      disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0)}
+                      onClick={activeTab === 'patreon' ? runPatreonImport : activeTab === 'paypal' ? runPaypalImport : syncExistingSubscribers}
+                      disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)}
                       className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
                         ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
-                        ${(activeTab === 'patreon' && patreonUsers.length === 0) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (activeTab === 'patreon' ? <Upload className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
-                      {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
+                        ${((activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
+                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (['patreon', 'paypal'].includes(activeTab) ? <Upload className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
+                      {syncSubsResult?.success ? syncSubsResult.text : (['patreon', 'paypal'].includes(activeTab) ? 'Run Smart Import' : 'Sync Existing Users')}
                     </button>
 
                     {activeTab === 'stripe' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
@@ -880,7 +970,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     ))
                                   ) : (
                                     <option value="" disabled>
-                                        {activeTab === 'patreon' ? 'Upload a CSV first to see Tiers.' : 'No products found. Sync Credentials first.'}
+                                        {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV first to see options.' : 'No products found. Sync Credentials first.'}
                                     </option>
                                   )}
                                 </select>
