@@ -193,7 +193,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const startStripeOAuth = () => {
       const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
-      window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_only&redirect_uri=${redirectUri}&state=stripe`;
+      // FIX: Changed scope from read_only to read_write to comply with Stripe's default requirements
+      window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe`;
   };
 
   const handleDisconnectStripe = async () => {
