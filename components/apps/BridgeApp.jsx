@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
-  const [apiKey, setApiKey] = useState(''); 
+  const [stripeAccountId, setStripeAccountId] = useState(null); 
   const [paypalClientId, setPaypalClientId] = useState('');
   const [paypalSecretKey, setPaypalSecretKey] = useState('');
   
@@ -24,7 +24,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [processingUser, setProcessingUser] = useState(null); 
 
   const [patreonUsers, setPatreonUsers] = useState([]);
-  const [paypalUsers, setPaypalUsers] = useState([]); // NEW: For PayPal CSV
+  const [paypalUsers, setPaypalUsers] = useState([]); 
   const [error, setError] = useState(null);
 
   const [manualUsers, setManualUsers] = useState([]);
@@ -41,6 +41,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
+  const STRIPE_CLIENT_ID = 'ca_UAUckMTFQOG8rW8CajO6ZOB2mTzVXo42';
+
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
@@ -50,15 +52,49 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   }, [session, activeTab]);
 
+  // CATCH OAUTH RETURN FROM STRIPE
+  useEffect(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      
+      if (code && state === 'stripe' && session) {
+          setIsLoading(true);
+          fetch('/api/stripe/oauth/callback', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code })
+          })
+          .then(res => res.json())
+          .then(data => {
+              if (data.success) {
+                  setStripeAccountId(data.accountId);
+                  fetchProviderProducts(data.accountId, null, session, 'stripe');
+              } else {
+                  setError(data.error || "Failed to connect Stripe.");
+              }
+              const newUrl = new URL(window.location);
+              newUrl.searchParams.delete('code');
+              newUrl.searchParams.delete('state');
+              window.history.replaceState({}, '', newUrl);
+              setIsLoading(false);
+          })
+          .catch(() => {
+              setError("Network error during Stripe connection.");
+              setIsLoading(false);
+          });
+      }
+  }, [session]);
+
   const fetchDatabaseSettings = async (token) => {
     try {
       const res = await fetch('/api/get-settings', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.settings) {
-        if (data.settings.stripe_secret_key) {
-            setApiKey(data.settings.stripe_secret_key);
-            fetchProviderProducts(data.settings.stripe_secret_key, null, token, 'stripe');
+        if (data.settings.stripe_account_id) {
+            setStripeAccountId(data.settings.stripe_account_id);
+            fetchProviderProducts(data.settings.stripe_account_id, null, token, 'stripe');
             fetchAudienceStats(token); 
         }
         if (data.settings.paypal_client_id && data.settings.paypal_secret_key) {
@@ -122,7 +158,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
     try {
         const endpoint = provider === 'stripe' ? '/api/get-stripe-products' : '/api/get-paypal-products';
-        const payload = provider === 'stripe' ? { apiKey: clientId } : { clientId, secretKey };
+        const payload = provider === 'stripe' ? { accountId: clientId } : { clientId, secretKey };
 
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -137,12 +173,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
 
-        const savePayload = provider === 'stripe' ? { stripeKey: clientId } : { paypalClientId: clientId, paypalSecretKey: secretKey };
-        await fetch('/api/save-settings', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(savePayload)
-        });
+        if (provider === 'paypal') {
+            await fetch('/api/save-settings', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paypalClientId: clientId, paypalSecretKey: secretKey })
+            });
+        }
 
         if (provider === 'stripe') {
             fetchAudienceStats(activeToken);
@@ -152,6 +189,26 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         setProviderProducts(prev => ({ ...prev, [provider]: [] }));
     }
     setIsValidatingKey(false);
+  };
+
+  const startStripeOAuth = () => {
+      const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
+      window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_only&redirect_uri=${redirectUri}&state=stripe`;
+  };
+
+  const handleDisconnectStripe = async () => {
+      if(!window.confirm("Are you sure you want to disconnect your Stripe account? Active subscriptions will stop syncing.")) return;
+      try {
+          await fetch('/api/stripe/oauth/disconnect', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+          });
+          setStripeAccountId(null);
+          setProviderProducts(prev => ({...prev, stripe: []}));
+          setAudienceStats([]);
+      } catch (e) {
+          setError("Failed to disconnect Stripe.");
+      }
   };
 
   const handlePatreonUpload = (e) => {
@@ -499,9 +556,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
+  const [isLoadingOAuth, setIsLoading] = useState(false);
 
   return (
     <>
+      {isLoadingOAuth && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+              <Loader2 className="w-12 h-12 animate-spin text-[#9df01c] mb-4" />
+              <p className="text-white font-bold tracking-widest uppercase text-xs">Connecting to Stripe...</p>
+          </div>
+      )}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-[#050505]">
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
@@ -678,18 +742,27 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     {activeTab === 'stripe' ? (
-                        <div>
-                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                            Stripe Secret Key
-                          </label>
-                          <input 
-                            type="password" 
-                            value={apiKey} 
-                            onChange={(e) => setApiKey(e.target.value)} 
-                            placeholder="sk_live_... or rk_live_..." 
-                            className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
-                          />
-                        </div>
+                        stripeAccountId ? (
+                            <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
+                                <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
+                                <p className="text-sm font-bold text-white mb-1">Stripe Connected!</p>
+                                <p className="text-xs text-gray-500 mb-4 break-all">ID: {stripeAccountId}</p>
+                                <button onClick={handleDisconnectStripe} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
+                                    <LogOut size={12} /> Disconnect
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
+                                    Connect your Stripe account to automatically map your active products to Sellout Crowds communities.
+                                </p>
+                                <button 
+                                    onClick={startStripeOAuth}
+                                    className="w-full font-black py-4 rounded-xl uppercase text-[11px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 bg-[#635BFF] hover:bg-[#7A73FF] text-white shadow-lg shadow-[#635BFF]/20">
+                                    Connect with Stripe
+                                </button>
+                            </div>
+                        )
                     ) : (
                         <>
                             <div>
@@ -716,32 +789,27 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
                                 />
                             </div>
+                            <button 
+                              onClick={() => fetchProviderProducts(paypalClientId, paypalSecretKey, null, 'paypal')}
+                              disabled={isValidatingKey || (!paypalClientId || !paypalSecretKey)}
+                              className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                              {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
+                              {keySuccess ? 'Connected' : 'Save & Sync Products'}
+                            </button>
                         </>
                     )}
-                    <button 
-                      onClick={() => fetchProviderProducts(
-                          activeTab === 'stripe' ? apiKey : paypalClientId, 
-                          activeTab === 'stripe' ? null : paypalSecretKey, 
-                          null, 
-                          activeTab
-                      )}
-                      disabled={isValidatingKey || (activeTab === 'stripe' ? !apiKey : (!paypalClientId || !paypalSecretKey))}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
-                      {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
-                      {keySuccess ? 'Connected' : 'Save & Sync Products'}
-                    </button>
                   </div>
                 </div>
               )}
 
-              {['stripe', 'paypal'].includes(activeTab) && (
+              {['stripe'].includes(activeTab) && (
                 <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
-                    <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
+                    <img src={stripeIcon} alt="Stripe" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                    Paste this URL into your {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Webhooks settings so we know when someone pays.
+                    Paste this URL into your Stripe Webhooks settings so we know when someone pays.
                   </p>
                   
                   <div 
@@ -749,7 +817,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
                   >
                     <span className="text-xs font-mono text-gray-300 truncate mr-4">
-                      https://bridge.selloutcrowds.com/api/{activeTab}-webhook
+                      https://bridge.selloutcrowds.com/api/stripe-webhook
                     </span>
                     {webhookCopied ? (
                       <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
@@ -794,15 +862,29 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </div>
                     )}
 
-                    <button 
-                      onClick={activeTab === 'patreon' ? runPatreonImport : activeTab === 'paypal' ? runPaypalImport : syncExistingSubscribers}
-                      disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
-                        ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
-                        ${((activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                      {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : (['patreon', 'paypal'].includes(activeTab) ? <Upload className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />))}
-                      {syncSubsResult?.success ? syncSubsResult.text : (['patreon', 'paypal'].includes(activeTab) ? 'Run Smart Import' : 'Sync Existing Users')}
-                    </button>
+                    {activeTab === 'stripe' && (
+                        <button 
+                          onClick={syncExistingSubscribers}
+                          disabled={isSyncingSubs || !stripeAccountId}
+                          className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
+                            ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
+                            ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
+                          {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Users'}
+                        </button>
+                    )}
+
+                    {['patreon', 'paypal'].includes(activeTab) && (
+                        <button 
+                          onClick={activeTab === 'patreon' ? runPatreonImport : runPaypalImport}
+                          disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)}
+                          className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
+                            ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
+                            ${((activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
+                          {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <Upload className="w-4 h-4" />)}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Run Smart Import'}
+                        </button>
+                    )}
 
                     {activeTab === 'stripe' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
                       <div className="mt-6 pt-6 border-t border-white/10">
@@ -1014,7 +1096,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               </div>
 
                               <div className="md:pt-5 w-full md:w-auto">
-                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
+                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-50 hover:text-white transition-all flex justify-center">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>

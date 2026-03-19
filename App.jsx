@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
@@ -176,12 +176,15 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
+  // FIX: Intercept code ONLY if it is not for Stripe OAuth
   useEffect(() => {
     if (isPublicBio) return; 
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
-        if (code && !hasAttemptedLogin.current) {
+        const state = urlParams.get('state');
+
+        if (code && state !== 'stripe' && !hasAttemptedLogin.current) {
             hasAttemptedLogin.current = true;
             handleCallback(code);
         } else if (session && !unaData.user) {
@@ -485,8 +488,6 @@ export default function App() {
             />
 
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
-                
                 {currentApp === 'business-card' && (
                     ['builder', 'design', 'url'].includes(activeTab) ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />
@@ -496,6 +497,7 @@ export default function App() {
                 )}
 
                 {currentApp === 'address-book' && <AddressBookApp />}
+                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
                 {currentApp === 'linktree' && (
                     ['links', 'design', 'url'].includes(activeTab) ? (

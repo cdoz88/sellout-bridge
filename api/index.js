@@ -1,7 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Database columns for custom slugs and a public API endpoint for crowds.bio
- * ADDED: OAuth Provider capabilities and WordPress API Proxy
+ * ADDED: Stripe Connect (OAuth) Implementation
  */
 
 import express from 'express';
@@ -106,9 +105,11 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
             user_id INTEGER PRIMARY KEY,
             stripe_secret_key TEXT,
+            stripe_account_id TEXT,
             paypal_client_id TEXT,
             paypal_secret_key TEXT
         )`;
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`; } catch(e){}
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`; } catch(e){}
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_secret_key TEXT`; } catch(e){}
 
@@ -304,6 +305,7 @@ app.get('/api/get-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        await ensureSchema();
         const userId = parseInt(user.id);
         const rows = await sql`SELECT * FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
@@ -316,6 +318,7 @@ app.post('/api/save-settings', async (req, res) => {
     const { stripeKey, paypalClientId, paypalSecretKey } = req.body;
     
     try {
+        await ensureSchema();
         const userId = parseInt(user.id);
         await sql`INSERT INTO bridge_settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
 
@@ -361,15 +364,65 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
-// --- STRIPE & PAYPAL ENDPOINTS ---
+// --- STRIPE OAUTH & WEBHOOKS ---
+app.post('/api/stripe/oauth/callback', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: "Missing authorization code" });
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
+
+    try {
+        const response = await fetch('https://connect.stripe.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                grant_type: 'authorization_code',
+                code: code,
+                client_secret: process.env.STRIPE_SECRET_KEY
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) return res.status(400).json({ error: data.error_description || data.error });
+        
+        const accountId = data.stripe_user_id;
+        
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        await sql`INSERT INTO bridge_settings (user_id, stripe_account_id) VALUES (${userId}, ${accountId}) ON CONFLICT (user_id) DO UPDATE SET stripe_account_id = EXCLUDED.stripe_account_id`;
+        
+        res.json({ success: true, accountId });
+    } catch (e) {
+        res.status(500).json({ error: "Failed to connect Stripe account." });
+    }
+});
+
+app.post('/api/stripe/oauth/disconnect', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    
+    try {
+        await ensureSchema();
+        await sql`UPDATE bridge_settings SET stripe_account_id = NULL WHERE user_id = ${parseInt(user.id)}`;
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: "Failed to disconnect account." });
+    }
+});
+
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { apiKey } = req.body;
-    if (!apiKey) return res.status(400).json({ error: "No API key provided" });
+    const { accountId } = req.body;
+    
+    if (!accountId) return res.status(400).json({ error: "No connected account ID provided" });
+    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
+
     try {
-        const stripe = new Stripe(apiKey.trim());
-        const products = await stripe.products.list({ limit: 100, active: true });
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        const products = await stripe.products.list({ limit: 100, active: true }, { stripeAccount: accountId });
         res.json({ products: products.data.map(p => ({ id: p.id, name: p.name })) });
     } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
 });
@@ -482,6 +535,9 @@ app.post('/api/paypal-import', async (req, res) => {
 app.get('/api/get-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
+    
+    if (!process.env.STRIPE_SECRET_KEY) return res.json({ stats: [] });
+
     try {
         await ensureSchema();
         
@@ -489,13 +545,16 @@ app.get('/api/get-subscribers', async (req, res) => {
         const aliasesMap = {};
         aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
 
-        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
-        if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) return res.json({ stats: [] });
+        const settingsRows = await sql`SELECT stripe_account_id FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_account_id) return res.json({ stats: [] });
         
-        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+        const accountId = settingsRows[0].stripe_account_id;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        
         const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
-        const products = await stripe.products.list({ active: true, limit: 100 });
+        
+        const products = await stripe.products.list({ active: true, limit: 100 }, { stripeAccount: accountId });
         const productMap = {};
         products.data.forEach(p => productMap[p.id] = p.name);
         
@@ -504,7 +563,7 @@ app.get('/api/get-subscribers', async (req, res) => {
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status || 'pending');
 
         const stats = {};
-        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] }, { stripeAccount: accountId })) {
             const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
             if (!productId) continue;
             if (!stats[productId]) {
@@ -542,13 +601,18 @@ app.post('/api/sync-subscribers', async (req, res) => {
             return res.status(400).json({ error: "PayPal does not support automatic bulk subscription syncing. Please use the CSV importer instead." });
         }
 
+        if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe key not configured." });
+
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
         aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
 
-        const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
-        if (settingsRows.length === 0) return res.status(400).json({ error: "Stripe key not found." });
-        const stripe = new Stripe(settingsRows[0].stripe_secret_key);
+        const settingsRows = await sql`SELECT stripe_account_id FROM bridge_settings WHERE user_id = ${user.id}`;
+        if (settingsRows.length === 0 || !settingsRows[0].stripe_account_id) return res.status(400).json({ error: "Stripe account not connected." });
+        
+        const accountId = settingsRows[0].stripe_account_id;
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id });
@@ -557,7 +621,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
 
         let syncCount = 0;
-        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] })) {
+        for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] }, { stripeAccount: accountId })) {
             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
             const customerEmail = sub.customer?.email;
             if (stripeProductId && customerEmail && mappingsMap[stripeProductId]) {
@@ -603,7 +667,6 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
-// WEBHOOK HANDLERS
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     try {
