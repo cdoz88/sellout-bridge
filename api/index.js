@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * CLEANED: Removed all legacy manual Stripe API key logic. Fully OAuth.
+ * ADDED: Help & Guides Tables and Endpoints
  */
 
 import express from 'express';
@@ -72,9 +72,6 @@ async function ensureSchema() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
         
-        try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
-        
         try { 
             await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
                 id SERIAL PRIMARY KEY, 
@@ -97,9 +94,16 @@ async function ensureSchema() {
             )`;
         } catch(e) {}
 
+        // Assets
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+        } catch(e) {}
+
+        // Guides & Help Center
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_guide_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
+            await sql`CREATE TABLE IF NOT EXISTS bridge_guides (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), type VARCHAR(50), content JSONB, order_index INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -157,8 +161,145 @@ async function revokeCommunityAccess(email, module, contentId) {
     } catch (err) { return { error: err.message }; }
 }
 
-// --- API ENDPOINTS ---
+// --- GUIDES ENDPOINTS ---
 
+const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
+
+app.get('/api/guides/data', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        
+        let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
+        if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
+        
+        const guides = await sql`SELECT * FROM bridge_guides ORDER BY order_index ASC, id DESC`;
+        res.json({ categories, guides });
+    } catch (e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/categories', async (req, res) => {
+    const { id, name, is_hidden } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        if (id) {
+            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${is_hidden} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_guide_categories (name, is_hidden) VALUES (${name}, ${is_hidden})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/categories/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_guide_categories WHERE id = ${id}`;
+        await sql`DELETE FROM bridge_guides WHERE category_id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides', async (req, res) => {
+    const { id, category_id, title, type, content } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        if (id) {
+            await sql`UPDATE bridge_guides SET category_id = ${category_id}, title = ${title}, type = ${type}, content = ${content} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_guides (category_id, title, type, content) VALUES (${category_id}, ${title}, ${type}, ${content})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_guides WHERE id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+// --- ASSET ENDPOINTS ---
+
+app.get('/api/assets/data', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        
+        let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
+        if (!isAdmin) {
+            categories = categories.filter(c => !c.is_hidden);
+        }
+        const assets = await sql`SELECT * FROM bridge_assets ORDER BY id DESC`;
+        res.json({ categories, assets });
+    } catch (e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories', async (req, res) => {
+    const { id, name, is_hidden } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        if (id) {
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${is_hidden} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden) VALUES (${name}, ${is_hidden})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_asset_categories WHERE id = ${id}`;
+        await sql`DELETE FROM bridge_assets WHERE category_id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets', async (req, res) => {
+    const { category_id, title, file_url } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`INSERT INTO bridge_assets (category_id, title, file_url) VALUES (${category_id}, ${title}, ${file_url})`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_assets WHERE id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+
+// --- OTHER API ENDPOINTS (OAuth, Users, Subscriptions, Webhooks) ---
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
     try {
@@ -359,7 +500,6 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
-// --- STRIPE OAUTH & WEBHOOKS ---
 app.post('/api/stripe/oauth/callback', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -448,7 +588,7 @@ app.post('/api/get-paypal-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
 });
 
-// CSV IMPORTS (PATREON & PAYPAL)
+// CSV IMPORTS
 app.post('/api/patreon-import', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

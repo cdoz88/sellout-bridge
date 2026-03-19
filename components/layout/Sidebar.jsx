@@ -11,8 +11,12 @@ export default function Sidebar({
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
+    // Category states for Assets and Guides
     const [categories, setCategories] = useState([]);
     const [isEditingCats, setIsEditingCats] = useState(false);
+
+    const [guideCategories, setGuideCategories] = useState([]);
+    const [isEditingGuideCats, setIsEditingGuideCats] = useState(false);
 
     const fetchCategories = async () => {
         if (!session) return;
@@ -29,8 +33,24 @@ export default function Sidebar({
         } catch(e) {}
     };
 
+    const fetchGuideCategories = async () => {
+        if (!session) return;
+        try {
+            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+            const data = await res.json();
+            if (data.categories) {
+                setGuideCategories(data.categories);
+                if (currentApp === 'guides' && data.categories.length > 0 && (!activeTab || activeTab === 'library')) {
+                    setActiveTab(`cat_${data.categories[0].id}`);
+                }
+            }
+        } catch(e) {}
+    };
+
     useEffect(() => {
         if (currentApp === 'assets') fetchCategories();
+        if (currentApp === 'guides') fetchGuideCategories();
     }, [currentApp, session]);
 
     const handleNavClick = (tab) => {
@@ -38,6 +58,7 @@ export default function Sidebar({
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
     };
 
+    // Assets saving
     const handleSaveCategories = async () => {
         for (const cat of categories) {
             await fetch('/api/assets/categories', {
@@ -64,6 +85,35 @@ export default function Sidebar({
         });
         fetchCategories();
         window.dispatchEvent(new CustomEvent('assets-updated'));
+    };
+
+    // Guides saving
+    const handleSaveGuideCategories = async () => {
+        for (const cat of guideCategories) {
+            await fetch('/api/guides/categories', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: cat.id.toString().startsWith('temp_') ? null : cat.id, name: cat.name, is_hidden: cat.is_hidden })
+            });
+        }
+        setIsEditingGuideCats(false);
+        fetchGuideCategories();
+        window.dispatchEvent(new CustomEvent('guides-updated'));
+    };
+
+    const handleDeleteGuideCat = async (id) => {
+        if (id.toString().startsWith('temp_')) {
+            setGuideCategories(guideCategories.filter(c => c.id !== id));
+            return;
+        }
+        if(!window.confirm("Delete this category AND all guides inside it?")) return;
+        await fetch('/api/guides/categories/delete', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        fetchGuideCategories();
+        window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
     return (
@@ -218,6 +268,69 @@ export default function Sidebar({
                                     categories.map(cat => (
                                         <button key={cat.id} onClick={() => handleNavClick(`cat_${cat.id}`)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === `cat_${cat.id}` ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                             <div className="flex items-center gap-3"><Folder size={16} /> {cat.name}</div>
+                                            {cat.is_hidden && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">Hidden</span>}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {currentApp === 'guides' && (
+                    <div className="px-4">
+                        <div className="flex items-center justify-between mb-3 px-2">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Help & Guides</p>
+                            {isAdmin && !isEditingGuideCats && (
+                                <button onClick={() => setIsEditingGuideCats(true)} className="text-gray-500 hover:text-[#9df01c] transition-colors" title="Manage Categories">
+                                    <Settings size={14} />
+                                </button>
+                            )}
+                        </div>
+
+                        {isEditingGuideCats ? (
+                            <div className="space-y-2 animate-in fade-in zoom-in-95">
+                                {guideCategories.map(cat => (
+                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10">
+                                        <input 
+                                            type="text" 
+                                            value={cat.name} 
+                                            onChange={(e) => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
+                                            className="bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
+                                        />
+                                        <div className="flex justify-between px-1">
+                                            <button 
+                                                onClick={() => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, is_hidden: !c.is_hidden} : c))} 
+                                                className="text-[9px] text-gray-400 font-bold uppercase tracking-widest hover:text-white">
+                                                {cat.is_hidden ? 'Unhide' : 'Hide'}
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteGuideCat(cat.id)} 
+                                                className="text-[9px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button 
+                                    onClick={() => setGuideCategories([...guideCategories, { id: `temp_${Date.now()}`, name: 'New Category', is_hidden: false }])} 
+                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2">
+                                    <Plus size={14} /> Add Category
+                                </button>
+                                <button 
+                                    onClick={handleSaveGuideCategories} 
+                                    className="w-full py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors mt-2">
+                                    Save Changes
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {guideCategories.length === 0 ? (
+                                    <p className="text-[10px] text-gray-600 px-2 italic">No categories found.</p>
+                                ) : (
+                                    guideCategories.map(cat => (
+                                        <button key={cat.id} onClick={() => handleNavClick(`cat_${cat.id}`)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === `cat_${cat.id}` ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                            <div className="flex items-center gap-3"><FileText size={16} /> {cat.name}</div>
                                             {cat.is_hidden && <span className="text-[8px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">Hidden</span>}
                                         </button>
                                     ))
