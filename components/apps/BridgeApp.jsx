@@ -193,7 +193,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const startStripeOAuth = () => {
       const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
-      // FIX: Changed scope from read_only to read_write to comply with Stripe's default requirements
       window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe`;
   };
 
@@ -803,14 +802,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              {['stripe'].includes(activeTab) && (
+              {activeTab === 'paypal' && (
                 <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
-                    <img src={stripeIcon} alt="Stripe" className="w-5 h-5 object-contain" />
+                    <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                    Paste this URL into your Stripe Webhooks settings so we know when someone pays.
+                    Paste this URL into your PayPal Webhooks settings so we know when someone pays.
                   </p>
                   
                   <div 
@@ -818,7 +817,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
                   >
                     <span className="text-xs font-mono text-gray-300 truncate mr-4">
-                      https://bridge.selloutcrowds.com/api/stripe-webhook
+                      https://bridge.selloutcrowds.com/api/paypal-webhook
                     </span>
                     {webhookCopied ? (
                       <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
