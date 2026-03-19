@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Stripe Connect (OAuth) Implementation
+ * CLEANED: Removed all legacy manual Stripe API key logic. Fully OAuth.
  */
 
 import express from 'express';
@@ -104,7 +104,6 @@ async function ensureSchema() {
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
             user_id INTEGER PRIMARY KEY,
-            stripe_secret_key TEXT,
             stripe_account_id TEXT,
             paypal_client_id TEXT,
             paypal_secret_key TEXT
@@ -307,7 +306,7 @@ app.get('/api/get-settings', async (req, res) => {
     try {
         await ensureSchema();
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT * FROM bridge_settings WHERE user_id = ${userId}`;
+        const rows = await sql`SELECT stripe_account_id, paypal_client_id, paypal_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
@@ -315,17 +314,13 @@ app.get('/api/get-settings', async (req, res) => {
 app.post('/api/save-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { stripeKey, paypalClientId, paypalSecretKey } = req.body;
+    const { paypalClientId, paypalSecretKey } = req.body;
     
     try {
         await ensureSchema();
         const userId = parseInt(user.id);
         await sql`INSERT INTO bridge_settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
 
-        if (stripeKey !== undefined) {
-            const cleanKey = stripeKey ? stripeKey.trim() : '';
-            await sql`UPDATE bridge_settings SET stripe_secret_key = ${cleanKey} WHERE user_id = ${userId}`;
-        }
         if (paypalClientId !== undefined && paypalSecretKey !== undefined) {
             const cleanClient = paypalClientId ? paypalClientId.trim() : '';
             const cleanSecret = paypalSecretKey ? paypalSecretKey.trim() : '';
@@ -667,6 +662,7 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+// WEBHOOK HANDLERS
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     try {
