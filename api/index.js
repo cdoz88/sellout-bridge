@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Help & Guides Tables and Endpoints
+ * CLEANED: Fully OAuth-driven for both Stripe and PayPal. Added order_index.
  */
 
 import express from 'express';
@@ -72,6 +72,9 @@ async function ensureSchema() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
         
+        try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN profile_link TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN profile_link TEXT`; } catch(e){}
+        
         try { 
             await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
                 id SERIAL PRIMARY KEY, 
@@ -94,13 +97,11 @@ async function ensureSchema() {
             )`;
         } catch(e) {}
 
-        // Assets
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
         } catch(e) {}
 
-        // Guides & Help Center
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_guide_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_guides (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), type VARCHAR(50), content JSONB, order_index INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
@@ -109,12 +110,12 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
             user_id INTEGER PRIMARY KEY,
             stripe_account_id TEXT,
-            paypal_client_id TEXT,
-            paypal_secret_key TEXT
+            paypal_account_id TEXT,
+            paypal_refresh_token TEXT
         )`;
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_secret_key TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_account_id TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_refresh_token TEXT`; } catch(e){}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (
             id SERIAL PRIMARY KEY,
@@ -161,8 +162,8 @@ async function revokeCommunityAccess(email, module, contentId) {
     } catch (err) { return { error: err.message }; }
 }
 
-// --- GUIDES ENDPOINTS ---
 
+// --- GUIDES ENDPOINTS ---
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
 
 app.get('/api/guides/data', async (req, res) => {
@@ -180,15 +181,15 @@ app.get('/api/guides/data', async (req, res) => {
 });
 
 app.post('/api/guides/categories', async (req, res) => {
-    const { id, name, is_hidden } = req.body;
+    const { id, name, is_hidden, order_index } = req.body;
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         if (id) {
-            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${is_hidden} WHERE id = ${id}`;
+            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${is_hidden}, order_index = ${order_index || 0} WHERE id = ${id}`;
         } else {
-            await sql`INSERT INTO bridge_guide_categories (name, is_hidden) VALUES (${name}, ${is_hidden})`;
+            await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${name}, ${is_hidden}, ${order_index || 0})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -233,7 +234,6 @@ app.post('/api/guides/delete', async (req, res) => {
 });
 
 // --- ASSET ENDPOINTS ---
-
 app.get('/api/assets/data', async (req, res) => {
     try {
         await ensureSchema();
@@ -250,15 +250,15 @@ app.get('/api/assets/data', async (req, res) => {
 });
 
 app.post('/api/assets/categories', async (req, res) => {
-    const { id, name, is_hidden } = req.body;
+    const { id, name, is_hidden, order_index } = req.body;
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         if (id) {
-            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${is_hidden} WHERE id = ${id}`;
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${is_hidden}, order_index = ${order_index || 0} WHERE id = ${id}`;
         } else {
-            await sql`INSERT INTO bridge_asset_categories (name, is_hidden) VALUES (${name}, ${is_hidden})`;
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${is_hidden}, ${order_index || 0})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -447,28 +447,9 @@ app.get('/api/get-settings', async (req, res) => {
     try {
         await ensureSchema();
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT stripe_account_id, paypal_client_id, paypal_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
+        const rows = await sql`SELECT stripe_account_id, paypal_account_id FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
-});
-
-app.post('/api/save-settings', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { paypalClientId, paypalSecretKey } = req.body;
-    
-    try {
-        await ensureSchema();
-        const userId = parseInt(user.id);
-        await sql`INSERT INTO bridge_settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
-
-        if (paypalClientId !== undefined && paypalSecretKey !== undefined) {
-            const cleanClient = paypalClientId ? paypalClientId.trim() : '';
-            const cleanSecret = paypalSecretKey ? paypalSecretKey.trim() : '';
-            await sql`UPDATE bridge_settings SET paypal_client_id = ${cleanClient}, paypal_secret_key = ${cleanSecret} WHERE user_id = ${userId}`;
-        }
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: "Failed to save settings." }); }
 });
 
 app.get('/api/get-mappings', async (req, res) => {
@@ -500,6 +481,7 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
+// --- STRIPE OAUTH & WEBHOOKS ---
 app.post('/api/stripe/oauth/callback', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -537,14 +519,11 @@ app.post('/api/stripe/oauth/callback', async (req, res) => {
 app.post('/api/stripe/oauth/disconnect', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
     try {
         await ensureSchema();
         await sql`UPDATE bridge_settings SET stripe_account_id = NULL WHERE user_id = ${parseInt(user.id)}`;
         res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: "Failed to disconnect account." });
-    }
+    } catch (e) { res.status(500).json({ error: "Failed to disconnect account." }); }
 });
 
 app.post('/api/get-stripe-products', async (req, res) => {
@@ -562,21 +541,75 @@ app.post('/api/get-stripe-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
 });
 
+// --- PAYPAL OAUTH & WEBHOOKS ---
+app.post('/api/paypal/oauth/callback', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: "Missing authorization code" });
+    
+    const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
+    const PAYPAL_SECRET = process.env.PAYPAL_SECRET_KEY;
+    if (!PAYPAL_CLIENT || !PAYPAL_SECRET) return res.status(500).json({ error: "Platform PayPal keys not configured in Vercel." });
+
+    try {
+        const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
+        const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `grant_type=authorization_code&code=${code}`
+        });
+        
+        const data = await response.json();
+        if (data.error) return res.status(400).json({ error: data.error_description || data.error });
+        
+        const refreshToken = data.refresh_token;
+        const accountId = "PayPal_Connected"; 
+        
+        await ensureSchema();
+        const userId = parseInt(user.id);
+        await sql`INSERT INTO bridge_settings (user_id, paypal_account_id, paypal_refresh_token) VALUES (${userId}, ${accountId}, ${refreshToken}) ON CONFLICT (user_id) DO UPDATE SET paypal_account_id = EXCLUDED.paypal_account_id, paypal_refresh_token = EXCLUDED.paypal_refresh_token`;
+        
+        res.json({ success: true, accountId });
+    } catch (e) {
+        res.status(500).json({ error: "Failed to connect PayPal account." });
+    }
+});
+
+app.post('/api/paypal/oauth/disconnect', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        await sql`UPDATE bridge_settings SET paypal_account_id = NULL, paypal_refresh_token = NULL WHERE user_id = ${parseInt(user.id)}`;
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Failed to disconnect account." }); }
+});
+
 app.post('/api/get-paypal-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { clientId, secretKey } = req.body;
-    if (!clientId || !secretKey) return res.status(400).json({ error: "No API keys provided" });
     
+    const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
+    const PAYPAL_SECRET = process.env.PAYPAL_SECRET_KEY;
+    if (!PAYPAL_CLIENT || !PAYPAL_SECRET) return res.status(500).json({ error: "Platform PayPal keys not configured." });
+
     try {
-        const auth = Buffer.from(`${clientId.trim()}:${secretKey.trim()}`).toString('base64');
+        await ensureSchema();
+        const settings = await sql`SELECT paypal_refresh_token FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
+        if (!settings.length || !settings[0].paypal_refresh_token) return res.status(400).json({ error: "PayPal not connected" });
+
+        const refreshToken = settings[0].paypal_refresh_token;
+
+        const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
             headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'grant_type=client_credentials'
+            body: `grant_type=refresh_token&refresh_token=${refreshToken}`
         });
         const tokenData = await tokenRes.json();
-        if (tokenData.error) throw new Error(tokenData.error_description || "Invalid PayPal credentials");
+        if (tokenData.error) throw new Error("Failed to refresh PayPal token");
 
         const plansRes = await fetch('https://api-m.paypal.com/v1/billing/plans?page_size=50', {
             headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
@@ -588,7 +621,7 @@ app.post('/api/get-paypal-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
 });
 
-// CSV IMPORTS
+// CSV IMPORTS (PATREON & PAYPAL)
 app.post('/api/patreon-import', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2 } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, GripVertical } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -11,12 +11,13 @@ export default function Sidebar({
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
-    // Category states for Assets and Guides
     const [categories, setCategories] = useState([]);
     const [isEditingCats, setIsEditingCats] = useState(false);
+    const [draggedCatIndex, setDraggedCatIndex] = useState(null);
 
     const [guideCategories, setGuideCategories] = useState([]);
     const [isEditingGuideCats, setIsEditingGuideCats] = useState(false);
+    const [draggedGuideCatIndex, setDraggedGuideCatIndex] = useState(null);
 
     const fetchCategories = async () => {
         if (!session) return;
@@ -26,9 +27,6 @@ export default function Sidebar({
             const data = await res.json();
             if (data.categories) {
                 setCategories(data.categories);
-                if (currentApp === 'assets' && data.categories.length > 0 && (!activeTab || activeTab === 'logos' || activeTab === 'graphics')) {
-                    setActiveTab(`cat_${data.categories[0].id}`);
-                }
             }
         } catch(e) {}
     };
@@ -41,9 +39,6 @@ export default function Sidebar({
             const data = await res.json();
             if (data.categories) {
                 setGuideCategories(data.categories);
-                if (currentApp === 'guides' && data.categories.length > 0 && (!activeTab || activeTab === 'library')) {
-                    setActiveTab(`cat_${data.categories[0].id}`);
-                }
             }
         } catch(e) {}
     };
@@ -58,13 +53,32 @@ export default function Sidebar({
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
     };
 
-    // Assets saving
+    // --- ASSETS CATEGORY REORDERING ---
+    const handleCatDragStart = (e, index) => { setDraggedCatIndex(index); e.dataTransfer.effectAllowed = 'move'; };
+    const handleCatDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedCatIndex === null || draggedCatIndex === index) return;
+        const newList = [...categories];
+        const draggedItem = newList[draggedCatIndex];
+        newList.splice(draggedCatIndex, 1);
+        newList.splice(index, 0, draggedItem);
+        setDraggedCatIndex(index);
+        setCategories(newList);
+    };
+    const handleCatDragEnd = () => setDraggedCatIndex(null);
+
     const handleSaveCategories = async () => {
-        for (const cat of categories) {
+        for (let i = 0; i < categories.length; i++) {
+            const cat = categories[i];
             await fetch('/api/assets/categories', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: cat.id.toString().startsWith('temp_') ? null : cat.id, name: cat.name, is_hidden: cat.is_hidden })
+                body: JSON.stringify({ 
+                    id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
+                    name: cat.name, 
+                    is_hidden: cat.is_hidden,
+                    order_index: i
+                })
             });
         }
         setIsEditingCats(false);
@@ -87,13 +101,32 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
-    // Guides saving
+    // --- GUIDES CATEGORY REORDERING ---
+    const handleGuideCatDragStart = (e, index) => { setDraggedGuideCatIndex(index); e.dataTransfer.effectAllowed = 'move'; };
+    const handleGuideCatDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedGuideCatIndex === null || draggedGuideCatIndex === index) return;
+        const newList = [...guideCategories];
+        const draggedItem = newList[draggedGuideCatIndex];
+        newList.splice(draggedGuideCatIndex, 1);
+        newList.splice(index, 0, draggedItem);
+        setDraggedGuideCatIndex(index);
+        setGuideCategories(newList);
+    };
+    const handleGuideCatDragEnd = () => setDraggedGuideCatIndex(null);
+
     const handleSaveGuideCategories = async () => {
-        for (const cat of guideCategories) {
+        for (let i = 0; i < guideCategories.length; i++) {
+            const cat = guideCategories[i];
             await fetch('/api/guides/categories', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: cat.id.toString().startsWith('temp_') ? null : cat.id, name: cat.name, is_hidden: cat.is_hidden })
+                body: JSON.stringify({ 
+                    id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
+                    name: cat.name, 
+                    is_hidden: cat.is_hidden,
+                    order_index: i
+                })
             });
         }
         setIsEditingGuideCats(false);
@@ -227,15 +260,25 @@ export default function Sidebar({
 
                         {isEditingCats ? (
                             <div className="space-y-2 animate-in fade-in zoom-in-95">
-                                {categories.map(cat => (
-                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10">
-                                        <input 
-                                            type="text" 
-                                            value={cat.name} 
-                                            onChange={(e) => setCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
-                                            className="bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
-                                        />
-                                        <div className="flex justify-between px-1">
+                                {categories.map((cat, index) => (
+                                    <div 
+                                      key={cat.id} 
+                                      draggable 
+                                      onDragStart={(e) => handleCatDragStart(e, index)} 
+                                      onDragOver={(e) => handleCatDragOver(e, index)} 
+                                      onDragEnd={handleCatDragEnd} 
+                                      className={`bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border transition-all ${draggedCatIndex === index ? 'opacity-50 border-[#9df01c]' : 'border-white/10'}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0" />
+                                            <input 
+                                                type="text" 
+                                                value={cat.name} 
+                                                onChange={(e) => setCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
+                                                className="w-full bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
+                                            />
+                                        </div>
+                                        <div className="flex justify-between px-1 pl-8">
                                             <button 
                                                 onClick={() => setCategories(cats => cats.map(c => c.id === cat.id ? {...c, is_hidden: !c.is_hidden} : c))} 
                                                 className="text-[9px] text-gray-400 font-bold uppercase tracking-widest hover:text-white">
@@ -251,7 +294,7 @@ export default function Sidebar({
                                 ))}
                                 <button 
                                     onClick={() => setCategories([...categories, { id: `temp_${Date.now()}`, name: 'New Category', is_hidden: false }])} 
-                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2">
+                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2 mt-4">
                                     <Plus size={14} /> Add Category
                                 </button>
                                 <button 
@@ -290,15 +333,25 @@ export default function Sidebar({
 
                         {isEditingGuideCats ? (
                             <div className="space-y-2 animate-in fade-in zoom-in-95">
-                                {guideCategories.map(cat => (
-                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10">
-                                        <input 
-                                            type="text" 
-                                            value={cat.name} 
-                                            onChange={(e) => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
-                                            className="bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
-                                        />
-                                        <div className="flex justify-between px-1">
+                                {guideCategories.map((cat, index) => (
+                                    <div 
+                                      key={cat.id} 
+                                      draggable 
+                                      onDragStart={(e) => handleGuideCatDragStart(e, index)} 
+                                      onDragOver={(e) => handleGuideCatDragOver(e, index)} 
+                                      onDragEnd={handleGuideCatDragEnd} 
+                                      className={`bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border transition-all ${draggedGuideCatIndex === index ? 'opacity-50 border-[#9df01c]' : 'border-white/10'}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0" />
+                                            <input 
+                                                type="text" 
+                                                value={cat.name} 
+                                                onChange={(e) => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
+                                                className="w-full bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
+                                            />
+                                        </div>
+                                        <div className="flex justify-between px-1 pl-8">
                                             <button 
                                                 onClick={() => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, is_hidden: !c.is_hidden} : c))} 
                                                 className="text-[9px] text-gray-400 font-bold uppercase tracking-widest hover:text-white">
@@ -314,7 +367,7 @@ export default function Sidebar({
                                 ))}
                                 <button 
                                     onClick={() => setGuideCategories([...guideCategories, { id: `temp_${Date.now()}`, name: 'New Category', is_hidden: false }])} 
-                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2">
+                                    className="w-full py-2.5 border border-dashed border-[#9df01c]/30 hover:bg-[#9df01c]/10 text-[#9df01c] text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors flex items-center justify-center gap-2 mt-4">
                                     <Plus size={14} /> Add Category
                                 </button>
                                 <button 
