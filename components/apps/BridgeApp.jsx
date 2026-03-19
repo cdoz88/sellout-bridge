@@ -3,6 +3,9 @@ import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, Check
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [apiKey, setApiKey] = useState(''); 
+  const [paypalClientId, setPaypalClientId] = useState('');
+  const [paypalSecretKey, setPaypalSecretKey] = useState('');
+  
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -28,7 +31,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [manualUnaSelect, setManualUnaSelect] = useState(''); 
   const [isManualSaving, setIsManualSaving] = useState(false);
 
-  // --- NEW: EMAIL ALIAS STATE ---
   const [aliases, setAliases] = useState([]);
   const [aliasOriginal, setAliasOriginal] = useState('');
   const [aliasTarget, setAliasTarget] = useState('');
@@ -52,10 +54,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       const res = await fetch('/api/get-settings', { headers: { 'Authorization': `Bearer ${token}` } });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
-      if (data.settings && data.settings.stripe_secret_key) {
-        setApiKey(data.settings.stripe_secret_key);
-        fetchProviderProducts(data.settings.stripe_secret_key, token);
-        fetchAudienceStats(token); 
+      if (data.settings) {
+        if (data.settings.stripe_secret_key) {
+            setApiKey(data.settings.stripe_secret_key);
+            fetchProviderProducts(data.settings.stripe_secret_key, null, token, 'stripe');
+            fetchAudienceStats(token); 
+        }
+        if (data.settings.paypal_client_id && data.settings.paypal_secret_key) {
+            setPaypalClientId(data.settings.paypal_client_id);
+            setPaypalSecretKey(data.settings.paypal_secret_key);
+            fetchProviderProducts(data.settings.paypal_client_id, data.settings.paypal_secret_key, token, 'paypal');
+        }
       }
     } catch (err) {
       console.error("Failed to load settings from database.");
@@ -97,39 +106,49 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const fetchProviderProducts = async (keyToTest, overrideToken) => {
+  const fetchProviderProducts = async (clientId, secretKey, overrideToken, provider = activeTab) => {
     const activeToken = overrideToken || session;
-    if (!keyToTest || !activeToken || ['manual', 'aliases'].includes(activeTab)) return;
-    
+    if (!activeToken || ['manual', 'aliases', 'patreon'].includes(provider)) return;
+
+    let isValid = false;
+    if (provider === 'stripe') isValid = !!clientId;
+    if (provider === 'paypal') isValid = !!clientId && !!secretKey;
+    if (!isValid) return;
+
     setIsValidatingKey(true);
     setError(null);
     setKeySuccess(false);
 
-    if (activeTab === 'stripe') {
-      try {
-        const res = await fetch('/api/get-stripe-products', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey: keyToTest })
+    try {
+        const endpoint = provider === 'stripe' ? '/api/get-stripe-products' : '/api/get-paypal-products';
+        const payload = provider === 'stripe' ? { apiKey: clientId } : { clientId, secretKey };
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
         if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        
-        setProviderProducts(prev => ({ ...prev, stripe: data.products }));
+
+        setProviderProducts(prev => ({ ...prev, [provider]: data.products }));
         setKeySuccess(true);
         setTimeout(() => setKeySuccess(false), 3000);
 
+        const savePayload = provider === 'stripe' ? { stripeKey: clientId } : { paypalClientId: clientId, paypalSecretKey: secretKey };
         await fetch('/api/save-settings', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ stripeKey: keyToTest })
+            body: JSON.stringify(savePayload)
         });
-        fetchAudienceStats(activeToken); 
-      } catch (err) {
-        setError(err.message || "Invalid Stripe Key.");
-        setProviderProducts(prev => ({ ...prev, stripe: [] }));
-      }
+
+        if (provider === 'stripe') {
+            fetchAudienceStats(activeToken);
+        }
+    } catch (err) {
+        setError(err.message || `Invalid ${provider === 'stripe' ? 'Stripe' : 'PayPal'} Credentials.`);
+        setProviderProducts(prev => ({ ...prev, [provider]: [] }));
     }
     setIsValidatingKey(false);
   };
@@ -224,14 +243,15 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     try {
       const res = await fetch('/api/sync-subscribers', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: activeTab })
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
       setTimeout(() => setSyncSubsResult(null), 5000);
-      fetchAudienceStats(); 
+      if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
       setError(err.message || "Failed to sync subscribers.");
     } finally {
@@ -585,21 +605,55 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Provider Setup
                   </h3>
                   <div className="space-y-5 relative z-10">
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                        {activeTab === 'stripe' ? 'Stripe Secret Key' : 'PayPal Secret Key'}
-                      </label>
-                      <input 
-                        type="password" 
-                        value={apiKey} 
-                        onChange={(e) => setApiKey(e.target.value)} 
-                        placeholder={activeTab === 'stripe' ? 'sk_live_... or rk_live_...' : 'Enter Secret Key...'} 
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
-                      />
-                    </div>
+                    {activeTab === 'stripe' ? (
+                        <div>
+                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                            Stripe Secret Key
+                          </label>
+                          <input 
+                            type="password" 
+                            value={apiKey} 
+                            onChange={(e) => setApiKey(e.target.value)} 
+                            placeholder="sk_live_... or rk_live_..." 
+                            className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
+                          />
+                        </div>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                    PayPal Client ID
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={paypalClientId} 
+                                    onChange={(e) => setPaypalClientId(e.target.value)} 
+                                    placeholder="Enter Client ID..." 
+                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                    PayPal Secret Key
+                                </label>
+                                <input 
+                                    type="password" 
+                                    value={paypalSecretKey} 
+                                    onChange={(e) => setPaypalSecretKey(e.target.value)} 
+                                    placeholder="Enter Secret Key..." 
+                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                />
+                            </div>
+                        </>
+                    )}
                     <button 
-                      onClick={() => fetchProviderProducts(apiKey)}
-                      disabled={isValidatingKey || !apiKey}
+                      onClick={() => fetchProviderProducts(
+                          activeTab === 'stripe' ? apiKey : paypalClientId, 
+                          activeTab === 'stripe' ? null : paypalSecretKey, 
+                          null, 
+                          activeTab
+                      )}
+                      disabled={isValidatingKey || (activeTab === 'stripe' ? !apiKey : (!paypalClientId || !paypalSecretKey))}
                       className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
                       {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
                       {keySuccess ? 'Connected' : 'Save & Sync Products'}
@@ -660,7 +714,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       {syncSubsResult?.success ? syncSubsResult.text : (activeTab === 'patreon' ? 'Run Smart Import' : 'Sync Existing Users')}
                     </button>
 
-                    {activeTab !== 'patreon' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
+                    {activeTab === 'stripe' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
                       <div className="mt-6 pt-6 border-t border-white/10">
                         <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
                           <span>Bridged Products</span>
@@ -803,7 +857,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a product to a Crowd or Space.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (

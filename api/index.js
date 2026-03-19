@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ADDED: Brand Assets & Categories Tables and Endpoints
+ * ADDED: PayPal OAuth, Webhooks, and Plan fetching
  */
 
 import express from 'express';
@@ -22,6 +22,8 @@ const sql = neon(process.env.DATABASE_URL);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
+
+// --- HELPER FUNCTIONS ---
 
 function createMultipartPayload(params) {
     const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
@@ -95,11 +97,30 @@ async function ensureSchema() {
             )`;
         } catch(e) {}
 
-        // NEW: ASSETS TABLES
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
         } catch(e) {}
+
+        // ENHANCED: Bridge Settings with PayPal Support
+        await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
+            user_id INTEGER PRIMARY KEY,
+            stripe_secret_key TEXT,
+            paypal_client_id TEXT,
+            paypal_secret_key TEXT
+        )`;
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_secret_key TEXT`; } catch(e){}
+
+        await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            creator_id INTEGER,
+            provider VARCHAR(50),
+            stripe_product_id VARCHAR(255),
+            una_module VARCHAR(50),
+            una_content_id INTEGER
+        )`;
 
     } catch (e) {
         console.error("Schema check notice:", e.message);
@@ -136,74 +157,7 @@ async function revokeCommunityAccess(email, module, contentId) {
     } catch (err) { return { error: err.message }; }
 }
 
-// --- GLOBAL ASSET ENDPOINTS ---
-
-const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
-
-app.get('/api/assets/data', async (req, res) => {
-    try {
-        await ensureSchema();
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        const isAdmin = user && ADMIN_EMAILS.includes(user.email);
-        
-        let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
-        if (!isAdmin) {
-            categories = categories.filter(c => !c.is_hidden);
-        }
-        const assets = await sql`SELECT * FROM bridge_assets ORDER BY id DESC`;
-        res.json({ categories, assets });
-    } catch (e) { res.status(500).json({error: e.message}); }
-});
-
-app.post('/api/assets/categories', async (req, res) => {
-    const { id, name, is_hidden } = req.body;
-    try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email)) return res.status(401).json({ error: "Unauthorized" });
-
-        if (id) {
-            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${is_hidden} WHERE id = ${id}`;
-        } else {
-            await sql`INSERT INTO bridge_asset_categories (name, is_hidden) VALUES (${name}, ${is_hidden})`;
-        }
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({error: e.message}); }
-});
-
-app.post('/api/assets/categories/delete', async (req, res) => {
-    const { id } = req.body;
-    try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email)) return res.status(401).json({ error: "Unauthorized" });
-
-        await sql`DELETE FROM bridge_asset_categories WHERE id = ${id}`;
-        await sql`DELETE FROM bridge_assets WHERE category_id = ${id}`;
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({error: e.message}); }
-});
-
-app.post('/api/assets', async (req, res) => {
-    const { category_id, title, file_url } = req.body;
-    try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email)) return res.status(401).json({ error: "Unauthorized" });
-
-        await sql`INSERT INTO bridge_assets (category_id, title, file_url) VALUES (${category_id}, ${title}, ${file_url})`;
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({error: e.message}); }
-});
-
-app.post('/api/assets/delete', async (req, res) => {
-    const { id } = req.body;
-    try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email)) return res.status(401).json({ error: "Unauthorized" });
-
-        await sql`DELETE FROM bridge_assets WHERE id = ${id}`;
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({error: e.message}); }
-});
-
+// --- API ENDPOINTS ---
 
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
@@ -351,7 +305,7 @@ app.get('/api/get-settings', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${userId}`;
+        const rows = await sql`SELECT * FROM bridge_settings WHERE user_id = ${userId}`;
         res.json({ settings: rows[0] || {} });
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
@@ -359,11 +313,21 @@ app.get('/api/get-settings', async (req, res) => {
 app.post('/api/save-settings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { stripeKey } = req.body;
+    const { stripeKey, paypalClientId, paypalSecretKey } = req.body;
+    
     try {
         const userId = parseInt(user.id);
-        const cleanKey = stripeKey ? stripeKey.trim() : '';
-        await sql`INSERT INTO bridge_settings (user_id, stripe_secret_key) VALUES (${userId}, ${cleanKey}) ON CONFLICT (user_id) DO UPDATE SET stripe_secret_key = EXCLUDED.stripe_secret_key`;
+        await sql`INSERT INTO bridge_settings (user_id) VALUES (${userId}) ON CONFLICT (user_id) DO NOTHING`;
+
+        if (stripeKey !== undefined) {
+            const cleanKey = stripeKey ? stripeKey.trim() : '';
+            await sql`UPDATE bridge_settings SET stripe_secret_key = ${cleanKey} WHERE user_id = ${userId}`;
+        }
+        if (paypalClientId !== undefined && paypalSecretKey !== undefined) {
+            const cleanClient = paypalClientId ? paypalClientId.trim() : '';
+            const cleanSecret = paypalSecretKey ? paypalSecretKey.trim() : '';
+            await sql`UPDATE bridge_settings SET paypal_client_id = ${cleanClient}, paypal_secret_key = ${cleanSecret} WHERE user_id = ${userId}`;
+        }
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: "Failed to save settings." }); }
 });
@@ -397,109 +361,7 @@ app.post('/api/save-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to save mappings" }); }
 });
 
-// --- BUSINESS CARD ---
-app.get('/api/get-card', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    try {
-        await ensureSchema();
-        const userId = parseInt(user.id);
-        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${userId}`;
-        res.json({ card: rows.length > 0 ? rows[0].card_data : null, slug: rows.length > 0 ? rows[0].custom_slug : '' });
-    } catch (error) { res.status(500).json({ error: "Failed to fetch card" }); }
-});
-
-app.post('/api/save-card', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    try {
-        await ensureSchema();
-        const userId = parseInt(user.id);
-        const cardData = req.body.card;
-        const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
-
-        if (slug) {
-            const check = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${userId}`;
-            if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
-        }
-
-        await sql`
-            INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) 
-            VALUES (${userId}, ${cardData}, ${slug})
-            ON CONFLICT (user_id) 
-            DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug
-        `;
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: "Failed to save card" }); }
-});
-
-app.get('/api/public-card/:slug', async (req, res) => {
-    try {
-        await ensureSchema();
-        const slug = req.params.slug.toLowerCase().trim();
-        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE custom_slug = ${slug}`;
-        if (rows.length > 0) {
-            res.json({ success: true, card: rows[0].card_data });
-        } else {
-            res.status(404).json({ error: "Card not found" });
-        }
-    } catch (error) {
-        res.status(500).json({ error: "Failed to load card" });
-    }
-});
-
-// --- BIO PAGE ---
-app.get('/api/get-bio-page', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    try {
-        await ensureSchema();
-        const userId = parseInt(user.id);
-        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${userId}`;
-        res.json({ page: rows.length > 0 ? rows[0].page_data : null, slug: rows.length > 0 ? rows[0].custom_slug : '' });
-    } catch (error) { res.status(500).json({ error: "Failed to fetch bio page" }); }
-});
-
-app.post('/api/save-bio-page', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    try {
-        await ensureSchema();
-        const userId = parseInt(user.id);
-        const pageData = req.body.page;
-        const slug = req.body.slug ? req.body.slug.toLowerCase().trim() : null;
-
-        if (slug) {
-            const check = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${userId}`;
-            if (check.length > 0) return res.status(400).json({ error: "That link is already taken! Please choose another." });
-        }
-
-        await sql`
-            INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) 
-            VALUES (${userId}, ${pageData}, ${slug})
-            ON CONFLICT (user_id) 
-            DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug
-        `;
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: "Failed to save bio page" }); }
-});
-
-app.get('/api/public-bio-page/:slug', async (req, res) => {
-    try {
-        await ensureSchema();
-        const slug = req.params.slug.toLowerCase().trim();
-        const rows = await sql`SELECT page_data FROM bridge_bio_pages WHERE custom_slug = ${slug}`;
-        if (rows.length > 0) {
-            res.json({ success: true, page: rows[0].page_data });
-        } else {
-            res.status(404).json({ error: "Bio page not found" });
-        }
-    } catch (error) {
-        res.status(500).json({ error: "Failed to load bio page" });
-    }
-});
-
-// --- STRIPE / PATREON ---
+// --- STRIPE & PAYPAL ENDPOINTS ---
 app.post('/api/get-stripe-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -512,49 +374,32 @@ app.post('/api/get-stripe-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
 });
 
-app.post('/api/patreon-import', async (req, res) => {
+app.post('/api/get-paypal-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { users, mappings } = req.body; 
+    const { clientId, secretKey } = req.body;
+    if (!clientId || !secretKey) return res.status(400).json({ error: "No API keys provided" });
+    
     try {
-        await ensureSchema();
+        // Exchange keys for OAuth Token
+        const auth = Buffer.from(`${clientId.trim()}:${secretKey.trim()}`).toString('base64');
+        const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'grant_type=client_credentials'
+        });
+        const tokenData = await tokenRes.json();
+        if (tokenData.error) throw new Error(tokenData.error_description || "Invalid PayPal credentials");
 
-        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
-        const aliasesMap = {};
-        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+        // Fetch Plans
+        const plansRes = await fetch('https://api-m.paypal.com/v1/billing/plans?page_size=50', {
+            headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+        });
+        const plansData = await plansRes.json();
+        if (!plansData.plans) throw new Error("Could not fetch plans.");
 
-        const mappingsMap = {};
-        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
-        
-        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
-        const incomingMap = {};
-        users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
-
-        let importCount = 0; let revokeCount = 0;
-        for (const dbUser of existingDb) {
-            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
-                const oldMapping = mappingsMap[dbUser.tier];
-                if (oldMapping) {
-                    const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
-                    await revokeCommunityAccess(targetEmail, oldMapping.module, oldMapping.id);
-                }
-                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
-                revokeCount++;
-                await new Promise(resolve => setTimeout(resolve, 250)); 
-            }
-        }
-        for (const [email, tier] of Object.entries(incomingMap)) {
-            const { module, id } = mappingsMap[tier];
-            const targetEmail = aliasesMap[email] || email;
-            const result = await grantCommunityAccess(targetEmail, module, id);
-            
-            const newStatus = result.success ? 'bridged' : 'pending';
-            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
-            if (result.success) importCount++;
-            await new Promise(resolve => setTimeout(resolve, 250)); 
-        }
-        res.json({ success: true, added: importCount, revoked: revokeCount });
-    } catch (error) { res.status(500).json({ error: "Failed to process Patreon import." }); }
+        res.json({ products: plansData.plans.map(p => ({ id: p.id, name: p.name })) });
+    } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
 });
 
 app.get('/api/get-subscribers', async (req, res) => {
@@ -571,7 +416,7 @@ app.get('/api/get-subscribers', async (req, res) => {
         if (settingsRows.length === 0 || !settingsRows[0].stripe_secret_key) return res.json({ stats: [] });
         
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
-        const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
         const products = await stripe.products.list({ active: true, limit: 100 });
         const productMap = {};
@@ -611,9 +456,16 @@ app.get('/api/get-subscribers', async (req, res) => {
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { provider } = req.body;
+
     try {
         await ensureSchema();
-        
+
+        // PayPal blocks global subscription fetching without individual plan IDs and specific timeframes, so we instruct the user to use Webhooks.
+        if (provider === 'paypal') {
+            return res.status(400).json({ error: "PayPal does not support bulk subscription syncing automatically. New subscriptions will be bridged natively via your Webhook configuration, or you can use the Manual Access tab to bridge historic users." });
+        }
+
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
         aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
@@ -621,7 +473,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const settingsRows = await sql`SELECT stripe_secret_key FROM bridge_settings WHERE user_id = ${user.id}`;
         if (settingsRows.length === 0) return res.status(400).json({ error: "Stripe key not found." });
         const stripe = new Stripe(settingsRows[0].stripe_secret_key);
-        const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id}`;
+        const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => mappingsMap[row.stripe_product_id] = { module: row.una_module, id: row.una_content_id });
         const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
@@ -675,6 +527,7 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+// WEBHOOK HANDLERS
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     try {
@@ -686,7 +539,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
             const stripeProductId = session.metadata?.product_id;
             let bridgeStatus = 'pending';
             if (stripeProductId && customerEmail) {
-                const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId} AND provider = 'stripe'`;
                 if (rows.length > 0) {
                     const userId = rows[0].user_id;
                     const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
@@ -708,7 +561,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
                 const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                 if (customerRows.length > 0) {
                     const customerEmail = customerRows[0].email;
-                    const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                    const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId} AND provider = 'stripe'`;
                     if (mapRows.length > 0) {
                         const userId = mapRows[0].user_id;
                         const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
@@ -729,7 +582,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
                  const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
                  if (customerRows.length > 0) {
                      const customerEmail = customerRows[0].email;
-                     const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId}`;
+                     const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId} AND provider = 'stripe'`;
                      if (mapRows.length > 0) {
                          const userId = mapRows[0].user_id;
                          const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
@@ -754,10 +607,102 @@ app.post('/api/stripe-webhook', async (req, res) => {
     res.json({ received: true });
 });
 
-// ==========================================
-// OAUTH PROVIDER & WP API PROXY ENDPOINTS (Unchanged)
-// ==========================================
+app.post('/api/paypal-webhook', async (req, res) => {
+    const event = req.body;
+    try {
+        await ensureSchema();
+        if (event.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+            const sub = event.resource;
+            const customerEmail = sub.subscriber?.email_address;
+            const customerId = sub.id; 
+            const planId = sub.plan_id;
+            let bridgeStatus = 'pending';
+            if (planId && customerEmail) {
+                const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${planId} AND provider = 'paypal'`;
+                if (rows.length > 0) {
+                    const userId = rows[0].user_id;
+                    const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
+                    const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
+                    
+                    const result = await grantCommunityAccess(targetEmail, rows[0].una_module, rows[0].una_content_id);
+                    bridgeStatus = result.success ? 'bridged' : 'pending';
+                }
+            }
+            if (customerId && customerEmail) {
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${customerId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+            }
+        } 
+        else if (['BILLING.SUBSCRIPTION.CANCELLED', 'BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.EXPIRED'].includes(event.event_type)) {
+            const sub = event.resource;
+            const customerId = sub.id;
+            const planId = sub.plan_id;
+            if (customerId && planId) {
+                const customerRows = await sql`SELECT email FROM bridge_customers WHERE stripe_customer_id = ${customerId}`;
+                if (customerRows.length > 0) {
+                    const customerEmail = customerRows[0].email;
+                    const mapRows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${planId} AND provider = 'paypal'`;
+                    if (mapRows.length > 0) {
+                        const userId = mapRows[0].user_id;
+                        const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
+                        const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
+                        
+                        await revokeCommunityAccess(targetEmail, mapRows[0].una_module, mapRows[0].una_content_id);
+                        await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+                    }
+                }
+            }
+        }
+    } catch (error) { console.error('PayPal Webhook Error Processing:', error); }
+    res.json({ received: true });
+});
 
+// --- REMAINDER API PROXIES ---
+app.post('/api/patreon-import', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { users, mappings } = req.body; 
+    try {
+        await ensureSchema();
+
+        const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
+        const aliasesMap = {};
+        aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
+
+        const mappingsMap = {};
+        mappings.forEach(m => { mappingsMap[m.productId] = { module: m.unaModule, id: m.unaId }; });
+        
+        const existingDb = await sql`SELECT email, tier, status FROM bridge_patreon_users`;
+        const incomingMap = {};
+        users.forEach(u => { if (mappingsMap[u.tier]) incomingMap[u.email] = u.tier; });
+
+        let importCount = 0; let revokeCount = 0;
+        for (const dbUser of existingDb) {
+            if (dbUser.status === 'bridged' && !incomingMap[dbUser.email]) {
+                const oldMapping = mappingsMap[dbUser.tier];
+                if (oldMapping) {
+                    const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
+                    await revokeCommunityAccess(targetEmail, oldMapping.module, oldMapping.id);
+                }
+                await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
+                revokeCount++;
+                await new Promise(resolve => setTimeout(resolve, 250)); 
+            }
+        }
+        for (const [email, tier] of Object.entries(incomingMap)) {
+            const { module, id } = mappingsMap[tier];
+            const targetEmail = aliasesMap[email] || email;
+            const result = await grantCommunityAccess(targetEmail, module, id);
+            
+            const newStatus = result.success ? 'bridged' : 'pending';
+            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            if (result.success) importCount++;
+            await new Promise(resolve => setTimeout(resolve, 250)); 
+        }
+        res.json({ success: true, added: importCount, revoked: revokeCount });
+    } catch (error) { res.status(500).json({ error: "Failed to process Patreon import." }); }
+});
+
+// OAUTH PROVIDER ENDPOINTS
 app.post('/api/oauth/approve', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
