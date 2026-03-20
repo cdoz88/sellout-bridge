@@ -15,7 +15,7 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchAssets = async () => {
         try {
-            const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.assets) setAssets(data.assets);
@@ -192,7 +192,6 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
                             </div>
                             <p className="text-sm font-bold text-white truncate mb-4 px-1">{asset.title}</p>
                             
-                            {/* FIXED DOWNLOAD BUTTON: Uses the proven backend proxy endpoint */}
                             <a 
                                 href={`https://api.fytsolutions.com/api.php?action=download&file=${encodeURIComponent(asset.file_url)}&name=${encodeURIComponent(asset.title || 'sc_asset')}`}
                                 className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white"
