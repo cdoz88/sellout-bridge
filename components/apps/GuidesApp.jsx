@@ -26,9 +26,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchGuides = async () => {
         try {
-            const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` }
-            });
+            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.guides) setGuides(data.guides);

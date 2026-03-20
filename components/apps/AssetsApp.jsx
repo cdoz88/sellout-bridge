@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, Plus, Loader2, Trash2, Download, X } from 'lucide-react';
+import { Image as ImageIcon, Plus, Loader2, Trash2, Download, X, Folder } from 'lucide-react';
 
-export default function AssetsApp({ session, unaData, activeTab }) {
+export default function AssetsApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
@@ -15,9 +15,7 @@ export default function AssetsApp({ session, unaData, activeTab }) {
 
     const fetchAssets = async () => {
         try {
-            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` }
-            });
+            const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.assets) setAssets(data.assets);
@@ -96,10 +94,68 @@ export default function AssetsApp({ session, unaData, activeTab }) {
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
+    // LANDING PAGE (GRID OF CATEGORIES)
+    if (activeTab === 'library' || !activeCategory) {
+        return (
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
+                    <div>
+                        <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
+                            SC Brand Assets
+                        </h2>
+                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                            Download official logos, graphics, and promotional materials.
+                        </p>
+                    </div>
+                    {isAdmin && (
+                        <div className="flex gap-3 w-full md:w-auto justify-end">
+                            <button 
+                                onClick={() => {
+                                    setUploadData({ title: '', category_id: categories.length > 0 ? categories[0].id : '', file_url: '' });
+                                    setShowUploadModal(true);
+                                }}
+                                className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                                <Plus size={14} /> <span className="hidden sm:inline">Upload Asset</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {categories.length === 0 ? (
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
+                        <Folder size={48} className="text-gray-600 mb-4 opacity-50" />
+                        <p className="text-gray-400 font-bold text-sm">Library Empty</p>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-widest mt-2">
+                            {isAdmin ? 'Use the sidebar to create your first Category!' : 'Assets will appear here once added by an administrator.'}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {categories.map(cat => {
+                            const assetCount = assets.filter(a => a.category_id === cat.id).length;
+                            return (
+                                <button key={cat.id} onClick={() => setActiveTab(`cat_${cat.id}`)} className="bg-[#111] border border-white/5 hover:border-[#9df01c]/50 hover:bg-[#151515] p-6 rounded-3xl text-left transition-all group shadow-lg flex flex-col items-start h-full">
+                                    <div className="w-14 h-14 rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-[#9df01c]/10 transition-all">
+                                        <Folder size={28} className="text-[#9df01c]" />
+                                    </div>
+                                    <h3 className="text-xl font-black text-white mb-2 group-hover:text-[#9df01c] transition-colors">{cat.name}</h3>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-auto">{assetCount} {assetCount === 1 ? 'Asset' : 'Assets'}</p>
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
+                    <button onClick={() => setActiveTab('library')} className="text-gray-500 hover:text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 mb-4 transition-colors">
+                        &larr; Return to Library
+                    </button>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
                         {activeCategory ? activeCategory.name : 'SC Brand Assets'}
                     </h2>
@@ -122,15 +178,7 @@ export default function AssetsApp({ session, unaData, activeTab }) {
                 )}
             </div>
 
-            {categories.length === 0 ? (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
-                    <ImageIcon size={48} className="text-gray-600 mb-4 opacity-50" />
-                    <p className="text-gray-400 font-bold text-sm">Asset Library Empty</p>
-                    <p className="text-gray-500 text-[10px] uppercase tracking-widest mt-2">
-                        {isAdmin ? 'Use the sidebar to create your first Category!' : 'Assets will appear here once uploaded by an administrator.'}
-                    </p>
-                </div>
-            ) : visibleAssets.length === 0 ? (
+            {visibleAssets.length === 0 ? (
                 <div className="border-2 border-dashed border-white/5 rounded-[2rem] p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
                     <ImageIcon size={48} className="text-gray-600 mb-4 opacity-30" />
                     <p className="text-gray-400 font-bold text-sm">No assets in this category</p>
