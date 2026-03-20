@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Hardened order_index parsing and added strict schema checks
+ * FIX: Added Bulk Save endpoints for Categories to prevent serverless race conditions.
  */
 
 import express from 'express';
@@ -187,25 +187,26 @@ app.get('/api/guides/data', async (req, res) => {
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-app.post('/api/guides/categories', async (req, res) => {
-    const { id, name, is_hidden, order_index } = req.body;
+// NEW BULK SAVE FOR GUIDES
+app.post('/api/guides/categories/bulk', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        let safeOrder = 0;
-        if (order_index !== undefined && order_index !== null) {
-            safeOrder = parseInt(order_index, 10);
-            if (isNaN(safeOrder)) safeOrder = 0;
-        }
-
-        const isHiddenBool = is_hidden === true || is_hidden === 'true';
-
-        if (id) {
-            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
-        } else {
-            await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const safeOrder = i;
+                const isHiddenBool = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_guide_categories SET name = ${cat.name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
+                }
+            }
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -252,6 +253,7 @@ app.post('/api/guides/delete', async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
+
 // --- ASSET ENDPOINTS ---
 app.get('/api/assets/data', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -269,25 +271,26 @@ app.get('/api/assets/data', async (req, res) => {
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-app.post('/api/assets/categories', async (req, res) => {
-    const { id, name, is_hidden, order_index } = req.body;
+// NEW BULK SAVE FOR ASSETS
+app.post('/api/assets/categories/bulk', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        let safeOrder = 0;
-        if (order_index !== undefined && order_index !== null) {
-            safeOrder = parseInt(order_index, 10);
-            if (isNaN(safeOrder)) safeOrder = 0;
-        }
-
-        const isHiddenBool = is_hidden === true || is_hidden === 'true';
-
-        if (id) {
-            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
-        } else {
-            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const safeOrder = i;
+                const isHiddenBool = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_asset_categories SET name = ${cat.name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
+                }
+            }
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -526,7 +529,7 @@ app.post('/api/stripe/oauth/callback', async (req, res) => {
         const response = await fetch('https://connect.stripe.com/oauth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: newSearchParams({
+            body: new URLSearchParams({
                 grant_type: 'authorization_code',
                 code: code,
                 client_secret: process.env.STRIPE_SECRET_KEY
