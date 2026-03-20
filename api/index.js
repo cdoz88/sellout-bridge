@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Enforced order_index column additions and prevented browser caching.
+ * FIX: Hardened order_index parsing and added strict email validation
  */
 
 import express from 'express';
@@ -179,7 +179,7 @@ app.get('/api/guides/data', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
         let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
@@ -194,9 +194,14 @@ app.post('/api/guides/categories', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const safeOrder = parseInt(order_index) || 0;
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
         const isHiddenBool = is_hidden === true || is_hidden === 'true';
 
         if (id) {
@@ -213,7 +218,7 @@ app.post('/api/guides/categories/delete', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`DELETE FROM bridge_guide_categories WHERE id = ${id}`;
         await sql`DELETE FROM bridge_guides WHERE category_id = ${id}`;
@@ -226,7 +231,7 @@ app.post('/api/guides', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         if (id) {
             await sql`UPDATE bridge_guides SET category_id = ${category_id}, title = ${title}, type = ${type}, content = ${content} WHERE id = ${id}`;
@@ -242,7 +247,7 @@ app.post('/api/guides/delete', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`DELETE FROM bridge_guides WHERE id = ${id}`;
         res.json({ success: true });
@@ -255,7 +260,7 @@ app.get('/api/assets/data', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        const isAdmin = user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
         let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) {
@@ -271,9 +276,14 @@ app.post('/api/assets/categories', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const safeOrder = parseInt(order_index) || 0;
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
         const isHiddenBool = is_hidden === true || is_hidden === 'true';
 
         if (id) {
@@ -290,7 +300,7 @@ app.post('/api/assets/categories/delete', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`DELETE FROM bridge_asset_categories WHERE id = ${id}`;
         await sql`DELETE FROM bridge_assets WHERE category_id = ${id}`;
@@ -303,7 +313,7 @@ app.post('/api/assets', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`INSERT INTO bridge_assets (category_id, title, file_url) VALUES (${category_id}, ${title}, ${file_url})`;
         res.json({ success: true });
@@ -315,7 +325,7 @@ app.post('/api/assets/delete', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`DELETE FROM bridge_assets WHERE id = ${id}`;
         res.json({ success: true });

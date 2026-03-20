@@ -26,7 +26,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchGuides = async () => {
         try {
-            const res = await fetch('/api/guides/data', { 
+            // Aggressive cache buster added here
+            const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
                 headers: { 'Authorization': `Bearer ${session}` },
                 cache: 'no-store'
             });
@@ -553,4 +554,5 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
             )}
         </div>
     );
+}
 }

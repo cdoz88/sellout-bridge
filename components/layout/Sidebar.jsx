@@ -22,7 +22,8 @@ export default function Sidebar({
     const fetchCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch('/api/assets/data', { 
+            // Aggressive cache buster added here
+            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { 
                 headers: { 'Authorization': `Bearer ${session}` },
                 cache: 'no-store'
             });
@@ -37,7 +38,8 @@ export default function Sidebar({
     const fetchGuideCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch('/api/guides/data', { 
+            // Aggressive cache buster added here
+            const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
                 headers: { 'Authorization': `Bearer ${session}` },
                 cache: 'no-store'
             });
