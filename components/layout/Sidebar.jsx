@@ -22,7 +22,10 @@ export default function Sidebar({
     const fetchCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch('/api/assets/data', { 
+                headers: { 'Authorization': `Bearer ${session}` },
+                cache: 'no-store'
+            });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.categories) {
@@ -34,7 +37,10 @@ export default function Sidebar({
     const fetchGuideCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch('/api/guides/data', { 
+                headers: { 'Authorization': `Bearer ${session}` },
+                cache: 'no-store'
+            });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.categories) {
@@ -82,7 +88,7 @@ export default function Sidebar({
             });
         }
         setIsEditingCats(false);
-        fetchCategories();
+        await fetchCategories();
         window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
@@ -97,7 +103,7 @@ export default function Sidebar({
             headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
         });
-        fetchCategories();
+        await fetchCategories();
         window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
@@ -130,7 +136,7 @@ export default function Sidebar({
             });
         }
         setIsEditingGuideCats(false);
-        fetchGuideCategories();
+        await fetchGuideCategories();
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
@@ -145,7 +151,7 @@ export default function Sidebar({
             headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
         });
-        fetchGuideCategories();
+        await fetchGuideCategories();
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 

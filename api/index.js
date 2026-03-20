@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FIX: Added ALTER TABLE checks to ensure order_index columns exist in the database.
+ * FIX: Enforced order_index column additions and prevented browser caching.
  */
 
 import express from 'express';
@@ -101,16 +101,18 @@ async function ensureSchema() {
             await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
             
-            try { await sql`ALTER TABLE bridge_asset_categories ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
-            try { await sql`ALTER TABLE bridge_assets ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
+            // Force column addition (catch will absorb error if it already exists)
+            try { await sql`ALTER TABLE bridge_asset_categories ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
+            try { await sql`ALTER TABLE bridge_assets ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_guide_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_guides (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), type VARCHAR(50), content JSONB, order_index INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
             
-            try { await sql`ALTER TABLE bridge_guide_categories ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
-            try { await sql`ALTER TABLE bridge_guides ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
+            // Force column addition (catch will absorb error if it already exists)
+            try { await sql`ALTER TABLE bridge_guide_categories ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
+            try { await sql`ALTER TABLE bridge_guides ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -173,6 +175,7 @@ async function revokeCommunityAccess(email, module, contentId) {
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
 
 app.get('/api/guides/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -189,15 +192,17 @@ app.get('/api/guides/data', async (req, res) => {
 app.post('/api/guides/categories', async (req, res) => {
     const { id, name, is_hidden, order_index } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const safeOrder = order_index !== undefined ? order_index : 0;
+        const safeOrder = parseInt(order_index) || 0;
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
 
         if (id) {
-            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${is_hidden}, order_index = ${safeOrder} WHERE id = ${id}`;
+            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
         } else {
-            await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${name}, ${is_hidden}, ${safeOrder})`;
+            await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -206,6 +211,7 @@ app.post('/api/guides/categories', async (req, res) => {
 app.post('/api/guides/categories/delete', async (req, res) => {
     const { id } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
@@ -218,6 +224,7 @@ app.post('/api/guides/categories/delete', async (req, res) => {
 app.post('/api/guides', async (req, res) => {
     const { id, category_id, title, type, content } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
@@ -233,6 +240,7 @@ app.post('/api/guides', async (req, res) => {
 app.post('/api/guides/delete', async (req, res) => {
     const { id } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
@@ -243,6 +251,7 @@ app.post('/api/guides/delete', async (req, res) => {
 
 // --- ASSET ENDPOINTS ---
 app.get('/api/assets/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -260,15 +269,17 @@ app.get('/api/assets/data', async (req, res) => {
 app.post('/api/assets/categories', async (req, res) => {
     const { id, name, is_hidden, order_index } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const safeOrder = order_index !== undefined ? order_index : 0;
+        const safeOrder = parseInt(order_index) || 0;
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
 
         if (id) {
-            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${is_hidden}, order_index = ${safeOrder} WHERE id = ${id}`;
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
         } else {
-            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${is_hidden}, ${safeOrder})`;
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -277,6 +288,7 @@ app.post('/api/assets/categories', async (req, res) => {
 app.post('/api/assets/categories/delete', async (req, res) => {
     const { id } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
@@ -289,6 +301,7 @@ app.post('/api/assets/categories/delete', async (req, res) => {
 app.post('/api/assets', async (req, res) => {
     const { category_id, title, file_url } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
@@ -300,6 +313,7 @@ app.post('/api/assets', async (req, res) => {
 app.post('/api/assets/delete', async (req, res) => {
     const { id } = req.body;
     try {
+        await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 

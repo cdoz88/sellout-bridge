@@ -26,7 +26,10 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchGuides = async () => {
         try {
-            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch('/api/guides/data', { 
+                headers: { 'Authorization': `Bearer ${session}` },
+                cache: 'no-store'
+            });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.guides) setGuides(data.guides);
@@ -232,7 +235,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
                 {/* MODAL IS ALSO RENDERED HERE SO ADMINS CAN CREATE FROM THE HOME PAGE */}
                 {showModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
                         <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
                             <div className="flex justify-between items-center p-6 border-b border-white/5 flex-shrink-0">
                                 <h3 className="text-xl font-black uppercase tracking-tight text-white">{editingGuide.id ? 'Edit Guide' : 'Create Guide'}</h3>
@@ -274,6 +277,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                             </label>
                                             
                                             <div className="border border-white/10 rounded-xl overflow-hidden focus-within:border-[#9df01c] transition-colors">
+                                                {/* Article Editor Toolbar */}
                                                 <div className="bg-black p-2 border-b border-white/10 flex items-center gap-1 overflow-x-auto">
                                                     <button title="Bold" onClick={() => insertTag('<b class="text-white">', '</b>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Bold size={16}/></button>
                                                     <button title="Italic" onClick={() => insertTag('<i>', '</i>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Italic size={16}/></button>
