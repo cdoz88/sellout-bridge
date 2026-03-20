@@ -555,4 +555,3 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         </div>
     );
 }
-}
