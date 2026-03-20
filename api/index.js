@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * ROLLED BACK: Removed bulk save and reordering logic for stability.
+ * FIX: Implemented true /bulk endpoints to prevent database locking/collisions
  */
 
 import express from 'express';
@@ -98,13 +98,17 @@ async function ensureSchema() {
         } catch(e) {}
 
         try {
-            await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE)`;
+            await sql`CREATE TABLE IF NOT EXISTS bridge_asset_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_assets (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), file_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+            
+            try { await sql`ALTER TABLE bridge_asset_categories ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
         try {
-            await sql`CREATE TABLE IF NOT EXISTS bridge_guide_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE)`;
+            await sql`CREATE TABLE IF NOT EXISTS bridge_guide_categories (id SERIAL PRIMARY KEY, name VARCHAR(255), is_hidden BOOLEAN DEFAULT FALSE, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_guides (id SERIAL PRIMARY KEY, category_id INTEGER, title VARCHAR(255), type VARCHAR(50), content JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+            
+            try { await sql`ALTER TABLE bridge_guide_categories ADD COLUMN order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -167,12 +171,13 @@ async function revokeCommunityAccess(email, module, contentId) {
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
 
 app.get('/api/guides/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
-        let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY id ASC`;
+        let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
         
         const guides = await sql`SELECT * FROM bridge_guides ORDER BY id DESC`;
@@ -180,19 +185,25 @@ app.get('/api/guides/data', async (req, res) => {
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-app.post('/api/guides/categories', async (req, res) => {
-    const { id, name, is_hidden } = req.body;
+// NEW BULK ENDPOINT FOR GUIDES
+app.post('/api/guides/categories/bulk', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const isHiddenBool = is_hidden === true || is_hidden === 'true';
-
-        if (id) {
-            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${isHiddenBool} WHERE id = ${id}`;
-        } else {
-            await sql`INSERT INTO bridge_guide_categories (name, is_hidden) VALUES (${name}, ${isHiddenBool})`;
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const isHidden = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_guide_categories SET name = ${cat.name}, is_hidden = ${isHidden}, order_index = ${i} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHidden}, ${i})`;
+                }
+            }
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -241,12 +252,13 @@ app.post('/api/guides/delete', async (req, res) => {
 
 // --- ASSET ENDPOINTS ---
 app.get('/api/assets/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
-        let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY id ASC`;
+        let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) {
             categories = categories.filter(c => !c.is_hidden);
         }
@@ -255,19 +267,25 @@ app.get('/api/assets/data', async (req, res) => {
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-app.post('/api/assets/categories', async (req, res) => {
-    const { id, name, is_hidden } = req.body;
+// NEW BULK ENDPOINT FOR ASSETS
+app.post('/api/assets/categories/bulk', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const isHiddenBool = is_hidden === true || is_hidden === 'true';
-
-        if (id) {
-            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool} WHERE id = ${id}`;
-        } else {
-            await sql`INSERT INTO bridge_asset_categories (name, is_hidden) VALUES (${name}, ${isHiddenBool})`;
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const isHidden = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_asset_categories SET name = ${cat.name}, is_hidden = ${isHidden}, order_index = ${i} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHidden}, ${i})`;
+                }
+            }
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
