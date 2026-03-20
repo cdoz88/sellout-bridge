@@ -73,19 +73,13 @@ export default function Sidebar({
     const handleSaveCategories = async () => {
         setIsSavingCats(true);
         try {
-            for (let i = 0; i < categories.length; i++) {
-                const cat = categories[i];
-                await fetch('/api/assets/categories', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
-                        name: cat.name, 
-                        is_hidden: cat.is_hidden,
-                        order_index: i
-                    })
-                });
-            }
+            // PROPER BULK SAVE ENDPOINT
+            await fetch('/api/assets/categories/bulk', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categories })
+            });
+            
             await fetchCategories();
             window.dispatchEvent(new CustomEvent('assets-updated'));
             setIsEditingCats(false);
@@ -129,19 +123,13 @@ export default function Sidebar({
     const handleSaveGuideCategories = async () => {
         setIsSavingGuideCats(true);
         try {
-            for (let i = 0; i < guideCategories.length; i++) {
-                const cat = guideCategories[i];
-                await fetch('/api/guides/categories', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
-                        name: cat.name, 
-                        is_hidden: cat.is_hidden,
-                        order_index: i
-                    })
-                });
-            }
+            // PROPER BULK SAVE ENDPOINT
+            await fetch('/api/guides/categories/bulk', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ categories: guideCategories })
+            });
+            
             await fetchGuideCategories();
             window.dispatchEvent(new CustomEvent('guides-updated'));
             setIsEditingGuideCats(false);
