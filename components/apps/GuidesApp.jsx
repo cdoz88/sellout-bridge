@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder } from 'lucide-react';
+import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical } from 'lucide-react';
 
 export default function GuidesApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
@@ -22,9 +22,10 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         content: ''
     });
 
+    const [draggedFaqIndex, setDraggedFaqIndex] = useState(null);
+
     const fetchGuides = async () => {
         try {
-            // Aggressive cache buster added here
             const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
                 headers: { 'Authorization': `Bearer ${session}` },
                 cache: 'no-store'
@@ -157,6 +158,19 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
             content: editingGuide.content.filter(item => item.id !== id)
         });
     };
+
+    const handleFaqDragStart = (e, index) => { setDraggedFaqIndex(index); e.dataTransfer.effectAllowed = 'move'; };
+    const handleFaqDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedFaqIndex === null || draggedFaqIndex === index) return;
+        const newContent = [...editingGuide.content];
+        const draggedItem = newContent[draggedFaqIndex];
+        newContent.splice(draggedFaqIndex, 1);
+        newContent.splice(index, 0, draggedItem);
+        setDraggedFaqIndex(index);
+        setEditingGuide({ ...editingGuide, content: newContent });
+    };
+    const handleFaqDragEnd = () => setDraggedFaqIndex(null);
 
 
     // --- RENDERING ---
@@ -296,7 +310,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
                                             <div className="space-y-4">
                                                 {(Array.isArray(editingGuide.content) ? editingGuide.content : []).map((faq, index) => (
-                                                    <div key={faq.id} className="bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors">
+                                                    <div key={faq.id} draggable onDragStart={(e) => handleFaqDragStart(e, index)} onDragOver={(e) => handleFaqDragOver(e, index)} onDragEnd={handleFaqDragEnd} className={`bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors ${draggedFaqIndex === index ? 'opacity-50 border-[#9df01c]' : ''}`}>
+                                                        <div className="text-gray-600 cursor-grab hover:text-white mt-3 flex-shrink-0"><GripVertical size={16} /></div>
                                                         <div className="flex-1 space-y-3">
                                                             <input type="text" value={faq.q} onChange={e => updateFaqItem(faq.id, 'q', e.target.value)} placeholder="Question or Header text" className="w-full bg-transparent border-b border-white/10 pb-2 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
                                                             <textarea rows="2" value={faq.a} onChange={e => updateFaqItem(faq.id, 'a', e.target.value)} placeholder="Answer or content block..." className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-xs text-gray-300 focus:border-[#9df01c] outline-none transition-colors" />
@@ -508,7 +523,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
                                         <div className="space-y-4">
                                             {(Array.isArray(editingGuide.content) ? editingGuide.content : []).map((faq, index) => (
-                                                <div key={faq.id} className="bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors">
+                                                <div key={faq.id} draggable onDragStart={(e) => handleFaqDragStart(e, index)} onDragOver={(e) => handleFaqDragOver(e, index)} onDragEnd={handleFaqDragEnd} className={`bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors ${draggedFaqIndex === index ? 'opacity-50 border-[#9df01c]' : ''}`}>
+                                                    <div className="text-gray-600 cursor-grab hover:text-white mt-3 flex-shrink-0"><GripVertical size={16} /></div>
                                                     <div className="flex-1 space-y-3">
                                                         <input type="text" value={faq.q} onChange={e => updateFaqItem(faq.id, 'q', e.target.value)} placeholder="Question or Header text" className="w-full bg-transparent border-b border-white/10 pb-2 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
                                                         <textarea rows="2" value={faq.a} onChange={e => updateFaqItem(faq.id, 'a', e.target.value)} placeholder="Answer or content block..." className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-xs text-gray-300 focus:border-[#9df01c] outline-none transition-colors" />
@@ -524,18 +540,16 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                 )}
                             </div>
 
-                        </div>
-
-                        <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
-                            <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
-                            <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
-                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
-                            </button>
+                            <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
+                                <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
+                                <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
+                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
-    );
-}
+                )}
+            </div>
+        );
+    }
 }
