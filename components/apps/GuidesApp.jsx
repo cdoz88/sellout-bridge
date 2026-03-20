@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, GripVertical, Save, Pencil, Folder } from 'lucide-react';
 
 export default function GuidesApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
@@ -26,10 +26,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchGuides = async () => {
         try {
-            const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` },
-                cache: 'no-store'
-            });
+            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.guides) setGuides(data.guides);
@@ -91,7 +88,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         } catch(e) {}
     };
 
-    // --- RICH TEXT / HTML INJECTOR (ARTICLE) ---
     const insertTag = (prefix, suffix) => {
         const textarea = document.getElementById('article-editor');
         if (!textarea) return;
@@ -136,7 +132,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         }
     };
 
-    // --- FAQ BUILDER HELPERS ---
     const addFaqItem = () => {
         const currentContent = Array.isArray(editingGuide.content) ? editingGuide.content : [];
         setEditingGuide({ 
@@ -172,8 +167,107 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
     };
     const handleFaqDragEnd = () => setDraggedFaqIndex(null);
 
+    const renderAdminModal = () => (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
+                <div className="flex justify-between items-center p-6 border-b border-white/5 flex-shrink-0">
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white">{editingGuide.id ? 'Edit Guide' : 'Create Guide'}</h3>
+                    <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
+                </div>
+                
+                <div className="overflow-y-auto flex-1 p-6 sm:p-8 space-y-6 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Guide Title</label>
+                            <input type="text" value={editingGuide.title} onChange={e => setEditingGuide({...editingGuide, title: e.target.value})} placeholder="e.g. How to connect Stripe" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                        </div>
+                        <div>
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Category</label>
+                            <select value={editingGuide.category_id} onChange={e => setEditingGuide({...editingGuide, category_id: parseInt(e.target.value)})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors appearance-none">
+                                <option value="" disabled>Select Category...</option>
+                                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
 
-    // --- RENDERING ---
+                    {!editingGuide.id && (
+                        <div>
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Content Format</label>
+                            <div className="flex bg-black p-1 rounded-xl border border-white/10">
+                                <button onClick={() => setEditingGuide({...editingGuide, type: 'article', content: ''})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'article' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><Newspaper size={16}/> Standard Article</button>
+                                <button onClick={() => setEditingGuide({...editingGuide, type: 'faq', content: []})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'faq' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><LayoutList size={16}/> FAQ Accordion</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pt-6 border-t border-white/5">
+                        {editingGuide.type === 'article' ? (
+                            <div>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block flex items-center justify-between">
+                                    <span>Article Content</span>
+                                    <span className="text-gray-600 font-normal normal-case tracking-normal">Supports plain text & HTML</span>
+                                </label>
+                                
+                                <div className="border border-white/10 rounded-xl overflow-hidden focus-within:border-[#9df01c] transition-colors">
+                                    <div className="bg-black p-2 border-b border-white/10 flex items-center gap-1 overflow-x-auto">
+                                        <button title="Bold" onClick={() => insertTag('<b class="text-white">', '</b>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Bold size={16}/></button>
+                                        <button title="Italic" onClick={() => insertTag('<i>', '</i>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Italic size={16}/></button>
+                                        <button title="Header" onClick={() => insertTag('<h2 class="text-2xl font-bold text-white mt-8 mb-4">', '</h2>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Heading2 size={16}/></button>
+                                        <div className="w-px h-6 bg-white/10 mx-2"></div>
+                                        <button title="Link" onClick={() => { const url = window.prompt("Enter Link URL:"); if(url) insertTag(`<a href="${url}" target="_blank" class="text-[#9df01c] hover:underline font-medium">`, '</a>'); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Link2 size={16}/></button>
+                                        <label title="Upload Image" className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer">
+                                            <ImageIcon size={16}/>
+                                            <input type="file" className="hidden" onChange={handleEditorImageUpload} />
+                                        </label>
+                                        <button title="Embed YouTube Video" onClick={embedVideo} className="p-2 text-gray-400 hover:text-[#9df01c] hover:bg-white/5 rounded-lg"><Video size={16}/></button>
+                                    </div>
+                                    
+                                    <textarea 
+                                        id="article-editor"
+                                        rows="12" 
+                                        value={editingGuide.content} 
+                                        onChange={e => setEditingGuide({...editingGuide, content: e.target.value})} 
+                                        className="w-full bg-[#0a0a0a] p-4 text-sm text-gray-300 outline-none font-mono resize-y" 
+                                        placeholder="Type your guide content here..." 
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">FAQ Blocks</label>
+                                    <button onClick={addFaqItem} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 hover:bg-[#9df01c]/20 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"><Plus size={12}/> Add Block</button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {(Array.isArray(editingGuide.content) ? editingGuide.content : []).map((faq, index) => (
+                                        <div key={faq.id} draggable onDragStart={(e) => handleFaqDragStart(e, index)} onDragOver={(e) => handleFaqDragOver(e, index)} onDragEnd={handleFaqDragEnd} className={`bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors ${draggedFaqIndex === index ? 'opacity-50 border-[#9df01c]' : ''}`}>
+                                            <div className="text-gray-600 cursor-grab hover:text-white mt-3 flex-shrink-0"><GripVertical size={16} /></div>
+                                            <div className="flex-1 space-y-3">
+                                                <input type="text" value={faq.q} onChange={e => updateFaqItem(faq.id, 'q', e.target.value)} placeholder="Question or Header text" className="w-full bg-transparent border-b border-white/10 pb-2 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                                <textarea rows="2" value={faq.a} onChange={e => updateFaqItem(faq.id, 'a', e.target.value)} placeholder="Answer or content block..." className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-xs text-gray-300 focus:border-[#9df01c] outline-none transition-colors" />
+                                            </div>
+                                            <button onClick={() => removeFaqItem(faq.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2 h-fit flex-shrink-0"><Trash2 size={16}/></button>
+                                        </div>
+                                    ))}
+                                    {(Array.isArray(editingGuide.content) ? editingGuide.content : []).length === 0 && (
+                                        <div className="p-8 text-center text-gray-500 border border-dashed border-white/10 rounded-xl text-xs">No FAQ blocks added. Click "Add Block" above.</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
+                    <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
+                    <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
+                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     const activeCatId = activeTab ? parseInt(activeTab.replace('cat_', '')) : null;
     const activeCategory = categories.find(c => c.id === activeCatId);
@@ -233,111 +327,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                     </div>
                 )}
 
-                {/* MODAL IS ALSO RENDERED HERE SO ADMINS CAN CREATE FROM THE HOME PAGE */}
-                {showModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
-                        <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
-                            <div className="flex justify-between items-center p-6 border-b border-white/5 flex-shrink-0">
-                                <h3 className="text-xl font-black uppercase tracking-tight text-white">{editingGuide.id ? 'Edit Guide' : 'Create Guide'}</h3>
-                                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
-                            </div>
-                            
-                            <div className="overflow-y-auto flex-1 p-6 sm:p-8 space-y-6 custom-scrollbar">
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Guide Title</label>
-                                        <input type="text" value={editingGuide.title} onChange={e => setEditingGuide({...editingGuide, title: e.target.value})} placeholder="e.g. How to connect Stripe" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Category</label>
-                                        <select value={editingGuide.category_id} onChange={e => setEditingGuide({...editingGuide, category_id: parseInt(e.target.value)})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors appearance-none">
-                                            <option value="" disabled>Select Category...</option>
-                                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {!editingGuide.id && (
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Content Format</label>
-                                        <div className="flex bg-black p-1 rounded-xl border border-white/10">
-                                            <button onClick={() => setEditingGuide({...editingGuide, type: 'article', content: ''})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'article' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><Newspaper size={16}/> Standard Article</button>
-                                            <button onClick={() => setEditingGuide({...editingGuide, type: 'faq', content: []})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'faq' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><LayoutList size={16}/> FAQ Accordion</button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="pt-6 border-t border-white/5">
-                                    {editingGuide.type === 'article' ? (
-                                        <div>
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block flex items-center justify-between">
-                                                <span>Article Content</span>
-                                                <span className="text-gray-600 font-normal normal-case tracking-normal">Supports plain text & HTML</span>
-                                            </label>
-                                            
-                                            <div className="border border-white/10 rounded-xl overflow-hidden focus-within:border-[#9df01c] transition-colors">
-                                                {/* Article Editor Toolbar */}
-                                                <div className="bg-black p-2 border-b border-white/10 flex items-center gap-1 overflow-x-auto">
-                                                    <button title="Bold" onClick={() => insertTag('<b class="text-white">', '</b>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Bold size={16}/></button>
-                                                    <button title="Italic" onClick={() => insertTag('<i>', '</i>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Italic size={16}/></button>
-                                                    <button title="Header" onClick={() => insertTag('<h2 class="text-2xl font-bold text-white mt-8 mb-4">', '</h2>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Heading2 size={16}/></button>
-                                                    <div className="w-px h-6 bg-white/10 mx-2"></div>
-                                                    <button title="Link" onClick={() => { const url = window.prompt("Enter Link URL:"); if(url) insertTag(`<a href="${url}" target="_blank" class="text-[#9df01c] hover:underline font-medium">`, '</a>'); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Link2 size={16}/></button>
-                                                    <label title="Upload Image" className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer">
-                                                        <ImageIcon size={16}/>
-                                                        <input type="file" className="hidden" onChange={handleEditorImageUpload} />
-                                                    </label>
-                                                    <button title="Embed YouTube Video" onClick={embedVideo} className="p-2 text-gray-400 hover:text-[#9df01c] hover:bg-white/5 rounded-lg"><Video size={16}/></button>
-                                                </div>
-                                                
-                                                <textarea 
-                                                    id="article-editor"
-                                                    rows="12" 
-                                                    value={editingGuide.content} 
-                                                    onChange={e => setEditingGuide({...editingGuide, content: e.target.value})} 
-                                                    className="w-full bg-[#0a0a0a] p-4 text-sm text-gray-300 outline-none font-mono resize-y" 
-                                                    placeholder="Type your guide content here..." 
-                                                />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <div className="flex items-center justify-between mb-4">
-                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">FAQ Blocks</label>
-                                                <button onClick={addFaqItem} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 hover:bg-[#9df01c]/20 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"><Plus size={12}/> Add Block</button>
-                                            </div>
-
-                                            <div className="space-y-4">
-                                                {(Array.isArray(editingGuide.content) ? editingGuide.content : []).map((faq, index) => (
-                                                    <div key={faq.id} draggable onDragStart={(e) => handleFaqDragStart(e, index)} onDragOver={(e) => handleFaqDragOver(e, index)} onDragEnd={handleFaqDragEnd} className={`bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors ${draggedFaqIndex === index ? 'opacity-50 border-[#9df01c]' : ''}`}>
-                                                        <div className="text-gray-600 cursor-grab hover:text-white mt-3 flex-shrink-0"><GripVertical size={16} /></div>
-                                                        <div className="flex-1 space-y-3">
-                                                            <input type="text" value={faq.q} onChange={e => updateFaqItem(faq.id, 'q', e.target.value)} placeholder="Question or Header text" className="w-full bg-transparent border-b border-white/10 pb-2 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                                            <textarea rows="2" value={faq.a} onChange={e => updateFaqItem(faq.id, 'a', e.target.value)} placeholder="Answer or content block..." className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-xs text-gray-300 focus:border-[#9df01c] outline-none transition-colors" />
-                                                        </div>
-                                                        <button onClick={() => removeFaqItem(faq.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2 h-fit flex-shrink-0"><Trash2 size={16}/></button>
-                                                    </div>
-                                                ))}
-                                                {(Array.isArray(editingGuide.content) ? editingGuide.content : []).length === 0 && (
-                                                    <div className="p-8 text-center text-gray-500 border border-dashed border-white/10 rounded-xl text-xs">No FAQ blocks added. Click "Add Block" above.</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                            </div>
-
-                            <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
-                                <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
-                                <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {showModal && renderAdminModal()}
             </div>
         );
     }
@@ -446,110 +436,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                 </div>
             )}
 
-            {/* ADMIN CREATE/EDIT MODAL */}
-            {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
-                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
-                        <div className="flex justify-between items-center p-6 border-b border-white/5 flex-shrink-0">
-                            <h3 className="text-xl font-black uppercase tracking-tight text-white">{editingGuide.id ? 'Edit Guide' : 'Create Guide'}</h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
-                        </div>
-                        
-                        <div className="overflow-y-auto flex-1 p-6 sm:p-8 space-y-6 custom-scrollbar">
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Guide Title</label>
-                                    <input type="text" value={editingGuide.title} onChange={e => setEditingGuide({...editingGuide, title: e.target.value})} placeholder="e.g. How to connect Stripe" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Category</label>
-                                    <select value={editingGuide.category_id} onChange={e => setEditingGuide({...editingGuide, category_id: parseInt(e.target.value)})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors appearance-none">
-                                        <option value="" disabled>Select Category...</option>
-                                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {!editingGuide.id && (
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Content Format</label>
-                                    <div className="flex bg-black p-1 rounded-xl border border-white/10">
-                                        <button onClick={() => setEditingGuide({...editingGuide, type: 'article', content: ''})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'article' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><Newspaper size={16}/> Standard Article</button>
-                                        <button onClick={() => setEditingGuide({...editingGuide, type: 'faq', content: []})} className={`flex-1 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${editingGuide.type === 'faq' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><LayoutList size={16}/> FAQ Accordion</button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="pt-6 border-t border-white/5">
-                                {editingGuide.type === 'article' ? (
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block flex items-center justify-between">
-                                            <span>Article Content</span>
-                                            <span className="text-gray-600 font-normal normal-case tracking-normal">Supports plain text & HTML</span>
-                                        </label>
-                                        
-                                        <div className="border border-white/10 rounded-xl overflow-hidden focus-within:border-[#9df01c] transition-colors">
-                                            {/* Article Editor Toolbar */}
-                                            <div className="bg-black p-2 border-b border-white/10 flex items-center gap-1 overflow-x-auto">
-                                                <button title="Bold" onClick={() => insertTag('<b class="text-white">', '</b>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Bold size={16}/></button>
-                                                <button title="Italic" onClick={() => insertTag('<i>', '</i>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Italic size={16}/></button>
-                                                <button title="Header" onClick={() => insertTag('<h2 class="text-2xl font-bold text-white mt-8 mb-4">', '</h2>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Heading2 size={16}/></button>
-                                                <div className="w-px h-6 bg-white/10 mx-2"></div>
-                                                <button title="Link" onClick={() => { const url = window.prompt("Enter Link URL:"); if(url) insertTag(`<a href="${url}" target="_blank" class="text-[#9df01c] hover:underline font-medium">`, '</a>'); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Link2 size={16}/></button>
-                                                <label title="Upload Image" className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg cursor-pointer">
-                                                    <ImageIcon size={16}/>
-                                                    <input type="file" className="hidden" onChange={handleEditorImageUpload} />
-                                                </label>
-                                                <button title="Embed YouTube Video" onClick={embedVideo} className="p-2 text-gray-400 hover:text-[#9df01c] hover:bg-white/5 rounded-lg"><Video size={16}/></button>
-                                            </div>
-                                            
-                                            <textarea 
-                                                id="article-editor"
-                                                rows="12" 
-                                                value={editingGuide.content} 
-                                                onChange={e => setEditingGuide({...editingGuide, content: e.target.value})} 
-                                                className="w-full bg-[#0a0a0a] p-4 text-sm text-gray-300 outline-none font-mono resize-y" 
-                                                placeholder="Type your guide content here..." 
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        <div className="flex items-center justify-between mb-4">
-                                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">FAQ Blocks</label>
-                                            <button onClick={addFaqItem} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 hover:bg-[#9df01c]/20 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"><Plus size={12}/> Add Block</button>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            {(Array.isArray(editingGuide.content) ? editingGuide.content : []).map((faq, index) => (
-                                                <div key={faq.id} draggable onDragStart={(e) => handleFaqDragStart(e, index)} onDragOver={(e) => handleFaqDragOver(e, index)} onDragEnd={handleFaqDragEnd} className={`bg-black border border-white/10 rounded-xl p-4 flex gap-3 transition-colors ${draggedFaqIndex === index ? 'opacity-50 border-[#9df01c]' : ''}`}>
-                                                    <div className="text-gray-600 cursor-grab hover:text-white mt-3 flex-shrink-0"><GripVertical size={16} /></div>
-                                                    <div className="flex-1 space-y-3">
-                                                        <input type="text" value={faq.q} onChange={e => updateFaqItem(faq.id, 'q', e.target.value)} placeholder="Question or Header text" className="w-full bg-transparent border-b border-white/10 pb-2 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                                        <textarea rows="2" value={faq.a} onChange={e => updateFaqItem(faq.id, 'a', e.target.value)} placeholder="Answer or content block..." className="w-full bg-white/5 border border-white/5 rounded-lg p-3 text-xs text-gray-300 focus:border-[#9df01c] outline-none transition-colors" />
-                                                    </div>
-                                                    <button onClick={() => removeFaqItem(faq.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2 h-fit flex-shrink-0"><Trash2 size={16}/></button>
-                                                </div>
-                                            ))}
-                                            {(Array.isArray(editingGuide.content) ? editingGuide.content : []).length === 0 && (
-                                                <div className="p-8 text-center text-gray-500 border border-dashed border-white/10 rounded-xl text-xs">No FAQ blocks added. Click "Add Block" above.</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
-                                <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
-                                <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
+            {showModal && renderAdminModal()}
+        </div>
+    );
 }

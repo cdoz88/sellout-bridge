@@ -15,10 +15,7 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
 
     const fetchAssets = async () => {
         try {
-            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` },
-                cache: 'no-store'
-            });
+            const res = await fetch('/api/assets/data', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.assets) setAssets(data.assets);
