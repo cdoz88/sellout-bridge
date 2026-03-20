@@ -22,10 +22,8 @@ export default function Sidebar({
     const fetchCategories = async () => {
         if (!session) return;
         try {
-            // Aggressive cache buster added here
             const res = await fetch(`/api/assets/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` },
-                cache: 'no-store'
+                headers: { 'Authorization': `Bearer ${session}` }
             });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
@@ -38,10 +36,8 @@ export default function Sidebar({
     const fetchGuideCategories = async () => {
         if (!session) return;
         try {
-            // Aggressive cache buster added here
             const res = await fetch(`/api/guides/data?t=${Date.now()}`, { 
-                headers: { 'Authorization': `Bearer ${session}` },
-                cache: 'no-store'
+                headers: { 'Authorization': `Bearer ${session}` }
             });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
@@ -76,22 +72,18 @@ export default function Sidebar({
     const handleCatDragEnd = () => setDraggedCatIndex(null);
 
     const handleSaveCategories = async () => {
-        for (let i = 0; i < categories.length; i++) {
-            const cat = categories[i];
-            await fetch('/api/assets/categories', {
+        try {
+            await fetch('/api/assets/categories/bulk', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
-                    name: cat.name, 
-                    is_hidden: cat.is_hidden,
-                    order_index: i
-                })
+                body: JSON.stringify({ categories })
             });
+            setIsEditingCats(false);
+            await fetchCategories();
+            window.dispatchEvent(new CustomEvent('assets-updated'));
+        } catch (e) {
+            alert("Failed to save categories.");
         }
-        setIsEditingCats(false);
-        await fetchCategories();
-        window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
     const handleDeleteCat = async (id) => {
@@ -124,22 +116,18 @@ export default function Sidebar({
     const handleGuideCatDragEnd = () => setDraggedGuideCatIndex(null);
 
     const handleSaveGuideCategories = async () => {
-        for (let i = 0; i < guideCategories.length; i++) {
-            const cat = guideCategories[i];
-            await fetch('/api/guides/categories', {
+        try {
+            await fetch('/api/guides/categories/bulk', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
-                    name: cat.name, 
-                    is_hidden: cat.is_hidden,
-                    order_index: i
-                })
+                body: JSON.stringify({ categories: guideCategories })
             });
+            setIsEditingGuideCats(false);
+            await fetchGuideCategories();
+            window.dispatchEvent(new CustomEvent('guides-updated'));
+        } catch (e) {
+            alert("Failed to save categories.");
         }
-        setIsEditingGuideCats(false);
-        await fetchGuideCategories();
-        window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
     const handleDeleteGuideCat = async (id) => {
