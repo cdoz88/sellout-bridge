@@ -158,12 +158,11 @@ app.get('/api/guides/data', async (req, res) => {
         let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
         
-        const guides = await sql`SELECT * FROM bridge_guides ORDER BY id DESC`;
+        const guides = await sql`SELECT * FROM bridge_guides ORDER BY order_index ASC, id DESC`;
         res.json({ categories, guides });
     } catch (e) { res.status(500).json({error: e.message}); }
 });
 
-// NEW BULK ENDPOINT FOR GUIDES
 app.post('/api/guides/categories/bulk', async (req, res) => {
     try {
         await ensureSchema();
@@ -183,6 +182,30 @@ app.post('/api/guides/categories/bulk', async (req, res) => {
                     await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
                 }
             }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/categories', async (req, res) => {
+    const { id, name, is_hidden, order_index } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
+
+        if (id) {
+            await sql`UPDATE bridge_guide_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -270,6 +293,30 @@ app.post('/api/assets/categories/bulk', async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
+app.post('/api/assets/categories', async (req, res) => {
+    const { id, name, is_hidden, order_index } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
+
+        if (id) {
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
 app.post('/api/assets/categories/delete', async (req, res) => {
     const { id } = req.body;
     try {
@@ -306,6 +353,7 @@ app.post('/api/assets/delete', async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
+
 
 // --- OTHER API ENDPOINTS (OAuth, Users, Subscriptions, Webhooks) ---
 app.post('/api/auth/callback', async (req, res) => {
