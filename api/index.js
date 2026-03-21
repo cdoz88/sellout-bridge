@@ -24,29 +24,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
-function createMultipartPayload(params) {
-    const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
-    let body = '';
-    
-    const appendField = (key, value) => {
-        body += `--${boundary}\r\n`;
-        body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
-        body += `${value}\r\n`;
-    };
-
-    for (const [key, value] of Object.entries(params)) {
-        if (typeof value === 'object' && value !== null) {
-            for (const [subKey, subValue] of Object.entries(value)) {
-                appendField(`${key}[${subKey}]`, subValue);
-            }
-        } else if (value !== undefined && value !== null) {
-            appendField(key, value);
-        }
-    }
-    body += `--${boundary}--\r\n`;
-    return { body, boundary };
-}
-
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -1079,7 +1056,7 @@ app.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 // ==========================================
 
 app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
-    const { access_token, user, domain } = req.body;
+    const { access_token, user } = req.body; // Ignore domain provided by WP site
     
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
@@ -1091,18 +1068,20 @@ app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 
         const targetUser = user || rows[0].profile_link || '';
 
-        const { body, boundary } = createMultipartPayload({
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: domain || 'https://bridge.selloutcrowds.com'
-        });
+        // FIX: Force the hub domain so UNA accepts the Master API Token natively
+        const hubDomain = 'https://bridge.selloutcrowds.com';
+
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        formData.append('user', targetUser);
+        formData.append('domain', hubDomain);
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
-            body: body,
+            body: formData,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
         
@@ -1125,7 +1104,7 @@ app.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
     const validActions = ['create-post', 'edit-post', 'delete-post'];
     if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
-    const { access_token, user, domain, data } = req.body;
+    const { access_token, user, data } = req.body;
     
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
@@ -1136,23 +1115,27 @@ app.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
         const targetUser = user || rows[0].profile_link || '';
+        
+        const hubDomain = 'https://bridge.selloutcrowds.com';
 
-        const payloadData = {
-            api_key: FSAN_TOKEN,
-            user: targetUser,
-            domain: domain || 'https://bridge.selloutcrowds.com',
-            data: data
-        };
+        const formData = new URLSearchParams();
+        formData.append('api_key', FSAN_TOKEN);
+        formData.append('user', targetUser);
+        formData.append('domain', hubDomain);
 
-        const { body, boundary } = createMultipartPayload(payloadData);
+        if (data && typeof data === 'object') {
+            for (const key in data) {
+                formData.append(`data[${key}]`, data[key]);
+            }
+        }
 
         const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
         const fsanRes = await fetch(endpoint, { 
             method: 'POST', 
-            body: body,
+            body: formData,
             headers: {
                 'User-Agent': 'UNA',
-                'Content-Type': `multipart/form-data; boundary=${boundary}`
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
         const text = await fsanRes.text();
@@ -1167,11 +1150,6 @@ app.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         console.error(`WP Proxy ${action} error:`, error);
         return res.status(200).json({ error: "Hub Server Error: " + error.message });
     }
-});
-
-// CATCH-ALL FALLBACK TO DEBUG PATH ISSUES
-app.all('*', (req, res) => {
-    res.status(404).json({ error: "Endpoint Not Found. Vercel routed to: " + req.url });
 });
 
 export default app;
