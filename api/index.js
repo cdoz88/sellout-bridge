@@ -996,4 +996,182 @@ app.post('/api/paypal-webhook', async (req, res) => {
     res.json({ received: true });
 });
 
+// ==========================================
+// OAUTH PROVIDER ENDPOINTS
+// ==========================================
+
+app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const { client_id, redirect_uri } = req.body;
+    
+    if (client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "Invalid client_id" });
+    }
+
+    try {
+        await ensureSchema();
+        
+        let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
+        
+        const code = crypto.randomBytes(16).toString('hex');
+        const expiresAt = new Date(Date.now() + 5 * 60000).toISOString(); 
+
+        await sql`
+            INSERT INTO wp_oauth_codes (code, user_id, profile_link, redirect_uri, expires_at) 
+            VALUES (${code}, ${user.id}, ${profileLink}, ${redirect_uri}, ${expiresAt})
+        `;
+
+        res.json({ success: true, code: code });
+    } catch (error) {
+        console.error("Failed to generate auth code:", error);
+        res.status(500).json({ error: "Server error generating code" });
+    }
+});
+
+app.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
+    const { grant_type, client_id, code, redirect_uri } = req.body;
+
+    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
+        return res.status(400).json({ error: "invalid_request" });
+    }
+
+    try {
+        await ensureSchema();
+
+        const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
+        
+        if (rows.length === 0) {
+            return res.status(400).json({ error: "invalid_grant", error_description: "Invalid or expired code" });
+        }
+
+        const authCode = rows[0];
+
+        if (new Date() > new Date(authCode.expires_at) || authCode.redirect_uri !== redirect_uri) {
+            await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`; 
+            return res.status(400).json({ error: "invalid_grant", error_description: "Code expired or URI mismatch" });
+        }
+
+        await sql`DELETE FROM wp_oauth_codes WHERE code = ${code}`;
+
+        const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
+
+        await sql`
+            INSERT INTO wp_access_tokens (token, user_id, profile_link) 
+            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
+        `;
+
+        res.json({
+            access_token: accessToken,
+            token_type: "bearer",
+            profile_url: authCode.profile_link 
+        });
+
+    } catch (error) {
+        console.error("Token exchange error:", error);
+        res.status(500).json({ error: "server_error" });
+    }
+});
+
+// ==========================================
+// WORDPRESS API PROXY ENDPOINTS
+// ==========================================
+
+app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
+    const { access_token, user, domain } = req.body;
+    
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
+
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
+
+        const targetUser = user || rows[0].profile_link || '';
+
+        const { body, boundary } = createMultipartPayload({
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com'
+        });
+
+        const fsanRes = await fetch(FSAN_ENDPOINT, { 
+            method: 'POST', 
+            body: body,
+            headers: {
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            }
+        });
+        
+        const text = await fsanRes.text();
+
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
+        }
+    } catch (error) {
+        console.error("WP Proxy get-fields error:", error);
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
+    }
+});
+
+app.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
+    const { action } = req.params;
+    const validActions = ['create-post', 'edit-post', 'delete-post'];
+    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
+
+    const { access_token, user, domain, data } = req.body;
+    
+    if (!access_token) {
+        return res.status(200).json({ error: "Missing access token" });
+    }
+    
+    try {
+        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
+
+        const targetUser = user || rows[0].profile_link || '';
+
+        const payloadData = {
+            api_key: FSAN_TOKEN,
+            user: targetUser,
+            domain: domain || 'https://bridge.selloutcrowds.com',
+            data: data
+        };
+
+        const { body, boundary } = createMultipartPayload(payloadData);
+
+        const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/${action}`;
+        const fsanRes = await fetch(endpoint, { 
+            method: 'POST', 
+            body: body,
+            headers: {
+                'User-Agent': 'UNA',
+                'Content-Type': `multipart/form-data; boundary=${boundary}`
+            }
+        });
+        const text = await fsanRes.text();
+        
+        try {
+            const json = JSON.parse(text);
+            return res.json(json);
+        } catch(e) {
+            return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
+        }
+    } catch (error) {
+        console.error(`WP Proxy ${action} error:`, error);
+        return res.status(200).json({ error: "Hub Server Error: " + error.message });
+    }
+});
+
+// CATCH-ALL FALLBACK TO DEBUG PATH ISSUES
+app.all('*', (req, res) => {
+    res.status(404).json({ error: "Endpoint Not Found. Vercel routed to: " + req.url });
+});
+
 export default app;
