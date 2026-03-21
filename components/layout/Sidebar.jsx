@@ -19,11 +19,12 @@ export default function Sidebar({
     // State for Guides
     const [guideCategories, setGuideCategories] = useState([]);
     const [isEditingGuideCats, setIsEditingGuideCats] = useState(false);
+    const [isSavingGuideCats, setIsSavingGuideCats] = useState(false);
 
     const fetchCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` }, cache: 'no-store' });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.categories) setCategories(data.categories);
@@ -33,7 +34,7 @@ export default function Sidebar({
     const fetchGuideCategories = async () => {
         if (!session) return;
         try {
-            const res = await fetch('/api/guides/data', { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch(`/api/guides/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` }, cache: 'no-store' });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.categories) setGuideCategories(data.categories);
@@ -99,22 +100,38 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
-    // --- GUIDES STANDARD SAVE (Untouched Stable Baseline) ---
+    // --- GUIDES REORDERING & BULK SAVE ---
+    const moveGuideCatUp = (index) => {
+        if (index === 0) return;
+        const newCats = [...guideCategories];
+        [newCats[index - 1], newCats[index]] = [newCats[index], newCats[index - 1]];
+        setGuideCategories(newCats);
+    };
+
+    const moveGuideCatDown = (index) => {
+        if (index === guideCategories.length - 1) return;
+        const newCats = [...guideCategories];
+        [newCats[index + 1], newCats[index]] = [newCats[index], newCats[index + 1]];
+        setGuideCategories(newCats);
+    };
+
     const handleSaveGuideCategories = async () => {
-        for (const cat of guideCategories) {
-            await fetch('/api/guides/categories', {
+        setIsSavingGuideCats(true);
+        try {
+            const res = await fetch('/api/guides/categories/bulk', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    id: cat.id.toString().startsWith('temp_') ? null : cat.id, 
-                    name: cat.name, 
-                    is_hidden: cat.is_hidden
-                })
+                body: JSON.stringify({ categories: guideCategories })
             });
+            if (!res.ok) throw new Error("Server rejected save");
+            await fetchGuideCategories();
+            window.dispatchEvent(new CustomEvent('guides-updated'));
+            setIsEditingGuideCats(false);
+        } catch (e) {
+            alert("Failed to save categories. Please try again.");
+        } finally {
+            setIsSavingGuideCats(false);
         }
-        setIsEditingGuideCats(false);
-        fetchGuideCategories();
-        window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
     const handleDeleteGuideCat = async (id) => {
@@ -128,7 +145,7 @@ export default function Sidebar({
             headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
         });
-        fetchGuideCategories();
+        await fetchGuideCategories();
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
@@ -318,15 +335,25 @@ export default function Sidebar({
 
                         {isEditingGuideCats ? (
                             <div className="space-y-2 animate-in fade-in zoom-in-95">
-                                {guideCategories.map(cat => (
-                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10">
-                                        <input 
-                                            type="text" 
-                                            value={cat.name} 
-                                            onChange={(e) => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
-                                            className="w-full bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
-                                        />
-                                        <div className="flex justify-between px-1">
+                                {guideCategories.map((cat, index) => (
+                                    <div key={cat.id} className="bg-white/5 p-2.5 rounded-xl flex flex-col gap-2 border border-white/10 transition-all">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex flex-col gap-0.5 flex-shrink-0">
+                                                <button onClick={() => moveGuideCatUp(index)} disabled={index === 0} className={`p-0.5 rounded ${index === 0 ? 'text-gray-700' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                                                    <ChevronUp size={14} />
+                                                </button>
+                                                <button onClick={() => moveGuideCatDown(index)} disabled={index === guideCategories.length - 1} className={`p-0.5 rounded ${index === guideCategories.length - 1 ? 'text-gray-700' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
+                                                    <ChevronDown size={14} />
+                                                </button>
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                value={cat.name} 
+                                                onChange={(e) => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, name: e.target.value} : c))} 
+                                                className="w-full bg-black text-[10px] font-bold text-white p-2 rounded-lg outline-none border border-white/5 focus:border-[#9df01c]" 
+                                            />
+                                        </div>
+                                        <div className="flex justify-between px-1 pl-8">
                                             <button 
                                                 onClick={() => setGuideCategories(cats => cats.map(c => c.id === cat.id ? {...c, is_hidden: !c.is_hidden} : c))} 
                                                 className="text-[9px] text-gray-400 font-bold uppercase tracking-widest hover:text-white">
@@ -347,8 +374,10 @@ export default function Sidebar({
                                 </button>
                                 <button 
                                     onClick={handleSaveGuideCategories} 
-                                    className="w-full py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors mt-2">
-                                    Save Changes
+                                    disabled={isSavingGuideCats}
+                                    className="w-full py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black text-[10px] uppercase tracking-widest font-black rounded-xl transition-colors mt-2 flex items-center justify-center gap-2">
+                                    {isSavingGuideCats ? <Loader2 size={14} className="animate-spin"/> : null}
+                                    {isSavingGuideCats ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         ) : (
