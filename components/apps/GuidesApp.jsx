@@ -378,7 +378,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {visibleGuides.map(guide => (
-                                // CLICKING HERE NOW SETS URL TO guide_123
                                 <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveTab(`guide_${guide.id}`)}>
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center text-[#9df01c] group-hover:scale-110 transition-transform">
@@ -499,15 +498,17 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                 )}
                             </div>
 
-                            <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
-                                <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
-                                <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
-                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
-                                </button>
-                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
+                            <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
+                            <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
+                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
+                            </button>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
         </>
     );
 }
