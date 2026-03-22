@@ -10,6 +10,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
     const [isLoading, setIsLoading] = useState(true);
 
     const [activeGuide, setActiveGuide] = useState(null);
+    const [copied, setCopied] = useState(false);
 
     const [showModal, setShowModal] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -47,9 +48,21 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         return () => window.removeEventListener('guides-updated', handleUpdate);
     }, [session]);
 
+    // NEW ROUTING LOGIC: Reads the URL and automatically opens the guide if one is linked!
     useEffect(() => {
-        setActiveGuide(null);
-    }, [activeTab]);
+        if (activeTab && activeTab.startsWith('guide_')) {
+            const gId = parseInt(activeTab.replace('guide_', ''));
+            const foundGuide = guides.find(g => g.id === gId);
+            if (foundGuide) {
+                setActiveGuide(foundGuide);
+            } else if (guides.length > 0) {
+                // If guides are loaded but ID isn't found, close viewer
+                setActiveGuide(null);
+            }
+        } else {
+            setActiveGuide(null);
+        }
+    }, [activeTab, guides]);
 
     const handleSaveGuide = async () => {
         if (!editingGuide.title || !editingGuide.category_id) {
@@ -86,7 +99,11 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id })
             });
-            if (activeGuide && activeGuide.id === id) setActiveGuide(null);
+            
+            // If the deleted guide is the one currently open, route them back to its category
+            if (activeGuide && activeGuide.id === id) {
+                setActiveTab(`cat_${activeGuide.category_id}`);
+            }
             fetchGuides();
         } catch(e) {}
     };
@@ -106,6 +123,12 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         
         setEditingGuide({ ...guide, content: safeContent });
         setShowModal(true);
+    };
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     // --- RICH TEXT / HTML INJECTOR (ARTICLE) ---
@@ -192,8 +215,13 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
 
     // --- RENDERING ---
 
-    const activeCatId = activeTab ? parseInt(activeTab.replace('cat_', '')) : null;
-    const activeCategory = categories.find(c => c.id === activeCatId);
+    const activeCatId = activeTab && activeTab.startsWith('cat_') ? parseInt(activeTab.replace('cat_', '')) : null;
+    
+    // Dynamically grab category name for display whether viewing a cat list or an individual guide
+    const activeCategory = activeGuide 
+        ? categories.find(c => c.id === activeGuide.category_id)
+        : categories.find(c => c.id === activeCatId);
+        
     const visibleGuides = guides.filter(g => g.category_id === activeCatId);
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
@@ -235,9 +263,22 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
             {activeGuide ? (
                 // --- 1. SINGLE GUIDE VIEW ---
                 <div className="max-w-4xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
-                    <button onClick={() => setActiveGuide(null)} className="text-gray-500 hover:text-white font-bold text-xs uppercase tracking-widest flex items-center gap-2 mb-8 transition-colors">
-                        &larr; Back to {activeCategory?.name || 'Category'}
-                    </button>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <button onClick={() => setActiveTab(`cat_${activeGuide.category_id}`)} className="text-gray-500 hover:text-white font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
+                            &larr; Back to {activeCategory?.name || 'Category'}
+                        </button>
+                        
+                        <div className="flex items-center gap-4">
+                            <button onClick={handleCopyLink} className="text-gray-500 hover:text-[#9df01c] font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                <Link2 size={14} /> {copied ? 'Copied!' : 'Copy Link'}
+                            </button>
+                            {isAdmin && (
+                                <button onClick={(e) => handleEditGuide(e, activeGuide)} className="text-gray-500 hover:text-[#9df01c] font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                    <Pencil size={14} /> Edit
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     
                     <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none text-white mb-2">{activeGuide.title}</h1>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-12">
@@ -337,7 +378,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {visibleGuides.map(guide => (
-                                <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveGuide(guide)}>
+                                // CLICKING HERE NOW SETS URL TO guide_123
+                                <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveTab(`guide_${guide.id}`)}>
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center text-[#9df01c] group-hover:scale-110 transition-transform">
                                             {guide.type === 'faq' ? <FileQuestion size={20} /> : <Newspaper size={20} />}
@@ -363,7 +405,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                 </div>
             )}
 
-            {/* --- 4. ADMIN MODAL (Always available) --- */}
+            {/* --- 4. ADMIN MODAL (Always available on all views) --- */}
             {showModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
@@ -457,17 +499,15 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                 )}
                             </div>
 
-                        </div>
-
-                        <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
-                            <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
-                            <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
-                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
-                            </button>
+                            <div className="p-6 border-t border-white/5 flex-shrink-0 flex justify-end gap-3 bg-[#0a0a0a] rounded-b-[2rem]">
+                                <button onClick={() => setShowModal(false)} className="px-6 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors">Cancel</button>
+                                <button onClick={handleSaveGuide} disabled={isSaving} className="px-8 py-3 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/10">
+                                    {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Saving...' : 'Publish Guide'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
         </>
     );
 }
