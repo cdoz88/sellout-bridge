@@ -24,6 +24,29 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- HELPER FUNCTIONS ---
 
+function createMultipartPayload(params) {
+    const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
+    let body = '';
+    
+    const appendField = (key, value) => {
+        body += `--${boundary}\r\n`;
+        body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
+        body += `${value}\r\n`;
+    };
+
+    for (const [key, value] of Object.entries(params)) {
+        if (typeof value === 'object' && value !== null) {
+            for (const [subKey, subValue] of Object.entries(value)) {
+                appendField(`${key}[${subKey}]`, subValue);
+            }
+        } else if (value !== undefined && value !== null) {
+            appendField(key, value);
+        }
+    }
+    body += `--${boundary}--\r\n`;
+    return { body, boundary };
+}
+
 async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
@@ -353,7 +376,6 @@ app.post('/api/assets/delete', async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
-
 
 // --- OTHER API ENDPOINTS (OAuth, Users, Subscriptions, Webhooks) ---
 app.post('/api/auth/callback', async (req, res) => {
