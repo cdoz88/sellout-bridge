@@ -620,39 +620,35 @@ app.post('/api/get-stripe-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
 });
 
-// --- PAYPAL OAUTH & WEBHOOKS ---
-app.post('/api/paypal/oauth/callback', async (req, res) => {
+// --- PAYPAL SERVER OAUTH (Bypass 3rd Party Scope Restrictions) ---
+app.post('/api/paypal/oauth/connect-server', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const { code } = req.body;
-    if (!code) return res.status(400).json({ error: "Missing authorization code" });
     
     const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
     const PAYPAL_SECRET = process.env.PAYPAL_SECRET_KEY;
     if (!PAYPAL_CLIENT || !PAYPAL_SECRET) return res.status(500).json({ error: "Platform PayPal keys not configured in Vercel." });
 
     try {
+        // Exchange credentials for token to verify they are valid
         const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
-        const response = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+        const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
             headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `grant_type=authorization_code&code=${code}`
+            body: `grant_type=client_credentials`
         });
-        
-        const data = await response.json();
-        if (data.error) return res.status(400).json({ error: data.error_description || data.error });
-        
-        const refreshToken = data.refresh_token;
-        const accountId = "PayPal_Connected"; 
+        const tokenData = await tokenRes.json();
+        if (tokenData.error) throw new Error("Invalid PayPal Environment Variables in Vercel.");
+
+        const accountId = "PayPal_Server_Connected"; 
         
         await ensureSchema();
         const userId = parseInt(user.id);
-        await sql`INSERT INTO bridge_settings (user_id, paypal_account_id, paypal_refresh_token) VALUES (${userId}, ${accountId}, ${refreshToken}) ON CONFLICT (user_id) DO UPDATE SET paypal_account_id = EXCLUDED.paypal_account_id, paypal_refresh_token = EXCLUDED.paypal_refresh_token`;
+        await sql`INSERT INTO bridge_settings (user_id, paypal_account_id) VALUES (${userId}, ${accountId}) ON CONFLICT (user_id) DO UPDATE SET paypal_account_id = EXCLUDED.paypal_account_id`;
         
         res.json({ success: true, accountId });
     } catch (e) {
-        res.status(500).json({ error: "Failed to connect PayPal account." });
+        res.status(500).json({ error: e.message || "Failed to connect PayPal account." });
     }
 });
 
@@ -676,19 +672,17 @@ app.post('/api/get-paypal-products', async (req, res) => {
 
     try {
         await ensureSchema();
-        const settings = await sql`SELECT paypal_refresh_token FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
-        if (!settings.length || !settings[0].paypal_refresh_token) return res.status(400).json({ error: "PayPal not connected" });
-
-        const refreshToken = settings[0].paypal_refresh_token;
+        const settings = await sql`SELECT paypal_account_id FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
+        if (!settings.length || !settings[0].paypal_account_id) return res.status(400).json({ error: "PayPal not connected" });
 
         const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
             headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `grant_type=refresh_token&refresh_token=${refreshToken}`
+            body: `grant_type=client_credentials`
         });
         const tokenData = await tokenRes.json();
-        if (tokenData.error) throw new Error("Failed to refresh PayPal token");
+        if (tokenData.error) throw new Error("Failed to authenticate PayPal API");
 
         const plansRes = await fetch('https://api-m.paypal.com/v1/billing/plans?page_size=50', {
             headers: { 'Authorization': `Bearer ${tokenData.access_token}` }

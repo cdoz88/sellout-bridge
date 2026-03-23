@@ -11,8 +11,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [webhookCopied, setWebhookCopied] = useState(false);
 
   const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [], patreon: [] });
-  const [isValidatingKey, setIsValidatingKey] = useState(false);
-  const [keySuccess, setKeySuccess] = useState(false);
 
   const [isSyncingSubs, setIsSyncingSubs] = useState(false);
   const [syncSubsResult, setSyncSubsResult] = useState(null);
@@ -41,7 +39,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
   const STRIPE_CLIENT_ID = 'ca_UAUckMTFQOG8rW8CajO6ZOB2mTzVXo42';
-  const PAYPAL_CLIENT_ID = 'AQsn_rKuOwSNDvCx6SEBYdrjtYfcHiNPR4H3lI5qbwFFZKeB0j1KBPUI3h7tPOcP5nMeao2EpW-OFGk5';
 
   const [isLoadingOAuth, setIsLoadingOAuth] = useState(false);
 
@@ -54,60 +51,39 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   }, [session, activeTab]);
 
-  // CATCH OAUTH RETURNS (STRIPE & PAYPAL)
+  // CATCH OAUTH RETURN FROM STRIPE ONLY
   useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       
-      if (code && session) {
-          if (state === 'stripe') {
-              setIsLoadingOAuth(true);
-              fetch('/api/stripe/oauth/callback', {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code })
-              })
-              .then(res => res.json())
-              .then(data => {
-                  if (data.success) {
-                      setStripeAccountId(data.accountId);
-                      fetchProviderProducts(data.accountId, null, session, 'stripe');
-                  } else {
-                      setError(data.error || "Failed to connect Stripe.");
-                  }
-                  cleanUrl();
-              })
-              .catch(() => { setError("Network error during Stripe connection."); cleanUrl(); });
-          } else if (state === 'paypal') {
-              setIsLoadingOAuth(true);
-              fetch('/api/paypal/oauth/callback', {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code })
-              })
-              .then(res => res.json())
-              .then(data => {
-                  if (data.success) {
-                      setPaypalAccountId(data.accountId);
-                      fetchProviderProducts(null, null, session, 'paypal');
-                  } else {
-                      setError(data.error || "Failed to connect PayPal.");
-                  }
-                  cleanUrl();
-              })
-              .catch(() => { setError("Network error during PayPal connection."); cleanUrl(); });
-          }
+      if (code && state === 'stripe' && session) {
+          setIsLoadingOAuth(true);
+          fetch('/api/stripe/oauth/callback', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code })
+          })
+          .then(res => res.json())
+          .then(data => {
+              if (data.success) {
+                  setStripeAccountId(data.accountId);
+                  fetchProviderProducts(data.accountId, null, session, 'stripe');
+              } else {
+                  setError(data.error || "Failed to connect Stripe.");
+              }
+              const newUrl = new URL(window.location);
+              newUrl.searchParams.delete('code');
+              newUrl.searchParams.delete('state');
+              window.history.replaceState({}, '', newUrl);
+              setIsLoadingOAuth(false);
+          })
+          .catch(() => {
+              setError("Network error during Stripe connection.");
+              setIsLoadingOAuth(false);
+          });
       }
   }, [session]);
-
-  const cleanUrl = () => {
-      const newUrl = new URL(window.location);
-      newUrl.searchParams.delete('code');
-      newUrl.searchParams.delete('state');
-      window.history.replaceState({}, '', newUrl);
-      setIsLoadingOAuth(false);
-  };
 
   const fetchDatabaseSettings = async (token) => {
     try {
@@ -185,7 +161,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   };
 
-  // --- OAUTH ACTION HANDLERS ---
+  // --- STRIPE ACTIONS ---
   const startStripeOAuth = () => {
       const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
       window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe`;
@@ -201,9 +177,28 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (e) { setError("Failed to disconnect Stripe."); }
   };
 
-  const startPaypalOAuth = () => {
-      const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=paypal');
-      window.location.href = `https://www.paypal.com/signin/authorize?client_id=${PAYPAL_CLIENT_ID}&response_type=code&scope=openid profile email https://uri.paypal.com/services/subscriptions&redirect_uri=${redirectUri}&state=paypal`;
+  // --- PAYPAL ACTIONS (Server-to-Server) ---
+  const connectPaypalServer = async () => {
+      setIsLoadingOAuth(true);
+      setError(null);
+      try {
+          const res = await fetch('/api/paypal/oauth/connect-server', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          const data = await res.json();
+          if (data.success) {
+              setPaypalAccountId(data.accountId);
+              fetchProviderProducts(null, null, session, 'paypal');
+          } else {
+              setError(data.error || "Failed to sync PayPal with environment variables.");
+          }
+      } catch (err) {
+          setError("Network error while syncing PayPal.");
+      } finally {
+          setIsLoadingOAuth(false);
+      }
   };
 
   const handleDisconnectPaypal = async () => {
@@ -768,7 +763,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
                                 <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
                                 <p className="text-sm font-bold text-white mb-1">PayPal Connected!</p>
-                                <p className="text-xs text-gray-500 mb-4 break-all">ID: {paypalAccountId}</p>
+                                <p className="text-xs text-gray-500 mb-4 break-all">Server Sync Complete</p>
                                 <button onClick={handleDisconnectPaypal} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
                                     <LogOut size={12} /> Disconnect
                                 </button>
@@ -776,12 +771,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         ) : (
                             <div>
                                 <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
-                                    Connect your PayPal account to map your billing plans to Sellout Crowds communities.
+                                    Sync your configured PayPal Environment keys to automatically fetch your billing plans.
                                 </p>
                                 <button 
-                                    onClick={startPaypalOAuth}
+                                    onClick={connectPaypalServer}
                                     className="w-full font-black py-4 rounded-xl uppercase text-[11px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 bg-[#0070BA] hover:bg-[#003087] text-white shadow-lg shadow-[#0070BA]/20">
-                                    Log in with PayPal
+                                    Sync PayPal Account
                                 </button>
                             </div>
                         )
