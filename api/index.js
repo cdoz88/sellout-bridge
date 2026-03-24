@@ -115,12 +115,12 @@ async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
             user_id INTEGER PRIMARY KEY,
             stripe_account_id TEXT,
-            paypal_account_id TEXT,
-            paypal_refresh_token TEXT
+            paypal_client_id TEXT,
+            paypal_secret_key TEXT
         )`;
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_account_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_refresh_token TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_secret_key TEXT`; } catch(e){}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (
             id SERIAL PRIMARY KEY,
@@ -525,8 +525,17 @@ app.get('/api/get-settings', async (req, res) => {
     try {
         await ensureSchema();
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT stripe_account_id, paypal_account_id FROM bridge_settings WHERE user_id = ${userId}`;
-        res.json({ settings: rows[0] || {} });
+        const rows = await sql`SELECT stripe_account_id, paypal_client_id FROM bridge_settings WHERE user_id = ${userId}`;
+        
+        // Don't send the secret key to the frontend for security, just a boolean indicator if it exists
+        const settings = rows[0] || {};
+        res.json({ 
+            settings: {
+                stripe_account_id: settings.stripe_account_id,
+                paypal_client_id: settings.paypal_client_id,
+                paypal_is_connected: !!settings.paypal_client_id
+            } 
+        });
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
 
@@ -620,35 +629,38 @@ app.post('/api/get-stripe-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `Stripe says: ${error.message}` }); }
 });
 
-// --- PAYPAL SERVER OAUTH (Bypass 3rd Party Scope Restrictions) ---
-app.post('/api/paypal/oauth/connect-server', async (req, res) => {
+// --- PAYPAL USER API KEY SAVING & FETCHING ---
+app.post('/api/save-paypal-keys', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     
-    const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
-    const PAYPAL_SECRET = process.env.PAYPAL_SECRET_KEY;
-    if (!PAYPAL_CLIENT || !PAYPAL_SECRET) return res.status(500).json({ error: "Platform PayPal keys not configured in Vercel." });
+    const { clientId, secretKey } = req.body;
+    if (!clientId || !secretKey) return res.status(400).json({ error: "Missing Client ID or Secret Key" });
 
     try {
-        // Exchange credentials for token to verify they are valid
-        const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
+        // Validate keys against PayPal before saving
+        const auth = Buffer.from(`${clientId}:${secretKey}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
             headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `grant_type=client_credentials`
         });
         const tokenData = await tokenRes.json();
-        if (tokenData.error) throw new Error("Invalid PayPal Environment Variables in Vercel.");
+        if (tokenData.error) throw new Error("Invalid PayPal Credentials.");
 
-        const accountId = "PayPal_Server_Connected"; 
-        
         await ensureSchema();
         const userId = parseInt(user.id);
-        await sql`INSERT INTO bridge_settings (user_id, paypal_account_id) VALUES (${userId}, ${accountId}) ON CONFLICT (user_id) DO UPDATE SET paypal_account_id = EXCLUDED.paypal_account_id`;
         
-        res.json({ success: true, accountId });
+        await sql`
+            INSERT INTO bridge_settings (user_id, paypal_client_id, paypal_secret_key) 
+            VALUES (${userId}, ${clientId}, ${secretKey}) 
+            ON CONFLICT (user_id) 
+            DO UPDATE SET paypal_client_id = EXCLUDED.paypal_client_id, paypal_secret_key = EXCLUDED.paypal_secret_key
+        `;
+        
+        res.json({ success: true, accountId: clientId });
     } catch (e) {
-        res.status(500).json({ error: e.message || "Failed to connect PayPal account." });
+        res.status(400).json({ error: e.message || "Failed to connect PayPal account." });
     }
 });
 
@@ -657,7 +669,7 @@ app.post('/api/paypal/oauth/disconnect', async (req, res) => {
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         await ensureSchema();
-        await sql`UPDATE bridge_settings SET paypal_account_id = NULL, paypal_refresh_token = NULL WHERE user_id = ${parseInt(user.id)}`;
+        await sql`UPDATE bridge_settings SET paypal_client_id = NULL, paypal_secret_key = NULL WHERE user_id = ${parseInt(user.id)}`;
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Failed to disconnect account." }); }
 });
@@ -665,17 +677,18 @@ app.post('/api/paypal/oauth/disconnect', async (req, res) => {
 app.post('/api/get-paypal-products', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const PAYPAL_CLIENT = process.env.PAYPAL_CLIENT_ID;
-    const PAYPAL_SECRET = process.env.PAYPAL_SECRET_KEY;
-    if (!PAYPAL_CLIENT || !PAYPAL_SECRET) return res.status(500).json({ error: "Platform PayPal keys not configured." });
 
     try {
         await ensureSchema();
-        const settings = await sql`SELECT paypal_account_id FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
-        if (!settings.length || !settings[0].paypal_account_id) return res.status(400).json({ error: "PayPal not connected" });
+        const settings = await sql`SELECT paypal_client_id, paypal_secret_key FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
+        if (!settings.length || !settings[0].paypal_client_id || !settings[0].paypal_secret_key) {
+            return res.status(400).json({ error: "PayPal keys not found in database." });
+        }
 
-        const auth = Buffer.from(`${PAYPAL_CLIENT}:${PAYPAL_SECRET}`).toString('base64');
+        const clientId = settings[0].paypal_client_id;
+        const secretKey = settings[0].paypal_secret_key;
+
+        const auth = Buffer.from(`${clientId}:${secretKey}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
             headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -688,7 +701,15 @@ app.post('/api/get-paypal-products', async (req, res) => {
             headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
         });
         const plansData = await plansRes.json();
-        if (!plansData.plans) throw new Error("Could not fetch plans.");
+
+        if (!plansRes.ok) {
+            throw new Error(plansData.message || plansData.error_description || "Could not fetch plans.");
+        }
+
+        // Gracefully handle empty plans array without throwing a red error to the UI
+        if (!plansData.plans || plansData.plans.length === 0) {
+            return res.json({ products: [] });
+        }
 
         res.json({ products: plansData.plans.map(p => ({ id: p.id, name: p.name })) });
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }

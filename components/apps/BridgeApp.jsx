@@ -3,6 +3,8 @@ import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, Check
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
+  const [paypalClientId, setPaypalClientId] = useState('');
+  const [paypalSecretKey, setPaypalSecretKey] = useState('');
   const [paypalAccountId, setPaypalAccountId] = useState(null); 
   
   const [mappings, setMappings] = useState([]);
@@ -11,6 +13,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [webhookCopied, setWebhookCopied] = useState(false);
 
   const [providerProducts, setProviderProducts] = useState({ stripe: [], paypal: [], patreon: [] });
+  const [isValidatingKey, setIsValidatingKey] = useState(false);
+  const [keySuccess, setKeySuccess] = useState(false);
 
   const [isSyncingSubs, setIsSyncingSubs] = useState(false);
   const [syncSubsResult, setSyncSubsResult] = useState(null);
@@ -57,7 +61,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       
-      if (code && state === 'stripe' && session) {
+      if (code && session && state === 'stripe') {
           setIsLoadingOAuth(true);
           fetch('/api/stripe/oauth/callback', {
               method: 'POST',
@@ -72,18 +76,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               } else {
                   setError(data.error || "Failed to connect Stripe.");
               }
-              const newUrl = new URL(window.location);
-              newUrl.searchParams.delete('code');
-              newUrl.searchParams.delete('state');
-              window.history.replaceState({}, '', newUrl);
-              setIsLoadingOAuth(false);
+              cleanUrl();
           })
-          .catch(() => {
-              setError("Network error during Stripe connection.");
-              setIsLoadingOAuth(false);
-          });
+          .catch(() => { setError("Network error during Stripe connection."); cleanUrl(); });
       }
   }, [session]);
+
+  const cleanUrl = () => {
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('code');
+      newUrl.searchParams.delete('state');
+      window.history.replaceState({}, '', newUrl);
+      setIsLoadingOAuth(false);
+  };
 
   const fetchDatabaseSettings = async (token) => {
     try {
@@ -96,8 +101,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             fetchProviderProducts(data.settings.stripe_account_id, null, token, 'stripe');
             fetchAudienceStats(token); 
         }
-        if (data.settings.paypal_account_id) {
-            setPaypalAccountId(data.settings.paypal_account_id);
+        if (data.settings.paypal_client_id) {
+            // Mask the keys in the UI since they are saved
+            setPaypalClientId('••••••••••••••••');
+            setPaypalSecretKey('••••••••••••••••');
+            setPaypalAccountId(`App ID: ...${data.settings.paypal_client_id.slice(-6)}`);
             fetchProviderProducts(null, null, token, 'paypal');
         }
       }
@@ -137,6 +145,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     const activeToken = overrideToken || session;
     if (!activeToken || ['manual', 'aliases', 'patreon'].includes(provider)) return;
 
+    // Only set validation state if they are testing brand new inputs
+    const isNewKeys = clientId && clientId !== '••••••••••••••••';
+    if (isNewKeys) {
+        setIsValidatingKey(true);
+        setError(null);
+        setKeySuccess(false);
+    }
+
     try {
         const endpoint = provider === 'stripe' ? '/api/get-stripe-products' : '/api/get-paypal-products';
         const payload = provider === 'stripe' ? { accountId: clientId } : { }; 
@@ -146,11 +162,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             headers: { 'Authorization': `Bearer ${activeToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
         if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+        
         const data = await res.json();
+        
         if (data.error) throw new Error(data.error);
 
-        setProviderProducts(prev => ({ ...prev, [provider]: data.products }));
+        setProviderProducts(prev => ({ ...prev, [provider]: data.products || [] }));
 
         if (provider === 'stripe') {
             fetchAudienceStats(activeToken);
@@ -158,10 +177,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     } catch (err) {
         setError(err.message || `Failed to fetch ${provider} products.`);
         setProviderProducts(prev => ({ ...prev, [provider]: [] }));
+    } finally {
+        if (isNewKeys) setIsValidatingKey(false);
     }
   };
 
-  // --- STRIPE ACTIONS ---
+  // --- OAUTH ACTION HANDLERS ---
   const startStripeOAuth = () => {
       const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
       window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe`;
@@ -177,27 +198,32 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (e) { setError("Failed to disconnect Stripe."); }
   };
 
-  // --- PAYPAL ACTIONS (Server-to-Server) ---
-  const connectPaypalServer = async () => {
-      setIsLoadingOAuth(true);
+  // --- PAYPAL SAVE AND TEST ---
+  const handleSavePaypalKeys = async () => {
+      setIsValidatingKey(true);
       setError(null);
+      setKeySuccess(false);
+
       try {
-          const res = await fetch('/api/paypal/oauth/connect-server', {
+          const res = await fetch('/api/save-paypal-keys', {
               method: 'POST',
-              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clientId: paypalClientId, secretKey: paypalSecretKey })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.success) {
-              setPaypalAccountId(data.accountId);
+              setPaypalAccountId(`App ID: ...${data.accountId.slice(-6)}`);
+              setKeySuccess(true);
+              setTimeout(() => setKeySuccess(false), 3000);
               fetchProviderProducts(null, null, session, 'paypal');
           } else {
-              setError(data.error || "Failed to sync PayPal with environment variables.");
+              setError(data.error || "Failed to validate PayPal keys.");
           }
       } catch (err) {
           setError("Network error while syncing PayPal.");
       } finally {
-          setIsLoadingOAuth(false);
+          setIsValidatingKey(false);
       }
   };
 
@@ -206,6 +232,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       try {
           await fetch('/api/paypal/oauth/disconnect', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }});
           setPaypalAccountId(null);
+          setPaypalClientId('');
+          setPaypalSecretKey('');
           setProviderProducts(prev => ({...prev, paypal: []}));
       } catch (e) { setError("Failed to disconnect PayPal."); }
   };
@@ -555,12 +583,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   return (
     <>
-      {isLoadingOAuth && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-              <Loader2 className="w-12 h-12 animate-spin text-[#9df01c] mb-4" />
-              <p className="text-white font-bold tracking-widest uppercase text-xs">Connecting to Auth Provider...</p>
-          </div>
-      )}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-[#050505]">
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
@@ -763,22 +785,45 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
                                 <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
                                 <p className="text-sm font-bold text-white mb-1">PayPal Connected!</p>
-                                <p className="text-xs text-gray-500 mb-4 break-all">Server Sync Complete</p>
+                                <p className="text-[10px] text-gray-500 mb-4 truncate" title={paypalAccountId}>{paypalAccountId}</p>
                                 <button onClick={handleDisconnectPaypal} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
                                     <LogOut size={12} /> Disconnect
                                 </button>
                             </div>
                         ) : (
-                            <div>
-                                <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
-                                    Sync your configured PayPal Environment keys to automatically fetch your billing plans.
-                                </p>
+                            <>
+                                <div>
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                        PayPal Client ID
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={paypalClientId} 
+                                        onChange={(e) => setPaypalClientId(e.target.value)} 
+                                        placeholder="Enter Client ID..." 
+                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                        PayPal Secret Key
+                                    </label>
+                                    <input 
+                                        type="password" 
+                                        value={paypalSecretKey} 
+                                        onChange={(e) => setPaypalSecretKey(e.target.value)} 
+                                        placeholder="Enter Secret Key..." 
+                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                    />
+                                </div>
                                 <button 
-                                    onClick={connectPaypalServer}
-                                    className="w-full font-black py-4 rounded-xl uppercase text-[11px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 bg-[#0070BA] hover:bg-[#003087] text-white shadow-lg shadow-[#0070BA]/20">
-                                    Sync PayPal Account
+                                  onClick={handleSavePaypalKeys}
+                                  disabled={isValidatingKey || (!paypalClientId || !paypalSecretKey)}
+                                  className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
+                                  {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
+                                  {keySuccess ? 'Connected' : 'Save & Sync Products'}
                                 </button>
-                            </div>
+                            </>
                         )
                     )}
                   </div>
@@ -1035,7 +1080,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     ))
                                   ) : (
                                     <option value="" disabled>
-                                        {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV first to see options.' : 'No products found. Sync Credentials first.'}
+                                        {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV or create plans in PayPal first.' : 'No products found. Sync Credentials first.'}
                                     </option>
                                   )}
                                 </select>
