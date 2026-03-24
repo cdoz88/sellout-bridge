@@ -51,6 +51,7 @@ async function ensureSchema() {
     try {
         await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
         await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
+        
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 
@@ -167,8 +168,105 @@ async function revokeCommunityAccess(email, module, contentId) {
     } catch (err) { return { error: err.message }; }
 }
 
+// ==========================================
+// BUSINESS CARD & BIO PAGE ENDPOINTS
+// ==========================================
 
-// --- GUIDES ENDPOINTS ---
+// Business Card
+app.get('/api/get-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${user.id}`;
+        if (rows.length > 0) {
+            res.json({ card: rows[0].card_data, slug: rows[0].custom_slug || '' });
+        } else {
+            res.json({ card: null, slug: '' });
+        }
+    } catch (err) { res.status(500).json({ error: "Failed to fetch card" }); }
+});
+
+app.post('/api/save-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { card, slug } = req.body;
+    
+    try {
+        await ensureSchema();
+        if (slug) {
+            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            if (slugCheck.length > 0) return res.status(400).json({ error: "This Custom URL is already taken." });
+        }
+        
+        await sql`
+            INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) 
+            VALUES (${user.id}, ${card}, ${slug}) 
+            ON CONFLICT (user_id) 
+            DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to save card" }); }
+});
+
+app.get('/api/public-card/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE custom_slug = ${req.params.slug}`;
+        if (rows.length > 0) res.json({ success: true, card: rows[0].card_data });
+        else res.status(404).json({ error: "Card not found" });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// Bio Page
+app.get('/api/get-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${user.id}`;
+        if (rows.length > 0) {
+            res.json({ page: rows[0].page_data, slug: rows[0].custom_slug || '' });
+        } else {
+            res.json({ page: null, slug: '' });
+        }
+    } catch (err) { res.status(500).json({ error: "Failed to fetch bio page" }); }
+});
+
+app.post('/api/save-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { page, slug } = req.body;
+    
+    try {
+        await ensureSchema();
+        if (slug) {
+            const slugCheck = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            if (slugCheck.length > 0) return res.status(400).json({ error: "This Custom URL is already taken." });
+        }
+        
+        await sql`
+            INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) 
+            VALUES (${user.id}, ${page}, ${slug}) 
+            ON CONFLICT (user_id) 
+            DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to save bio page" }); }
+});
+
+app.get('/api/public-bio-page/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT page_data FROM bridge_bio_pages WHERE custom_slug = ${req.params.slug}`;
+        if (rows.length > 0) res.json({ success: true, page: rows[0].page_data });
+        else res.status(404).json({ error: "Page not found" });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// ==========================================
+// GUIDES ENDPOINTS
+// ==========================================
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
 
 app.get('/api/guides/data', async (req, res) => {
@@ -275,7 +373,9 @@ app.post('/api/guides/delete', async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// --- ASSET ENDPOINTS ---
+// ==========================================
+// ASSET ENDPOINTS 
+// ==========================================
 app.get('/api/assets/data', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     try {
@@ -377,7 +477,9 @@ app.post('/api/assets/delete', async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// --- OTHER API ENDPOINTS (OAuth, Users, Subscriptions, Webhooks) ---
+// ==========================================
+// OTHER API ENDPOINTS (OAuth, Users, Subscriptions)
+// ==========================================
 app.post('/api/auth/callback', async (req, res) => {
     const { code, redirect_uri } = req.body;
     try {
