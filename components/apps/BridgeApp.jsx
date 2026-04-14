@@ -1131,7 +1131,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                                 <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
                                                     {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                 </div>
-                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
+                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
                                             </label>
                                         );
                                     })}
