@@ -553,8 +553,22 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
-  const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
+  
+  const updateMapping = (id, field, value) => {
+      setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+  
+  const toggleCommunity = (mappingId, commId) => {
+      setMappings(prev => prev.map(m => {
+          if (m.id !== mappingId) return m;
+          const currentComms = m.communities || [];
+          const newComms = currentComms.includes(commId) 
+              ? currentComms.filter(c => c !== commId)
+              : [...currentComms, commId];
+          return { ...m, communities: newComms };
+      }));
+  };
   
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
@@ -784,7 +798,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         paypalAccountId ? (
                             <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
                                 <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
-                                <p className="text-sm font-bold text-white mb-1">PayPal Connected!</p>
+                                <p className="text-sm font-bold text-white mb-1">PayPal API Connected!</p>
                                 <p className="text-[10px] text-gray-500 mb-4 truncate" title={paypalAccountId}>{paypalAccountId}</p>
                                 <button onClick={handleDisconnectPaypal} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
                                     <LogOut size={12} /> Disconnect
@@ -1044,7 +1058,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             Subscription Mappings
                           </h3>
                           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Community]
+                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Communities]
                           </p>
                         </div>
                         <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
@@ -1057,13 +1071,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
-                            <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                               
-                              <div className="flex-1 w-full">
+                              <div className="flex-1 w-full md:mt-1">
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">
                                   {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
                                 </label>
@@ -1086,44 +1100,49 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                 </select>
                               </div>
 
-                              <div className="md:pt-5 hidden md:block">
+                              <div className="md:pt-9 hidden md:block">
                                 <Zap className="w-5 h-5 text-[#9df01c]" />
                               </div>
 
-                              <div className="flex-1 w-full">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">Grant Access To</label>
-                                <select 
-                                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                                  value={mapping.unaId ? `${mapping.unaModule}_${mapping.unaId}` : ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (!val) {
-                                      updateMapping(mapping.id, 'unaModule', '');
-                                      updateMapping(mapping.id, 'unaId', '');
-                                    } else {
-                                      const lastUnderscore = val.lastIndexOf('_');
-                                      const module = val.substring(0, lastUnderscore);
-                                      const id = val.substring(lastUnderscore + 1);
-                                      updateMapping(mapping.id, 'unaModule', module);
-                                      updateMapping(mapping.id, 'unaId', id);
-                                    }
-                                  }}
-                                >
-                                  <option value="">Select Crowd/Space...</option>
-                                  {unaData.crowds.length > 0 && (
-                                    <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
-                                      {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
-                                    </optgroup>
-                                  )}
-                                  {unaData.spaces.length > 0 && (
-                                    <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
-                                      {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
-                                    </optgroup>
-                                  )}
-                                </select>
+                              <div className="flex-[2] w-full bg-[#111] border border-white/10 rounded-xl p-3">
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">Grant Access To (Select Multiple)</label>
+                                <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
+                                    
+                                    {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1">Crowds</div>}
+                                    {unaData.crowds.map(c => {
+                                        const commId = `bx_spaces_${c.id}`;
+                                        const isChecked = mapping.communities?.includes(commId);
+                                        return (
+                                            <label key={commId} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                </div>
+                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
+                                            </label>
+                                        );
+                                    })}
+
+                                    {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1">Spaces</div>}
+                                    {unaData.spaces.map(s => {
+                                        const commId = `bx_groups_${s.id}`;
+                                        const isChecked = mapping.communities?.includes(commId);
+                                        return (
+                                            <label key={commId} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                </div>
+                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    
+                                    {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
+                                        <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
+                                    )}
+                                </div>
                               </div>
 
-                              <div className="md:pt-5 w-full md:w-auto">
+                              <div className="md:pt-8 w-full md:w-auto">
                                 <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-50 hover:text-white transition-all flex justify-center">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
