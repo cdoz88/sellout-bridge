@@ -72,6 +72,9 @@ async function ensureSchema() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
         
+        try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
+        try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
+        
         try { 
             await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
                 id SERIAL PRIMARY KEY, 
@@ -186,11 +189,10 @@ app.get('/api/team', async (req, res) => {
     try {
         await ensureSchema();
         
-        // Dynamic Seat Limits based on UNA Role!
         let limit = 0;
         if (user.role === 17) limit = 5; // H.O.F.
         else if (user.role === 16) limit = 3; // All-Star
-        else if (user.role === 3) limit = 999; // Admins get unlimited for testing
+        else if (user.role === 3) limit = 999; // Admins
 
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
         
@@ -219,7 +221,6 @@ app.post('/api/team/invite', async (req, res) => {
         const existing = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id}`;
         if (existing.length >= limit) return res.status(400).json({ error: "Seat limit reached. Upgrade your account on Sellout Crowds to add more teammates." });
 
-        // Call the new UNA bridge-connector action!
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
         const response = await fetch(url, { 
             method: 'POST', 
@@ -227,7 +228,14 @@ app.post('/api/team/invite', async (req, res) => {
             body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 18 }) 
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
+        }
+
         if (!result.success) throw new Error(result.error || "Failed to upgrade user.");
 
         await sql`INSERT INTO bridge_team_seats (owner_id, teammate_email) VALUES (${user.id}, ${cleanEmail}) ON CONFLICT (owner_id, teammate_email) DO NOTHING`;
@@ -248,19 +256,26 @@ app.post('/api/team/revoke', async (req, res) => {
     try {
         const cleanEmail = email.trim().toLowerCase();
 
-        // Call the new UNA bridge-connector action to revoke!
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        await fetch(url, { 
+        const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
             body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 18 }) 
         });
 
+        const responseText = await response.text();
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
+        }
+
         await sql`DELETE FROM bridge_team_seats WHERE owner_id = ${user.id} AND teammate_email = ${cleanEmail}`;
 
         res.json({ success: true });
     } catch (error) { 
-        res.status(500).json({ error: "Failed to revoke teammate" }); 
+        res.status(500).json({ error: error.message || "Failed to revoke teammate" }); 
     }
 });
 
@@ -484,6 +499,30 @@ app.post('/api/assets/categories/bulk', async (req, res) => {
                     await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
                 }
             }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories', async (req, res) => {
+    const { id, name, is_hidden, order_index } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
+
+        if (id) {
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
         }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -1067,6 +1106,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
+        // Group mappings
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {

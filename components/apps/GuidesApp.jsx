@@ -106,10 +106,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         } catch(e) {}
     };
 
-    const handleEditGuide = (e, guide) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
+    const handleEditGuide = (guide) => {
         let safeContent = guide.content;
         if (typeof guide.content === 'string') {
             try { safeContent = JSON.parse(guide.content); } catch(err) {}
@@ -254,7 +251,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                 <Link2 size={14} /> {copied ? 'Copied!' : 'Copy Link'}
                             </button>
                             {isAdmin && (
-                                <button onClick={(e) => handleEditGuide(e, activeGuide)} className="text-gray-500 hover:text-[#9df01c] font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditGuide(activeGuide); }} className="text-gray-500 hover:text-[#9df01c] font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
                                     <Pencil size={14} /> Edit
                                 </button>
                             )}
@@ -378,7 +375,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                     
                                     {isAdmin && (
                                         <span className="flex items-center gap-2">
-                                            <button onClick={(e) => handleEditGuide(e, guide)} className="text-gray-500 hover:text-white transition-colors p-1"><Pencil size={14}/></button>
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditGuide(guide); }} className="text-gray-500 hover:text-white transition-colors p-1"><Pencil size={14}/></button>
                                             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGuide(guide.id); }} className="text-gray-500 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
                                         </span>
                                     )}
