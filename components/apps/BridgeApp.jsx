@@ -5,7 +5,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
   const [paypalClientId, setPaypalClientId] = useState('');
   const [paypalSecretKey, setPaypalSecretKey] = useState('');
-  const [paypalAccountId, setPaypalAccountId] = useState(null); 
   
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -559,6 +558,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   
+  // FIXED: Attach this to onClick instead of doing nothing!
   const toggleCommunity = (mappingId, commId) => {
       setMappings(prev => prev.map(m => {
           if (m.id !== mappingId) return m;
@@ -1113,12 +1113,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         const commId = `bx_spaces_${c.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
                                         return (
-                                            <label key={commId} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
                                                 <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
                                                     {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                 </div>
                                                 <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
-                                            </label>
+                                            </div>
                                         );
                                     })}
 
@@ -1127,12 +1127,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         const commId = `bx_groups_${s.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
                                         return (
-                                            <label key={commId} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
                                                 <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
                                                     {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                 </div>
                                                 <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
-                                            </label>
+                                            </div>
                                         );
                                     })}
                                     
