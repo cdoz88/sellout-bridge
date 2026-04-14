@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Check } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
   const [paypalClientId, setPaypalClientId] = useState('');
   const [paypalSecretKey, setPaypalSecretKey] = useState('');
+  const [paypalAccountId, setPaypalAccountId] = useState(null); 
   
   const [mappings, setMappings] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -490,13 +491,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               body: JSON.stringify({ email: manualEmail, unaModule: module, unaId: id })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-          if (res.ok) {
+          
+          const textRaw = await res.text();
+          let data = {};
+          try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) {}
+          
+          if (res.ok && data.success) {
               setManualEmail('');
               setManualUnaSelect('');
               fetchManualUsers();
           } else {
-              const errData = await res.json();
-              throw new Error(errData.error || "Failed to grant access.");
+              throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
       } catch (err) {
           setError(err.message);
@@ -533,14 +538,18 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               body: JSON.stringify({ originalEmail: aliasOriginal, aliasEmail: aliasTarget })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-          if (res.ok) {
+          
+          const textRaw = await res.text();
+          let data = {};
+          try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) {}
+          
+          if (res.ok && data.success) {
               setAliasOriginal('');
               setAliasTarget('');
               fetchAliases();
               fetchAudienceStats();
           } else {
-              const errData = await res.json();
-              throw new Error(errData.error || "Failed to add alias.");
+              throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
       } catch (err) {
           setError(err.message);
@@ -577,13 +586,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ email: teamEmail })
           });
+          
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-          if (res.ok) {
+          
+          // READ AS TEXT FIRST TO PREVENT JSON.PARSE CRASHES
+          const textRaw = await res.text();
+          let data = {};
+          try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) {}
+
+          if (res.ok && data.success) {
               setTeamEmail('');
               fetchTeamData();
           } else {
-              const errData = await res.json();
-              throw new Error(errData.error || "Failed to invite teammate.");
+              throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
       } catch (err) {
           setError(err.message);
@@ -728,8 +743,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     </div>
                     <button 
                       onClick={handleInviteTeammate}
-                      disabled={isTeamSaving || !teamEmail || teamUsed >= teamLimit}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || teamUsed >= teamLimit) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                       {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
                       {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
                     </button>
