@@ -11,12 +11,10 @@ export default function Sidebar({
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
-    // State for Assets
     const [categories, setCategories] = useState([]);
     const [isEditingCats, setIsEditingCats] = useState(false);
     const [isSavingCats, setIsSavingCats] = useState(false);
 
-    // State for Guides
     const [guideCategories, setGuideCategories] = useState([]);
     const [isEditingGuideCats, setIsEditingGuideCats] = useState(false);
     const [isSavingGuideCats, setIsSavingGuideCats] = useState(false);
@@ -51,7 +49,6 @@ export default function Sidebar({
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
     };
 
-    // --- ASSETS REORDERING & BULK SAVE ---
     const moveCatUp = (index) => {
         if (index === 0) return;
         const newCats = [...categories];
@@ -100,7 +97,6 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('assets-updated'));
     };
 
-    // --- GUIDES REORDERING & BULK SAVE ---
     const moveGuideCatUp = (index) => {
         if (index === 0) return;
         const newCats = [...guideCategories];
@@ -188,6 +184,12 @@ export default function Sidebar({
 
                         <div className="mt-8 pt-8 border-t border-white/5">
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Sellout Crowds</p>
+                            <div className="space-y-1 mb-4">
+                                <button onClick={() => handleNavClick('team')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'team' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Users size={16} /> My Team
+                                </button>
+                            </div>
+
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities}

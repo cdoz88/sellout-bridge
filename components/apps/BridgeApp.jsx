@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Check } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -37,6 +37,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [aliasTarget, setAliasTarget] = useState('');
   const [isAliasSaving, setIsAliasSaving] = useState(false);
 
+  // --- TEAM STATE ---
+  const [teamLimit, setTeamLimit] = useState(0);
+  const [teamUsed, setTeamUsed] = useState(0);
+  const [teammates, setTeammates] = useState([]);
+  const [teamEmail, setTeamEmail] = useState('');
+  const [isTeamSaving, setIsTeamSaving] = useState(false);
+
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
@@ -51,6 +58,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       fetchDatabaseSettings(session);
       fetchManualUsers(session);
       fetchAliases(session);
+      fetchTeamData(session);
     }
   }, [session, activeTab]);
 
@@ -101,7 +109,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             fetchAudienceStats(token); 
         }
         if (data.settings.paypal_client_id) {
-            // Mask the keys in the UI since they are saved
             setPaypalClientId('••••••••••••••••');
             setPaypalSecretKey('••••••••••••••••');
             setPaypalAccountId(`App ID: ...${data.settings.paypal_client_id.slice(-6)}`);
@@ -140,11 +147,24 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (err) {}
   };
 
+  const fetchTeamData = async (token = session) => {
+      if (!token) return;
+      try {
+          const res = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          const data = await res.json();
+          if (data) {
+              setTeamLimit(data.limit);
+              setTeamUsed(data.used);
+              setTeammates(data.teammates || []);
+          }
+      } catch (err) {}
+  };
+
   const fetchProviderProducts = async (clientId, secretKey, overrideToken, provider = activeTab) => {
     const activeToken = overrideToken || session;
-    if (!activeToken || ['manual', 'aliases', 'patreon'].includes(provider)) return;
+    if (!activeToken || ['manual', 'aliases', 'patreon', 'team'].includes(provider)) return;
 
-    // Only set validation state if they are testing brand new inputs
     const isNewKeys = clientId && clientId !== '••••••••••••••••';
     if (isNewKeys) {
         setIsValidatingKey(true);
@@ -544,6 +564,49 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  const handleInviteTeammate = async () => {
+      if (!teamEmail) {
+          setError("Please enter an email address.");
+          return;
+      }
+      setIsTeamSaving(true);
+      setError(null);
+      try {
+          const res = await fetch('/api/team/invite', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: teamEmail })
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          if (res.ok) {
+              setTeamEmail('');
+              fetchTeamData();
+          } else {
+              const errData = await res.json();
+              throw new Error(errData.error || "Failed to invite teammate.");
+          }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsTeamSaving(false);
+      }
+  };
+
+  const handleRevokeTeammate = async (email) => {
+      if (!window.confirm(`Are you sure you want to revoke teammate access for ${email}?`)) return;
+      try {
+          const res = await fetch('/api/team/revoke', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email })
+          });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          fetchTeamData();
+      } catch (err) {
+          console.error("Failed to revoke teammate.");
+      }
+  };
+
   const getCommunityName = (mod, id) => {
       if (mod === 'bx_groups') {
           return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
@@ -558,7 +621,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
   };
   
-  // FIXED: Attach this to onClick instead of doing nothing!
   const toggleCommunity = (mappingId, commId) => {
       setMappings(prev => prev.map(m => {
           if (m.id !== mappingId) return m;
@@ -597,6 +659,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   return (
     <>
+      {isLoadingOAuth && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+              <Loader2 className="w-12 h-12 animate-spin text-[#9df01c] mb-4" />
+              <p className="text-white font-bold tracking-widest uppercase text-xs">Connecting to Auth Provider...</p>
+          </div>
+      )}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-[#050505]">
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
@@ -631,7 +699,53 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-6">
               
-              {activeTab === 'aliases' ? (
+              {activeTab === 'team' ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
+                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
+                    <Users size={18} className="text-[#9df01c]" />
+                    My Team
+                  </h3>
+                  
+                  <div className="mb-6 p-4 bg-black border border-white/5 rounded-2xl text-center">
+                      <div className="text-3xl font-black text-white">
+                          <span className="text-[#9df01c]">{teamUsed}</span> <span className="text-gray-600">/</span> {teamLimit === 999 ? '∞' : teamLimit}
+                      </div>
+                      <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Seats Used</p>
+                  </div>
+
+                  <div className="space-y-5 relative z-10">
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        Invite Teammate
+                      </label>
+                      <input 
+                        type="email" 
+                        value={teamEmail} 
+                        onChange={(e) => setTeamEmail(e.target.value)} 
+                        placeholder="assistant@example.com" 
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                      />
+                    </div>
+                    <button 
+                      onClick={handleInviteTeammate}
+                      disabled={isTeamSaving || !teamEmail || teamUsed >= teamLimit}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || teamUsed >= teamLimit) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                      {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
+                    </button>
+                    {teamUsed >= teamLimit && teamLimit > 0 && (
+                        <p className="text-[9px] text-red-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
+                            You have reached your seat limit. Remove a teammate or upgrade your account to add more!
+                        </p>
+                    )}
+                    {teamLimit === 0 && (
+                        <p className="text-[9px] text-gray-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
+                            Your current account tier does not include teammate seats. Upgrade to unlock this feature!
+                        </p>
+                    )}
+                  </div>
+                </div>
+              ) : activeTab === 'aliases' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <Repeat size={18} className="text-[#9df01c]" />
@@ -960,7 +1074,90 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             <div className="lg:col-span-8">
               <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
                 
-                {activeTab === 'aliases' ? (
+                {activeTab === 'team' ? (
+                  <>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                        <div>
+                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
+                            <Users className="w-6 h-6 text-[#9df01c]" />
+                            My Team
+                          </h3>
+                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+                            Grant dashboard access to your assistants and partners.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-8 p-4 bg-black border border-white/5 rounded-2xl text-center">
+                          <div className="text-3xl font-black text-white">
+                              <span className="text-[#9df01c]">{teamUsed}</span> <span className="text-gray-600">/</span> {teamLimit === 999 ? '∞' : teamLimit}
+                          </div>
+                          <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Seats Used</p>
+                      </div>
+
+                      <div className="space-y-4 flex-1">
+                        <div className="bg-black border border-white/5 p-4 rounded-2xl mb-6">
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                              Invite Teammate
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input 
+                                  type="email" 
+                                  value={teamEmail} 
+                                  onChange={(e) => setTeamEmail(e.target.value)} 
+                                  placeholder="assistant@example.com" 
+                                  className="w-full flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                />
+                                <button 
+                                  onClick={handleInviteTeammate}
+                                  disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
+                                  className={`font-black py-3 px-6 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                                  {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                                  {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
+                                </button>
+                            </div>
+                            
+                            {teamLimit > 0 && teamUsed >= teamLimit && (
+                                <p className="text-[9px] text-red-500 mt-3 font-bold leading-relaxed italic">
+                                    You have reached your seat limit. Remove a teammate or upgrade your account to add more!
+                                </p>
+                            )}
+                            {teamLimit === 0 && (
+                                <p className="text-[9px] text-gray-500 mt-3 font-bold leading-relaxed italic">
+                                    Your current account tier does not include teammate seats. Upgrade to unlock this feature!
+                                </p>
+                            )}
+                        </div>
+
+                        {teammates.length === 0 ? (
+                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center mt-8">
+                            <Users className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Teammates Yet</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form above to grant platform access to a teammate.</p>
+                          </div>
+                        ) : (
+                            teammates.map((mate) => (
+                                <div key={mate.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
+                                    <div className="flex-1 w-full text-center md:text-left">
+                                        <p className="text-sm font-bold text-white flex items-center justify-center md:justify-start gap-2">
+                                            <span>{mate.teammate_email}</span>
+                                            <span className="text-[8px] bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20 px-1.5 py-0.5 rounded uppercase tracking-widest font-black">Active</span>
+                                        </p>
+                                        <p className="text-[9px] text-gray-600 font-medium mt-1">Added {new Date(mate.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleRevokeTeammate(mate.teammate_email)}
+                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
+                                        title="Revoke Teammate Access"
+                                    >
+                                        <Trash2 size={16} /> <span className="md:hidden">Revoke Access</span>
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                      </div>
+                  </>
+                ) : activeTab === 'aliases' ? (
                   <>
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                         <div>

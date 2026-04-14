@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, GripVertical, Save, Pencil, Folder } from 'lucide-react';
+import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical } from 'lucide-react';
 
 export default function GuidesApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
@@ -56,7 +56,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
             if (foundGuide) {
                 setActiveGuide(foundGuide);
             } else if (guides.length > 0) {
-                // If guides are loaded but ID isn't found, close viewer
                 setActiveGuide(null);
             }
         } else {
@@ -100,7 +99,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                 body: JSON.stringify({ id })
             });
             
-            // If the deleted guide is the one currently open, route them back to its category
             if (activeGuide && activeGuide.id === id) {
                 setActiveTab(`cat_${activeGuide.category_id}`);
             }
@@ -114,11 +112,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         
         let safeContent = guide.content;
         if (typeof guide.content === 'string') {
-            try { 
-                safeContent = JSON.parse(guide.content); 
-            } catch(err) {
-                // Ignore parsing errors, keep as string
-            }
+            try { safeContent = JSON.parse(guide.content); } catch(err) {}
         }
         
         setEditingGuide({ ...guide, content: safeContent });
@@ -131,7 +125,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // --- RICH TEXT / HTML INJECTOR (ARTICLE) ---
     const insertTag = (prefix, suffix) => {
         const textarea = document.getElementById('article-editor');
         if (!textarea) return;
@@ -176,13 +169,9 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         }
     };
 
-    // --- FAQ BUILDER HELPERS ---
     const addFaqItem = () => {
         const currentContent = Array.isArray(editingGuide.content) ? editingGuide.content : [];
-        setEditingGuide({ 
-            ...editingGuide, 
-            content: [...currentContent, { id: Date.now(), q: '', a: '' }] 
-        });
+        setEditingGuide({ ...editingGuide, content: [...currentContent, { id: Date.now(), q: '', a: '' }] });
     };
 
     const updateFaqItem = (id, field, value) => {
@@ -212,16 +201,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
     };
     const handleFaqDragEnd = () => setDraggedFaqIndex(null);
 
-
-    // --- RENDERING ---
-
     const activeCatId = activeTab && activeTab.startsWith('cat_') ? parseInt(activeTab.replace('cat_', '')) : null;
-    
-    // Dynamically grab category name for display whether viewing a cat list or an individual guide
-    const activeCategory = activeGuide 
-        ? categories.find(c => c.id === activeGuide.category_id)
-        : categories.find(c => c.id === activeCatId);
-        
+    const activeCategory = activeGuide ? categories.find(c => c.id === activeGuide.category_id) : categories.find(c => c.id === activeCatId);
     const visibleGuides = guides.filter(g => g.category_id === activeCatId);
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
@@ -258,10 +239,10 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
         }
     };
 
-    return (
-        <>
-            {activeGuide ? (
-                // --- 1. SINGLE GUIDE VIEW ---
+    // RENDERING LOGIC SEPARATED TO PREVENT HTML BREAKS
+    const renderContent = () => {
+        if (activeGuide) {
+            return (
                 <div className="max-w-4xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                         <button onClick={() => setActiveTab(`cat_${activeGuide.category_id}`)} className="text-gray-500 hover:text-white font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-colors">
@@ -289,8 +270,11 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                         {renderActiveGuideContent()}
                     </div>
                 </div>
-            ) : (activeTab === 'library' || !activeCategory) ? (
-                // --- 2. LIBRARY VIEW (ALL CATEGORIES) ---
+            );
+        }
+
+        if (activeTab === 'library' || !activeCategory) {
+            return (
                 <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
                     <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                         <div>
@@ -340,71 +324,77 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                         </div>
                     )}
                 </div>
-            ) : (
-                // --- 3. CATEGORY VIEW (GUIDES IN CATEGORY) ---
-                <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
-                        <div>
-                            <button onClick={() => setActiveTab('library')} className="text-gray-500 hover:text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 mb-4 transition-colors">
-                                &larr; Help Center Library
-                            </button>
-                            <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
-                                {activeCategory.name}
-                            </h2>
-                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                                Browse articles and guides to help you master the platform.
-                            </p>
-                        </div>
-                        
-                        {isAdmin && (
-                            <div className="flex gap-3 w-full md:w-auto justify-end">
-                                <button 
-                                    onClick={() => {
-                                        setEditingGuide({ id: null, title: '', category_id: activeCatId || '', type: 'article', content: '' });
-                                        setShowModal(true);
-                                    }}
-                                    className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                                    <Plus size={14} /> <span className="hidden sm:inline">New Guide</span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+            );
+        }
 
-                    {visibleGuides.length === 0 ? (
-                        <div className="border-2 border-dashed border-white/5 rounded-[2rem] p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
-                            <FileText size={48} className="text-gray-600 mb-4 opacity-30" />
-                            <p className="text-gray-400 font-bold text-sm">No guides in this category</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {visibleGuides.map(guide => (
-                                <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveTab(`guide_${guide.id}`)}>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center text-[#9df01c] group-hover:scale-110 transition-transform">
-                                            {guide.type === 'faq' ? <FileQuestion size={20} /> : <Newspaper size={20} />}
-                                        </div>
-                                        <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest bg-black px-2 py-1 rounded-md border border-white/5">{guide.type === 'faq' ? 'FAQ Accordion' : 'Article'}</span>
-                                    </div>
-                                    
-                                    <h3 className="text-lg font-bold text-white mb-2 leading-tight group-hover:text-[#9df01c] transition-colors">{guide.title}</h3>
-                                    <p className="text-xs text-gray-500 mt-auto pt-4 flex items-center justify-between">
-                                        <span>Read Guide &rarr;</span>
-                                        
-                                        {isAdmin && (
-                                            <span className="flex items-center gap-2">
-                                                <button onClick={(e) => handleEditGuide(e, guide)} className="text-gray-500 hover:text-white transition-colors p-1"><Pencil size={14}/></button>
-                                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGuide(guide.id); }} className="text-gray-500 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
-                                            </span>
-                                        )}
-                                    </p>
-                                </div>
-                            ))}
+        return (
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
+                    <div>
+                        <button onClick={() => setActiveTab('library')} className="text-gray-500 hover:text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 mb-4 transition-colors">
+                            &larr; Help Center Library
+                        </button>
+                        <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
+                            {activeCategory.name}
+                        </h2>
+                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                            Browse articles and guides to help you master the platform.
+                        </p>
+                    </div>
+                    
+                    {isAdmin && (
+                        <div className="flex gap-3 w-full md:w-auto justify-end">
+                            <button 
+                                onClick={() => {
+                                    setEditingGuide({ id: null, title: '', category_id: activeCatId || '', type: 'article', content: '' });
+                                    setShowModal(true);
+                                }}
+                                className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                                <Plus size={14} /> <span className="hidden sm:inline">New Guide</span>
+                            </button>
                         </div>
                     )}
                 </div>
-            )}
 
-            {/* --- 4. ADMIN MODAL (Always available on all views) --- */}
+                {visibleGuides.length === 0 ? (
+                    <div className="border-2 border-dashed border-white/5 rounded-[2rem] p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
+                        <FileText size={48} className="text-gray-600 mb-4 opacity-30" />
+                        <p className="text-gray-400 font-bold text-sm">No guides in this category</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {visibleGuides.map(guide => (
+                            <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveTab(`guide_${guide.id}`)}>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center text-[#9df01c] group-hover:scale-110 transition-transform">
+                                        {guide.type === 'faq' ? <FileQuestion size={20} /> : <Newspaper size={20} />}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest bg-black px-2 py-1 rounded-md border border-white/5">{guide.type === 'faq' ? 'FAQ Accordion' : 'Article'}</span>
+                                </div>
+                                
+                                <h3 className="text-lg font-bold text-white mb-2 leading-tight group-hover:text-[#9df01c] transition-colors">{guide.title}</h3>
+                                <p className="text-xs text-gray-500 mt-auto pt-4 flex items-center justify-between">
+                                    <span>Read Guide &rarr;</span>
+                                    
+                                    {isAdmin && (
+                                        <span className="flex items-center gap-2">
+                                            <button onClick={(e) => handleEditGuide(e, guide)} className="text-gray-500 hover:text-white transition-colors p-1"><Pencil size={14}/></button>
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGuide(guide.id); }} className="text-gray-500 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <>
+            {renderContent()}
+
             {showModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 text-left cursor-default" onClick={e => e.stopPropagation()}>
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl relative">
@@ -448,7 +438,6 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                         </label>
                                         
                                         <div className="border border-white/10 rounded-xl overflow-hidden focus-within:border-[#9df01c] transition-colors">
-                                            {/* Article Editor Toolbar */}
                                             <div className="bg-black p-2 border-b border-white/10 flex items-center gap-1 overflow-x-auto">
                                                 <button title="Bold" onClick={() => insertTag('<b class="text-white">', '</b>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Bold size={16}/></button>
                                                 <button title="Italic" onClick={() => insertTag('<i>', '</i>')} className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg"><Italic size={16}/></button>
