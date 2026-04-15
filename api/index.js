@@ -161,6 +161,7 @@ async function getAuthenticatedUser(token) {
     } catch (e) { return null; }
 }
 
+// --- FIX: ADDED module: module TO THE JSON PAYLOADS ---
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -190,7 +191,7 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 5; // H.O.F.
+        if (user.role === 17) limit = 6; // H.O.F.
         else if (user.role === 16) limit = 3; // All-Star
         else if (user.role === 3) limit = 999; // Admins
 
@@ -214,7 +215,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 5;
+        if (user.role === 17) limit = 6;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -975,7 +976,7 @@ app.post('/api/patreon-import', async (req, res) => {
             }
             
             const newStatus = allSuccess ? 'bridged' : 'pending';
-            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, tier, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
             if (allSuccess) importCount++;
             await new Promise(resolve => setTimeout(resolve, 250)); 
         }
