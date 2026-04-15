@@ -225,7 +225,7 @@ app.post('/api/team/invite', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 12 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 11 }) // CHANGED TO 11
         });
         
         const responseText = await response.text();
@@ -260,7 +260,7 @@ app.post('/api/team/revoke', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 12 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 11 }) // CHANGED TO 11
         });
 
         const responseText = await response.text();
