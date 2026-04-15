@@ -202,7 +202,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   };
 
-  // --- OAUTH ACTION HANDLERS ---
   const startStripeOAuth = () => {
       const redirectUri = encodeURIComponent(window.location.origin + '/?app=bridge&tab=stripe');
       window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe`;
@@ -218,7 +217,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (e) { setError("Failed to disconnect Stripe."); }
   };
 
-  // --- PAYPAL SAVE AND TEST ---
   const handleSavePaypalKeys = async () => {
       setIsValidatingKey(true);
       setError(null);
@@ -258,7 +256,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (e) { setError("Failed to disconnect PayPal."); }
   };
 
-  // --- CSV UPLOAD HANDLERS ---
   const handlePatreonUpload = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -589,7 +586,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           
-          // READ AS TEXT FIRST TO PREVENT JSON.PARSE CRASHES
           const textRaw = await res.text();
           let data = {};
           try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) {}
@@ -1095,60 +1091,20 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
                             <Users className="w-6 h-6 text-[#9df01c]" />
-                            My Team
+                            Active Teammates
                           </h3>
                           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Grant dashboard access to your assistants and partners.
+                            Manage dashboard access for your assistants and partners.
                           </p>
                         </div>
                       </div>
-                      
-                      <div className="mb-8 p-4 bg-black border border-white/5 rounded-2xl text-center">
-                          <div className="text-3xl font-black text-white">
-                              <span className="text-[#9df01c]">{teamUsed}</span> <span className="text-gray-600">/</span> {teamLimit === 999 ? '∞' : teamLimit}
-                          </div>
-                          <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Seats Used</p>
-                      </div>
 
                       <div className="space-y-4 flex-1">
-                        <div className="bg-black border border-white/5 p-4 rounded-2xl mb-6">
-                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                              Invite Teammate
-                            </label>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <input 
-                                  type="email" 
-                                  value={teamEmail} 
-                                  onChange={(e) => setTeamEmail(e.target.value)} 
-                                  placeholder="assistant@example.com" 
-                                  className="w-full flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
-                                />
-                                <button 
-                                  onClick={handleInviteTeammate}
-                                  disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
-                                  className={`font-black py-3 px-6 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                                  {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
-                                  {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
-                                </button>
-                            </div>
-                            
-                            {teamLimit > 0 && teamUsed >= teamLimit && (
-                                <p className="text-[9px] text-red-500 mt-3 font-bold leading-relaxed italic">
-                                    You have reached your seat limit. Remove a teammate or upgrade your account to add more!
-                                </p>
-                            )}
-                            {teamLimit === 0 && (
-                                <p className="text-[9px] text-gray-500 mt-3 font-bold leading-relaxed italic">
-                                    Your current account tier does not include teammate seats. Upgrade to unlock this feature!
-                                </p>
-                            )}
-                        </div>
-
                         {teammates.length === 0 ? (
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center mt-8">
                             <Users className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Teammates Yet</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form above to grant platform access to a teammate.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to the left to grant platform access to a teammate.</p>
                           </div>
                         ) : (
                             teammates.map((mate) => (
