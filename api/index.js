@@ -161,7 +161,6 @@ async function getAuthenticatedUser(token) {
     } catch (e) { return null; }
 }
 
-// --- FIX: ADDED module: module TO THE JSON PAYLOADS ---
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
