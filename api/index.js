@@ -161,7 +161,6 @@ async function getAuthenticatedUser(token) {
     } catch (e) { return null; }
 }
 
-// --- FIX: ADDED module: module TO THE JSON PAYLOADS ---
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -191,7 +190,7 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 6; // H.O.F.
+        if (user.role === 17) limit = 5; // H.O.F.
         else if (user.role === 16) limit = 3; // All-Star
         else if (user.role === 3) limit = 999; // Admins
 
@@ -215,7 +214,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 6;
+        if (user.role === 17) limit = 5;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -949,10 +948,7 @@ app.post('/api/patreon-import', async (req, res) => {
                 if (oldMappingComms && oldMappingComms.length > 0) {
                     const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
                     for (const comm of oldMappingComms) {
-                        const lastUnderscore = comm.lastIndexOf('_');
-                        const module = comm.substring(0, lastUnderscore);
-                        const id = comm.substring(lastUnderscore + 1);
-                        await revokeCommunityAccess(targetEmail, module, id);
+                        await revokeCommunityAccess(targetEmail, comm.module, comm.id);
                     }
                 }
                 await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
@@ -967,16 +963,13 @@ app.post('/api/patreon-import', async (req, res) => {
             
             if (comms && comms.length > 0) {
                 for (const comm of comms) {
-                    const lastUnderscore = comm.lastIndexOf('_');
-                    const module = comm.substring(0, lastUnderscore);
-                    const id = comm.substring(lastUnderscore + 1);
-                    const result = await grantCommunityAccess(targetEmail, module, id);
+                    const result = await grantCommunityAccess(targetEmail, comm.module, comm.id);
                     if (!result.success) allSuccess = false;
                 }
             }
             
             const newStatus = allSuccess ? 'bridged' : 'pending';
-            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, tier, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
             if (allSuccess) importCount++;
             await new Promise(resolve => setTimeout(resolve, 250)); 
         }
@@ -1006,10 +999,7 @@ app.post('/api/paypal-import', async (req, res) => {
                 let allSuccess = true;
                 
                 for (const comm of comms) {
-                    const lastUnderscore = comm.lastIndexOf('_');
-                    const module = comm.substring(0, lastUnderscore);
-                    const id = comm.substring(lastUnderscore + 1);
-                    const result = await grantCommunityAccess(targetEmail, module, id);
+                    const result = await grantCommunityAccess(targetEmail, comm.module, comm.id);
                     if (!result.success) allSuccess = false;
                 }
                 
@@ -1083,6 +1073,7 @@ app.get('/api/get-subscribers', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch subscriber stats." }); }
 });
 
+// --- NEW DIAGNOSTIC SYNC ENGINE ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1107,7 +1098,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Group mappings
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {
@@ -1120,29 +1110,46 @@ app.post('/api/sync-subscribers', async (req, res) => {
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
 
         let syncCount = 0;
+        let debugLogs = [];
+
         for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] }, { stripeAccount: accountId })) {
             const stripeProductId = sub.plan?.product || sub.items?.data[0]?.price?.product;
             const customerEmail = sub.customer?.email;
             
             const comms = mappingsMap[stripeProductId];
             if (stripeProductId && customerEmail && comms && comms.length > 0) {
-                if (statusMap[customerEmail] === 'revoked') continue;
+                if (statusMap[customerEmail] === 'revoked') {
+                    debugLogs.push(`Skipped ${customerEmail} (Status is revoked)`);
+                    continue;
+                }
                 
                 const targetEmail = aliasesMap[customerEmail] || customerEmail;
                 
                 let allSuccess = true;
+                let failReasons = [];
+
                 for (const c of comms) {
                     const result = await grantCommunityAccess(targetEmail, c.module, c.id);
-                    if (!result.success) allSuccess = false;
+                    if (!result.success) {
+                        allSuccess = false;
+                        failReasons.push(result.error || 'Server error');
+                    }
+                }
+                
+                if (!allSuccess) {
+                    debugLogs.push(`Failed to sync ${targetEmail}: ${failReasons.join(' | ')}`);
                 }
                 
                 const newStatus = allSuccess ? 'bridged' : 'pending';
                 await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
-                if (allSuccess) syncCount++;
+                
+                if (allSuccess) {
+                    syncCount++;
+                }
                 await new Promise(resolve => setTimeout(resolve, 250));
             }
         }
-        res.json({ success: true, count: syncCount });
+        res.json({ success: true, count: syncCount, debug: debugLogs });
     } catch (error) { res.status(500).json({ error: "Failed to sync subscribers." }); }
 });
 

@@ -392,11 +392,21 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: activeTab })
       });
+      
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
-      setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
-      setTimeout(() => setSyncSubsResult(null), 5000);
+      
+      // DIAGNOSTIC ERROR CHECK:
+      // If 0 users synced but the backend returned debug logs, show the EXACT reason it failed!
+      if (data.count === 0 && data.debug && data.debug.length > 0) {
+          setError(`Sync blocked by server. Reason: ${data.debug[0]}`);
+      } else {
+          setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
+          setTimeout(() => setSyncSubsResult(null), 5000);
+      }
+
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
       setError(err.message || "Failed to sync subscribers.");
