@@ -1,5 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
+ * FULLY RESTORED: BUNDLES, MODULE ROUTING, AND DIAGNOSTICS
  */
 
 import express from 'express';
@@ -164,7 +165,11 @@ async function getAuthenticatedUser(token) {
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) });
+        const response = await fetch(url, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
+            body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) 
+        });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -173,7 +178,11 @@ async function grantCommunityAccess(email, module, contentId) {
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) });
+        const response = await fetch(url, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
+            body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) 
+        });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -190,9 +199,9 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 5; // H.O.F.
-        else if (user.role === 16) limit = 3; // All-Star
-        else if (user.role === 3) limit = 999; // Admins
+        if (user.role === 17) limit = 6; 
+        else if (user.role === 16) limit = 3; 
+        else if (user.role === 3) limit = 999; 
 
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
         
@@ -214,7 +223,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 5;
+        if (user.role === 17) limit = 6;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -284,7 +293,6 @@ app.post('/api/team/revoke', async (req, res) => {
 // BUSINESS CARD & BIO PAGE ENDPOINTS
 // ==========================================
 
-// Business Card
 app.get('/api/get-card', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -330,7 +338,6 @@ app.get('/api/public-card/:slug', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Server error" }); }
 });
 
-// Bio Page
 app.get('/api/get-bio-page', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -728,6 +735,7 @@ app.get('/api/get-settings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
 
+// --- RESTORED BUNDLE LOGIC IN GET-MAPPINGS ---
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -752,6 +760,7 @@ app.get('/api/get-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch mappings" }); }
 });
 
+// --- RESTORED BUNDLE LOGIC IN SAVE-MAPPINGS ---
 app.post('/api/save-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -923,7 +932,7 @@ app.post('/api/get-paypal-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
 });
 
-// CSV IMPORTS (PATREON & PAYPAL)
+// --- CSV IMPORTS WITH BUNDLE LOGIC ---
 app.post('/api/patreon-import', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -948,7 +957,10 @@ app.post('/api/patreon-import', async (req, res) => {
                 if (oldMappingComms && oldMappingComms.length > 0) {
                     const targetEmail = aliasesMap[dbUser.email] || dbUser.email;
                     for (const comm of oldMappingComms) {
-                        await revokeCommunityAccess(targetEmail, comm.module, comm.id);
+                        const lastUnderscore = comm.lastIndexOf('_');
+                        const module = comm.substring(0, lastUnderscore);
+                        const id = comm.substring(lastUnderscore + 1);
+                        await revokeCommunityAccess(targetEmail, module, id);
                     }
                 }
                 await sql`UPDATE bridge_patreon_users SET status = 'revoked' WHERE email = ${dbUser.email}`;
@@ -963,7 +975,10 @@ app.post('/api/patreon-import', async (req, res) => {
             
             if (comms && comms.length > 0) {
                 for (const comm of comms) {
-                    const result = await grantCommunityAccess(targetEmail, comm.module, comm.id);
+                    const lastUnderscore = comm.lastIndexOf('_');
+                    const module = comm.substring(0, lastUnderscore);
+                    const id = comm.substring(lastUnderscore + 1);
+                    const result = await grantCommunityAccess(targetEmail, module, id);
                     if (!result.success) allSuccess = false;
                 }
             }
@@ -999,7 +1014,10 @@ app.post('/api/paypal-import', async (req, res) => {
                 let allSuccess = true;
                 
                 for (const comm of comms) {
-                    const result = await grantCommunityAccess(targetEmail, comm.module, comm.id);
+                    const lastUnderscore = comm.lastIndexOf('_');
+                    const module = comm.substring(0, lastUnderscore);
+                    const id = comm.substring(lastUnderscore + 1);
+                    const result = await grantCommunityAccess(targetEmail, module, id);
                     if (!result.success) allSuccess = false;
                 }
                 
@@ -1073,7 +1091,7 @@ app.get('/api/get-subscribers', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch subscriber stats." }); }
 });
 
-// --- NEW DIAGNOSTIC SYNC ENGINE ---
+// --- NEW DIAGNOSTIC SYNC ENGINE WITH BUNDLES RESTORED ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1098,6 +1116,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
+        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {
@@ -1119,7 +1138,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
             const comms = mappingsMap[stripeProductId];
             if (stripeProductId && customerEmail && comms && comms.length > 0) {
                 if (statusMap[customerEmail] === 'revoked') {
-                    debugLogs.push(`Skipped ${customerEmail} (Status is revoked)`);
                     continue;
                 }
                 
@@ -1183,7 +1201,7 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
-// WEBHOOK HANDLERS
+// WEBHOOK HANDLERS WITH BUNDLES RESTORED
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     try {

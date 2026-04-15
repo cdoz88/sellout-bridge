@@ -634,10 +634,22 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', unaModule: '', unaId: '' }]);
+  // THE MULTI-SELECT MAPPING LOGIC
+  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
       setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+  
+  const toggleCommunity = (mappingId, commId) => {
+      setMappings(prev => prev.map(m => {
+          if (m.id !== mappingId) return m;
+          const currentComms = m.communities || [];
+          const newComms = currentComms.includes(commId) 
+              ? currentComms.filter(c => c !== commId)
+              : [...currentComms, commId];
+          return { ...m, communities: newComms };
+      }));
   };
   
   const removeMapping = async (id) => {
@@ -723,7 +735,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Invite Teammate
                       </label>
                       <input 
@@ -815,7 +827,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Email Address
                       </label>
                       <input 
@@ -827,7 +839,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Select Community
                       </label>
                       <select 
@@ -865,7 +877,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -929,7 +941,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         ) : (
                             <>
                                 <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                                         PayPal Client ID
                                     </label>
                                     <input 
@@ -941,7 +953,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                                         PayPal Secret Key
                                     </label>
                                     <input 
@@ -967,7 +979,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
+                <div className="bg-[#111] rounded-[2rem] border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left border">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -1065,7 +1077,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             >
                               <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
                               <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active</span>
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
                                   <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
                               </div>
                             </div>
@@ -1263,7 +1275,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             Subscription Mappings
                           </h3>
                           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Community]
+                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Communities]
                           </p>
                         </div>
                         <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
@@ -1276,7 +1288,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
@@ -1304,39 +1316,37 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               </div>
 
                               <div className="flex-[2] w-full bg-[#111] border border-white/10 rounded-xl p-3">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To</label>
-                                
-                                {/* RESTORED UNA_MODULE MAPPING LOGIC */}
-                                <select 
-                                  className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                                  value={mapping.unaId ? `${mapping.unaModule}_${mapping.unaId}` : ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (!val) {
-                                      updateMapping(mapping.id, 'unaModule', '');
-                                      updateMapping(mapping.id, 'unaId', '');
-                                    } else {
-                                      const lastUnderscore = val.lastIndexOf('_');
-                                      const module = val.substring(0, lastUnderscore);
-                                      const id = val.substring(lastUnderscore + 1);
-                                      updateMapping(mapping.id, 'unaModule', module);
-                                      updateMapping(mapping.id, 'unaId', id);
-                                    }
-                                  }}
-                                >
-                                  <option value="">Select Crowd/Space...</option>
-                                  {unaData.crowds.length > 0 && (
-                                    <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
-                                      {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
-                                    </optgroup>
-                                  )}
-                                  {unaData.spaces.length > 0 && (
-                                    <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
-                                      {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
-                                    </optgroup>
-                                  )}
-                                </select>
-                                
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To (Select Multiple)</label>
+                                <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
+                                    
+                                    {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                                    {unaData.crowds.map(c => {
+                                        const commId = `bx_spaces_${c.id}`;
+                                        const isChecked = mapping.communities?.includes(commId);
+                                        return (
+                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                </div>
+                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                                    {unaData.spaces.map(s => {
+                                        const commId = `bx_groups_${s.id}`;
+                                        const isChecked = mapping.communities?.includes(commId);
+                                        return (
+                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                </div>
+                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                               </div>
 
                               <div className="md:pt-8 w-full md:w-auto">
