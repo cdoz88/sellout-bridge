@@ -398,12 +398,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
-      // DIAGNOSTIC ERROR CHECK:
-      // If 0 users synced but the backend returned debug logs, show the EXACT reason it failed!
+      // DIAGNOSTIC ERROR CHECK: Provide an accurate, helpful message instead of a fake "crash" warning!
       if (data.count === 0 && data.debug && data.debug.length > 0) {
-          setError(`Sync blocked by server. Reason: ${data.debug[0]}`);
+          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first. If their Stripe email is different than their account email, use the 'Email to Email' tool!)`);
       } else {
-          setSyncSubsResult({ success: true, text: `Synced ${data.count} Users!` });
+          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
 
@@ -736,7 +735,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Invite Teammate
                       </label>
                       <input 
@@ -777,7 +776,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Original Payment Email
                       </label>
                       <input 
@@ -794,7 +793,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </datalist>
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Alias Email (Sellout Crowds)
                       </label>
                       <input 
@@ -823,12 +822,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <UserPlus size={18} className="text-[#9df01c]" />
                     Grant Access
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
                     Add your team members, partners, or VIPs to your community for free without requiring a payment plan.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Email Address
                       </label>
                       <input 
@@ -840,7 +839,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Select Community
                       </label>
                       <select 
@@ -878,7 +877,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -895,7 +894,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </div>
                     )}
 
-                    <div className="text-[10px] text-gray-500 font-medium leading-relaxed">
+                    <div className="text-[10px] text-gray-500 font-medium leading-relaxed text-left">
                       Upload your Patreon "Relationship Manager" CSV. We will extract your unique Tiers so you can map them!
                     </div>
                   </div>
@@ -919,7 +918,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             </div>
                         ) : (
                             <div>
-                                <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
+                                <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6 text-left">
                                     Connect your Stripe account to automatically map your active products to Sellout Crowds communities.
                                 </p>
                                 <button 
@@ -942,7 +941,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         ) : (
                             <>
                                 <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                                         PayPal Client ID
                                     </label>
                                     <input 
@@ -954,7 +953,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                                         PayPal Secret Key
                                     </label>
                                     <input 
@@ -980,7 +979,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6">
+                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -1006,7 +1005,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6">
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6 text-left">
                     <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
                       {activeTab === 'patreon' ? (
                          <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
@@ -1017,7 +1016,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       )}
                       {['patreon', 'paypal'].includes(activeTab) ? 'Import CSV Data' : 'Sync Subscribers'}
                     </h3>
-                    <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                    <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
                       {activeTab === 'patreon' 
                         ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
                         : activeTab === 'paypal'
@@ -1027,7 +1026,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     
                     {['patreon', 'paypal'].includes(activeTab) && (
                       <div className="mb-6">
-                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                           {activeTab === 'patreon' ? 'Patreon Audience CSV' : 'PayPal Subscriptions CSV'}
                         </label>
                         <input 
@@ -1065,7 +1064,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                     {activeTab === 'stripe' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
                       <div className="mt-6 pt-6 border-t border-white/10">
-                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between">
+                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between px-1">
                           <span>Bridged Products</span>
                           {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
                         </p>
@@ -1078,7 +1077,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             >
                               <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
                               <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active</span>
                                   <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
                               </div>
                             </div>
@@ -1093,7 +1092,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             </div>
 
             <div className="lg:col-span-8">
-              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col">
+              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
                 
                 {activeTab === 'team' ? (
                   <>
@@ -1104,17 +1103,57 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             Active Teammates
                           </h3>
                           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Manage dashboard access for your assistants and partners.
+                            Grant dashboard access to your assistants and partners.
                           </p>
                         </div>
                       </div>
+                      
+                      <div className="mb-8 p-4 bg-black border border-white/5 rounded-2xl text-center">
+                          <div className="text-3xl font-black text-white">
+                              <span className="text-[#9df01c]">{teamUsed}</span> <span className="text-gray-600">/</span> {teamLimit === 999 ? '∞' : teamLimit}
+                          </div>
+                          <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Seats Used</p>
+                      </div>
 
                       <div className="space-y-4 flex-1">
+                        <div className="bg-black border border-white/5 p-4 rounded-2xl mb-6">
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                              Invite Teammate
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input 
+                                  type="email" 
+                                  value={teamEmail} 
+                                  onChange={(e) => setTeamEmail(e.target.value)} 
+                                  placeholder="assistant@example.com" 
+                                  className="w-full flex-1 bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                                />
+                                <button 
+                                  onClick={handleInviteTeammate}
+                                  disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
+                                  className={`font-black py-3 px-6 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                                  {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                                  {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
+                                </button>
+                            </div>
+                            
+                            {teamLimit > 0 && teamUsed >= teamLimit && (
+                                <p className="text-[9px] text-red-500 mt-3 font-bold leading-relaxed italic text-left">
+                                    You have reached your seat limit. Remove a teammate or upgrade your account to add more!
+                                </p>
+                            )}
+                            {teamLimit === 0 && (
+                                <p className="text-[9px] text-gray-500 mt-3 font-bold leading-relaxed italic text-left">
+                                    Your current account tier does not include teammate seats. Upgrade to unlock this feature!
+                                </p>
+                            )}
+                        </div>
+
                         {teammates.length === 0 ? (
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center mt-8">
                             <Users className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Teammates Yet</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to the left to grant platform access to a teammate.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form above to grant platform access to a teammate.</p>
                           </div>
                         ) : (
                             teammates.map((mate) => (
@@ -1140,7 +1179,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </>
                 ) : activeTab === 'aliases' ? (
                   <>
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
                             <Repeat className="w-6 h-6 text-[#9df01c]" />
@@ -1183,7 +1222,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </>
                 ) : activeTab === 'manual' ? (
                   <>
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
                             <Users className="w-6 h-6 text-[#9df01c]" />
@@ -1225,7 +1264,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </>
                 ) : (
                   <>
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
                             {activeTab === 'patreon' ? (
@@ -1249,15 +1288,15 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a Tier or Product to your Communities.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
                             <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                               
                               <div className="flex-1 w-full md:mt-1">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1">
-                                  {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1 text-left">
+                                  Payment Product
                                 </label>
                                 
                                 <select 
@@ -1265,16 +1304,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                    value={mapping.productId}
                                    onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
                                 >
-                                  <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
-                                  {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
-                                    providerProducts[activeTab].map(prod => (
-                                        <option key={prod.id} value={prod.id}>{prod.name}</option>
-                                    ))
-                                  ) : (
-                                    <option value="" disabled>
-                                        {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV or create plans in PayPal first.' : 'No products found. Sync Credentials first.'}
-                                    </option>
-                                  )}
+                                  <option value="">Select Tier/Product...</option>
+                                  {providerProducts[activeTab] && providerProducts[activeTab].map(prod => (
+                                      <option key={prod.id} value={prod.id}>{prod.name}</option>
+                                  ))}
                                 </select>
                               </div>
 
@@ -1283,10 +1316,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               </div>
 
                               <div className="flex-[2] w-full bg-[#111] border border-white/10 rounded-xl p-3">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">Grant Access To (Select Multiple)</label>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To</label>
                                 <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
                                     
-                                    {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1">Crowds</div>}
+                                    {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
                                     {unaData.crowds.map(c => {
                                         const commId = `bx_spaces_${c.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
@@ -1300,7 +1333,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         );
                                     })}
 
-                                    {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1">Spaces</div>}
+                                    {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
                                     {unaData.spaces.map(s => {
                                         const commId = `bx_groups_${s.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
@@ -1313,15 +1346,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             </div>
                                         );
                                     })}
-                                    
-                                    {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
-                                        <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
-                                    )}
                                 </div>
                               </div>
 
                               <div className="md:pt-8 w-full md:w-auto">
-                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-50 hover:text-white transition-all flex justify-center">
+                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -1349,13 +1378,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         {/* --- AUDIENCE MODAL --- */}
         {modalData && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
               
               <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
                 <div>
-                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">{modalData.productName}</h3>
-                  <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
-                    {modalData.bridgedCount} Active on SC / {modalData.totalCount} Total Subs
+                  <h3 className="text-xl font-black uppercase text-white">{modalData.productName}</h3>
+                  <p className="text-[10px] text-[#9df01c] font-black uppercase mt-1">
+                    {modalData.bridgedCount} Bridged / {modalData.totalCount} Total
                   </p>
                 </div>
                 <button onClick={() => setModalData(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
@@ -1365,60 +1394,35 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                 {modalData.users.length === 0 ? (
-                    <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
+                    <p className="text-gray-500 text-center text-sm py-8 italic">No active subscribers found.</p>
                 ) : (
-                    <div className="flex flex-col">
-                        <div className="hidden sm:flex justify-between items-center px-4 pb-3 mb-3 border-b border-white/10 text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                            <div className="flex-1">User</div>
-                            <div className="w-32 text-center">SC Status</div>
-                            <div className="w-24 text-right">Revoke Access</div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {modalData.users.map((user, i) => (
-                                <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
-                                    <div className="flex-1 min-w-0 w-full sm:w-auto">
-                                        <p className="text-sm font-bold text-white flex items-center gap-2">
-                                            <span className="truncate">{user.name}</span>
-                                            {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
-                                            {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
-                                        </p>
-                                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                                        <div className="w-full sm:w-32 flex justify-center">
-                                            <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg text-center w-full
-                                                ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
-                                                  user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
-                                                  'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
-                                                {user.status}
-                                            </span>
-                                        </div>
-
-                                        <div className="w-auto sm:w-24 flex justify-end">
-                                            {user.isRevoked ? (
-                                                <button 
-                                                    onClick={() => toggleUserAccess(user.email, 'restore')}
-                                                    disabled={processingUser === user.email}
-                                                    className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
-                                                    title="Restore Access">
-                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => toggleUserAccess(user.email, 'revoke')}
-                                                    disabled={processingUser === user.email}
-                                                    className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
-                                                    title="Revoke Access (Survives Sync)">
-                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
+                    <div className="space-y-3">
+                        {modalData.users.map((user, i) => (
+                            <div key={i} className={`border rounded-xl p-4 flex items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white truncate flex items-center gap-2">
+                                        <span>{user.name}</span>
+                                        {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
+                                        {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
+                                    </p>
+                                    <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="flex items-center gap-4 shrink-0">
+                                    <span className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg text-center
+                                        ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
+                                          user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
+                                          'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                                        {user.status}
+                                    </span>
+                                    <button 
+                                        onClick={() => toggleUserAccess(user.email, user.isRevoked ? 'restore' : 'revoke')}
+                                        disabled={processingUser === user.email}
+                                        className="p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors">
+                                        {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : (user.isRevoked ? <RefreshCcw className="w-4 h-4" /> : <UserX className="w-4 h-4" />)}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
               </div>
