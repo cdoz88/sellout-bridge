@@ -190,7 +190,7 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 5; // H.O.F.
+        if (user.role === 17) limit = 6; // H.O.F.
         else if (user.role === 16) limit = 3; // All-Star
         else if (user.role === 3) limit = 999; // Admins
 
@@ -214,7 +214,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 5;
+        if (user.role === 17) limit = 6;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -225,7 +225,7 @@ app.post('/api/team/invite', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 18 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 12 }) 
         });
         
         const responseText = await response.text();
@@ -260,7 +260,7 @@ app.post('/api/team/revoke', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 18 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 12 }) 
         });
 
         const responseText = await response.text();
