@@ -161,10 +161,11 @@ async function getAuthenticatedUser(token) {
     } catch (e) { return null; }
 }
 
+// --- FIX: ADDED module: module TO THE JSON PAYLOADS ---
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'add' }) });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -173,7 +174,7 @@ async function grantCommunityAccess(email, module, contentId) {
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, action: 'remove' }) });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -190,7 +191,7 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 6; // H.O.F.
+        if (user.role === 17) limit = 5; // H.O.F.
         else if (user.role === 16) limit = 3; // All-Star
         else if (user.role === 3) limit = 999; // Admins
 
@@ -214,7 +215,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 6;
+        if (user.role === 17) limit = 5;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -225,7 +226,7 @@ app.post('/api/team/invite', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 11 }) // CHANGED TO 11
+            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 11 }) 
         });
         
         const responseText = await response.text();
@@ -260,7 +261,7 @@ app.post('/api/team/revoke', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 11 }) // CHANGED TO 11
+            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 11 }) 
         });
 
         const responseText = await response.text();
