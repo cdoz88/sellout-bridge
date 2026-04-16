@@ -345,7 +345,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
     } catch (err) {
-        console.error("Failed to load stats");
+        console.error("Failed to load audience stats");
     } finally {
         setIsStatsLoading(false);
     }
@@ -367,7 +367,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
-      setError("Failed to save mappings.");
+      setError("Failed to save mappings to the database.");
     } finally {
       setIsSaving(false);
     }
@@ -386,6 +386,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
@@ -394,9 +395,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
+
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
-      setError(err.message || "Sync failed.");
+      setError(err.message || "Failed to sync subscribers.");
     } finally {
       setIsSyncingSubs(false);
     }
@@ -467,6 +469,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualCommunities(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -495,7 +498,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualCommunities([]);
-              fetchManualUsers(); 
+              fetchManualUsers(); // Automatically updates UI without refresh!
               
               if (data.notice) {
                   setError(`Saved to Database! However, UNA reported: "${data.notice}". This is normal if the user hasn't registered yet. They will be granted access automatically once they do!`);
@@ -674,12 +677,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <Repeat size={18} className="text-[#9df01c]" />
                     Create Email Alias
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
                     Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Original Payment Email
                       </label>
                       <input 
@@ -696,7 +699,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </datalist>
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Alias Email (Sellout Crowds)
                       </label>
                       <input 
