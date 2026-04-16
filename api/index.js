@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FULLY RESTORED: BUNDLES, MODULE ROUTING, AND DIAGNOSTICS
+ * FULLY RESTORED: BUNDLES, MODULE ROUTING, DIAGNOSTICS, AND MANUAL MULTI-SELECT
  */
 
 import express from 'express';
@@ -681,26 +681,51 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
+// --- UPDATED FOR MULTI-SELECT MANUAL GRANTS ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { email, unaModule, unaId } = req.body;
-    if (!email || !unaModule || !unaId) return res.status(400).json({ error: "Missing fields" });
+    const { email, communities } = req.body;
+    
+    if (!email || !communities || communities.length === 0) {
+        return res.status(400).json({ error: "Missing email or communities array" });
+    }
     
     try {
         await ensureSchema();
         const cleanEmail = email.trim().toLowerCase();
-        const result = await grantCommunityAccess(cleanEmail, unaModule, unaId);
-        const newStatus = result.success ? 'bridged' : 'pending';
-        
-        await sql`
-            INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status)
-            VALUES (${user.id}, ${cleanEmail}, ${unaModule}, ${unaId}, ${newStatus})
-            ON CONFLICT (user_id, email, una_module, una_content_id) 
-            DO UPDATE SET status = EXCLUDED.status
-        `;
-        res.json({ success: true, result });
-    } catch (error) { res.status(500).json({ error: "Failed to add manual user" }); }
+        let allSuccess = true;
+        let lastError = "";
+
+        for (const comm of communities) {
+            const lastUnderscore = comm.lastIndexOf('_');
+            const module = comm.substring(0, lastUnderscore);
+            const id = comm.substring(lastUnderscore + 1);
+
+            const result = await grantCommunityAccess(cleanEmail, module, id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+            
+            if (!result.success) {
+                allSuccess = false;
+                lastError = result.error || "Failed to grant access to one or more communities.";
+            }
+
+            await sql`
+                INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status)
+                VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus})
+                ON CONFLICT (user_id, email, una_module, una_content_id) 
+                DO UPDATE SET status = EXCLUDED.status
+            `;
+        }
+
+        if (allSuccess) {
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ error: lastError });
+        }
+    } catch (error) { 
+        res.status(500).json({ error: "Failed to add manual user" }); 
+    }
 });
 
 app.post('/api/remove-manual-user', async (req, res) => {
@@ -735,7 +760,6 @@ app.get('/api/get-settings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
 
-// --- RESTORED BUNDLE LOGIC IN GET-MAPPINGS ---
 app.get('/api/get-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -760,7 +784,6 @@ app.get('/api/get-mappings', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch mappings" }); }
 });
 
-// --- RESTORED BUNDLE LOGIC IN SAVE-MAPPINGS ---
 app.post('/api/save-mappings', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -932,7 +955,7 @@ app.post('/api/get-paypal-products', async (req, res) => {
     } catch (error) { res.status(400).json({ error: `PayPal says: ${error.message}` }); }
 });
 
-// --- CSV IMPORTS WITH BUNDLE LOGIC ---
+// CSV IMPORTS (PATREON & PAYPAL)
 app.post('/api/patreon-import', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1091,7 +1114,6 @@ app.get('/api/get-subscribers', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch subscriber stats." }); }
 });
 
-// --- NEW DIAGNOSTIC SYNC ENGINE WITH BUNDLES RESTORED ---
 app.post('/api/sync-subscribers', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1116,7 +1138,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {
@@ -1201,7 +1222,7 @@ app.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
-// WEBHOOK HANDLERS WITH BUNDLES RESTORED
+// WEBHOOK HANDLERS
 app.post('/api/stripe-webhook', async (req, res) => {
     const event = req.body;
     try {
@@ -1432,7 +1453,7 @@ app.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 // ==========================================
 
 app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
-    const { access_token, user } = req.body; // Ignore domain provided by WP site
+    const { access_token, user } = req.body; 
     
     if (!access_token) {
         return res.status(200).json({ error: "Missing access token" });
@@ -1444,7 +1465,6 @@ app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 
         const targetUser = user || rows[0].profile_link || '';
 
-        // FIX: Force the hub domain so UNA accepts the Master API Token natively
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();

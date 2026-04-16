@@ -30,7 +30,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
-  const [manualUnaSelect, setManualUnaSelect] = useState(''); 
+  const [manualCommunities, setManualCommunities] = useState([]); 
   const [isManualSaving, setIsManualSaving] = useState(false);
 
   const [aliases, setAliases] = useState([]);
@@ -63,7 +63,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   }, [session, activeTab]);
 
-  // CATCH OAUTH RETURN FROM STRIPE ONLY
   useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -478,22 +477,25 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // --- MANUAL MULTI-SELECT FUNCTIONS ---
+  const toggleManualCommunity = (commId) => {
+      setManualCommunities(prev => 
+          prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
+      );
+  };
+
   const handleAddManualUser = async () => {
-      if (!manualEmail || !manualUnaSelect) {
-          setError("Please enter an email and select a community.");
+      if (!manualEmail || manualCommunities.length === 0) {
+          setError("Please enter an email and select at least one community.");
           return;
       }
-      const lastUnderscore = manualUnaSelect.lastIndexOf('_');
-      const module = manualUnaSelect.substring(0, lastUnderscore);
-      const id = manualUnaSelect.substring(lastUnderscore + 1);
-
       setIsManualSaving(true);
       setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: manualEmail, unaModule: module, unaId: id })
+              body: JSON.stringify({ email: manualEmail, communities: manualCommunities })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           
@@ -503,7 +505,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           
           if (res.ok && data.success) {
               setManualEmail('');
-              setManualUnaSelect('');
+              setManualCommunities([]);
               fetchManualUsers();
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
@@ -634,7 +636,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // THE MULTI-SELECT MAPPING LOGIC
+  // MULTI-SELECT FOR REGULAR MAPPINGS
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
@@ -827,7 +829,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Email Address
                       </label>
                       <input 
@@ -838,32 +840,50 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
                       />
                     </div>
+
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
-                        Select Community
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                        Grant Access To (Select Multiple)
                       </label>
-                      <select 
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                        value={manualUnaSelect}
-                        onChange={(e) => setManualUnaSelect(e.target.value)}
-                      >
-                        <option value="">Choose Crowd/Space...</option>
-                        {unaData.crowds.length > 0 && (
-                          <optgroup label="Crowds" className="text-gray-500 font-black bg-black">
-                            {unaData.crowds.map(c => <option key={`bx_spaces_${c.id}`} value={`bx_spaces_${c.id}`} className="text-white font-medium">{c.title}</option>)}
-                          </optgroup>
-                        )}
-                        {unaData.spaces.length > 0 && (
-                          <optgroup label="Spaces" className="text-gray-500 font-black bg-black">
-                            {unaData.spaces.map(s => <option key={`bx_groups_${s.id}`} value={`bx_groups_${s.id}`} className="text-white font-medium">{s.title}</option>)}
-                          </optgroup>
-                        )}
-                      </select>
+                      <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
+                          {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                          {unaData.crowds.map(c => {
+                              const commId = `bx_spaces_${c.id}`;
+                              const isChecked = manualCommunities.includes(commId);
+                              return (
+                                  <div key={commId} onClick={() => toggleManualCommunity(commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                      </div>
+                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
+                                  </div>
+                              );
+                          })}
+
+                          {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                          {unaData.spaces.map(s => {
+                              const commId = `bx_groups_${s.id}`;
+                              const isChecked = manualCommunities.includes(commId);
+                              return (
+                                  <div key={commId} onClick={() => toggleManualCommunity(commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                      </div>
+                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
+                                  </div>
+                              );
+                          })}
+                          
+                          {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
+                              <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
+                          )}
+                      </div>
                     </div>
+
                     <button 
                       onClick={handleAddManualUser}
-                      disabled={isManualSaving || !manualEmail || !manualUnaSelect}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${!manualEmail || !manualUnaSelect ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      disabled={isManualSaving || !manualEmail || manualCommunities.length === 0}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualCommunities.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                       {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                       {isManualSaving ? 'Granting...' : 'Grant Access'}
                     </button>
@@ -877,7 +897,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -979,7 +999,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left border">
+                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -1382,9 +1402,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               
               <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
                 <div>
-                  <h3 className="text-xl font-black uppercase text-white">{modalData.productName}</h3>
-                  <p className="text-[10px] text-[#9df01c] font-black uppercase mt-1">
-                    {modalData.bridgedCount} Bridged / {modalData.totalCount} Total
+                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">{modalData.productName}</h3>
+                  <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
+                    {modalData.bridgedCount} Active on SC / {modalData.totalCount} Total Subs
                   </p>
                 </div>
                 <button onClick={() => setModalData(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
@@ -1394,35 +1414,60 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                 {modalData.users.length === 0 ? (
-                    <p className="text-gray-500 text-center text-sm py-8 italic">No active subscribers found.</p>
+                    <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
                 ) : (
-                    <div className="space-y-3">
-                        {modalData.users.map((user, i) => (
-                            <div key={i} className={`border rounded-xl p-4 flex items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white truncate flex items-center gap-2">
-                                        <span>{user.name}</span>
-                                        {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
-                                        {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
-                                    </p>
-                                    <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
+                    <div className="flex flex-col">
+                        <div className="hidden sm:flex justify-between items-center px-4 pb-3 mb-3 border-b border-white/10 text-[10px] text-gray-500 font-black uppercase tracking-widest">
+                            <div className="flex-1">User</div>
+                            <div className="w-32 text-center">SC Status</div>
+                            <div className="w-24 text-right">Revoke Access</div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {modalData.users.map((user, i) => (
+                                <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
+                                    <div className="flex-1 min-w-0 w-full sm:w-auto">
+                                        <p className="text-sm font-bold text-white flex items-center gap-2">
+                                            <span className="truncate">{user.name}</span>
+                                            {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
+                                            {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
+                                        </p>
+                                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                                        <div className="w-full sm:w-32 flex justify-center">
+                                            <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg text-center w-full
+                                                ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
+                                                  user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
+                                                  'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                                                {user.status}
+                                            </span>
+                                        </div>
+
+                                        <div className="w-auto sm:w-24 flex justify-end">
+                                            {user.isRevoked ? (
+                                                <button 
+                                                    onClick={() => toggleUserAccess(user.email, 'restore')}
+                                                    disabled={processingUser === user.email}
+                                                    className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
+                                                    title="Restore Access">
+                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => toggleUserAccess(user.email, 'revoke')}
+                                                    disabled={processingUser === user.email}
+                                                    className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
+                                                    title="Revoke Access (Survives Sync)">
+                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-4 shrink-0">
-                                    <span className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg text-center
-                                        ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
-                                          user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
-                                          'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
-                                        {user.status}
-                                    </span>
-                                    <button 
-                                        onClick={() => toggleUserAccess(user.email, user.isRevoked ? 'restore' : 'revoke')}
-                                        disabled={processingUser === user.email}
-                                        className="p-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors">
-                                        {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : (user.isRevoked ? <RefreshCcw className="w-4 h-4" /> : <UserX className="w-4 h-4" />)}
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
               </div>
