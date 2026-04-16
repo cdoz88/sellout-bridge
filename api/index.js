@@ -165,11 +165,7 @@ async function getAuthenticatedUser(token) {
 async function grantCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) 
-        });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -178,11 +174,7 @@ async function grantCommunityAccess(email, module, contentId) {
 async function revokeCommunityAccess(email, module, contentId) {
     try {
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) 
-        });
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -293,6 +285,7 @@ app.post('/api/team/revoke', async (req, res) => {
 // BUSINESS CARD & BIO PAGE ENDPOINTS
 // ==========================================
 
+// Business Card
 app.get('/api/get-card', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -338,6 +331,7 @@ app.get('/api/public-card/:slug', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Server error" }); }
 });
 
+// Bio Page
 app.get('/api/get-bio-page', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -671,13 +665,28 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
+// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
-        res.json({ users: rows });
+        
+        // Group by email so the frontend can treat them as bundles
+        const grouped = {};
+        rows.forEach(row => {
+            if (!grouped[row.email]) {
+                grouped[row.email] = { email: row.email, status: row.status, communities: [] };
+            }
+            grouped[row.email].communities.push({
+                id: row.id,
+                module: row.una_module,
+                contentId: row.una_content_id
+            });
+        });
+
+        res.json({ users: Object.values(grouped) });
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
@@ -721,6 +730,7 @@ app.post('/api/add-manual-user', async (req, res) => {
         if (allSuccess) {
             res.json({ success: true });
         } else {
+            // WE NOW RETURN A 400 IF ANY PART OF THE BUNDLE FAILED SO THE FRONTEND DOESN'T THINK IT WORKED
             res.status(400).json({ error: lastError });
         }
     } catch (error) { 
@@ -728,6 +738,7 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
+// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1138,6 +1149,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
+        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {

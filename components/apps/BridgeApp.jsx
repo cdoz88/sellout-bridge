@@ -28,17 +28,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [paypalUsers, setPaypalUsers] = useState([]); 
   const [error, setError] = useState(null);
 
+  // Manual User States
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
   const [manualCommunities, setManualCommunities] = useState([]); 
   const [isManualSaving, setIsManualSaving] = useState(false);
+  const [manualModalData, setManualModalData] = useState(null);
 
   const [aliases, setAliases] = useState([]);
   const [aliasOriginal, setAliasOriginal] = useState('');
   const [aliasTarget, setAliasTarget] = useState('');
   const [isAliasSaving, setIsAliasSaving] = useState(false);
 
-  // --- TEAM STATE ---
+  // Team State
   const [teamLimit, setTeamLimit] = useState(0);
   const [teamUsed, setTeamUsed] = useState(0);
   const [teammates, setTeammates] = useState([]);
@@ -115,7 +117,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             fetchProviderProducts(null, null, token, 'paypal');
         }
       }
-    } catch (err) { console.error("Failed to load settings from database."); }
+    } catch (err) { console.error("Failed to load settings."); }
   };
 
   const fetchDatabaseMappings = async (token) => {
@@ -124,7 +126,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.mappings) setMappings(data.mappings);
-    } catch (err) { console.error("Failed to load mappings from database."); }
+    } catch (err) { console.error("Failed to load mappings."); }
   };
 
   const fetchManualUsers = async (token = session) => {
@@ -133,8 +135,22 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           const res = await fetch('/api/get-manual-users', { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
-          if (data.users) setManualUsers(data.users);
-      } catch (err) {}
+          if (data.users) {
+              // Group the rows by email so we can display them as Bundles in the UI
+              const grouped = {};
+              data.users.forEach(row => {
+                  if (!grouped[row.email]) {
+                      grouped[row.email] = { email: row.email, status: row.status, communities: [] };
+                  }
+                  grouped[row.email].communities.push({
+                      id: row.id,
+                      module: row.una_module,
+                      contentId: row.una_content_id
+                  });
+              });
+              setManualUsers(Object.values(grouped));
+          }
+      } catch (err) { console.error("Failed to load manual users."); }
   };
 
   const fetchAliases = async (token = session) => {
@@ -183,16 +199,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         });
         
         if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-        
         const data = await res.json();
-        
         if (data.error) throw new Error(data.error);
 
         setProviderProducts(prev => ({ ...prev, [provider]: data.products || [] }));
-
-        if (provider === 'stripe') {
-            fetchAudienceStats(activeToken);
-        }
+        if (provider === 'stripe') fetchAudienceStats(activeToken);
     } catch (err) {
         setError(err.message || `Failed to fetch ${provider} products.`);
         setProviderProducts(prev => ({ ...prev, [provider]: [] }));
@@ -352,11 +363,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             setAudienceStats(data.stats);
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
-    } catch (err) {
-        console.error("Failed to load audience stats");
-    } finally {
-        setIsStatsLoading(false);
-    }
+    } catch (err) { console.error("Failed to load stats"); } finally { setIsStatsLoading(false); }
   };
 
   const saveMappingsToDatabase = async () => {
@@ -374,11 +381,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) {
-      setError("Failed to save mappings to the database.");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch (err) { setError("Failed to save mappings."); } finally { setIsSaving(false); }
   };
 
   const syncExistingSubscribers = async () => {
@@ -394,7 +397,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
-      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
@@ -403,19 +405,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
-
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) {
-      setError(err.message || "Failed to sync subscribers.");
-    } finally {
-      setIsSyncingSubs(false);
-    }
+    } catch (err) { setError(err.message || "Failed to sync subscribers."); } finally { setIsSyncingSubs(false); }
   };
 
   const runPatreonImport = async () => {
-      setIsSyncingSubs(true);
-      setSyncSubsResult(null);
-      setError(null);
+      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
       try {
           const patreonMappings = mappings.filter(m => m.provider === 'patreon');
           if (patreonMappings.length === 0) throw new Error("Please map at least one Patreon Tier first.");
@@ -429,17 +424,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
           setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) {
-          setError(err.message || "Failed to import Patreon users.");
-      } finally {
-          setIsSyncingSubs(false);
-      }
+      } catch (err) { setError(err.message || "Failed to import Patreon users."); } finally { setIsSyncingSubs(false); }
   };
 
   const runPaypalImport = async () => {
-      setIsSyncingSubs(true);
-      setSyncSubsResult(null);
-      setError(null);
+      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
       try {
           const ppMappings = mappings.filter(m => m.provider === 'paypal');
           if (ppMappings.length === 0) throw new Error("Please map at least one PayPal Plan first.");
@@ -453,11 +442,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (!res.ok) throw new Error(data.error || "Failed to import PayPal users.");
           setSyncSubsResult({ success: true, text: `Imported ${data.added} Historic Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) {
-          setError(err.message || "Failed to import PayPal users.");
-      } finally {
-          setIsSyncingSubs(false);
-      }
+      } catch (err) { setError(err.message || "Failed to import PayPal users."); } finally { setIsSyncingSubs(false); }
   };
 
   const toggleUserAccess = async (email, action) => {
@@ -470,18 +455,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           await fetchAudienceStats(); 
-      } catch (err) {
-          console.error("Failed to toggle access.");
-      } finally {
-          setProcessingUser(null);
-      }
+      } catch (err) { console.error("Failed to toggle access."); } finally { setProcessingUser(null); }
   };
 
   // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
-      setManualCommunities(prev => 
-          prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
-      );
+      setManualCommunities(prev => prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]);
   };
 
   const handleAddManualUser = async () => {
@@ -489,8 +468,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsManualSaving(true);
-      setError(null);
+      setIsManualSaving(true); setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
@@ -510,11 +488,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) {
-          setError(err.message);
-      } finally {
-          setIsManualSaving(false);
-      }
+      } catch (err) { setError(err.message); } finally { setIsManualSaving(false); }
   };
 
   const handleRemoveManualUser = async (user) => {
@@ -526,9 +500,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchManualUsers();
-      } catch (err) {
-          console.error("Failed to remove manual user.");
-      }
+      } catch (err) { console.error("Failed to remove manual user."); }
   };
 
   const handleAddAlias = async () => {
@@ -536,8 +508,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Both emails are required.");
           return;
       }
-      setIsAliasSaving(true);
-      setError(null);
+      setIsAliasSaving(true); setError(null);
       try {
           const res = await fetch('/api/add-alias', {
               method: 'POST',
@@ -558,11 +529,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) {
-          setError(err.message);
-      } finally {
-          setIsAliasSaving(false);
-      }
+      } catch (err) { setError(err.message); } finally { setIsAliasSaving(false); }
   };
 
   const handleRemoveAlias = async (id) => {
@@ -575,9 +542,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchAliases();
           fetchAudienceStats();
-      } catch (err) {
-          console.error("Failed to remove alias.");
-      }
+      } catch (err) { console.error("Failed to remove alias."); }
   };
 
   const handleInviteTeammate = async () => {
@@ -585,8 +550,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email address.");
           return;
       }
-      setIsTeamSaving(true);
-      setError(null);
+      setIsTeamSaving(true); setError(null);
       try {
           const res = await fetch('/api/team/invite', {
               method: 'POST',
@@ -606,11 +570,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) {
-          setError(err.message);
-      } finally {
-          setIsTeamSaving(false);
-      }
+      } catch (err) { setError(err.message); } finally { setIsTeamSaving(false); }
   };
 
   const handleRevokeTeammate = async (email) => {
@@ -623,36 +583,22 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchTeamData();
-      } catch (err) {
-          console.error("Failed to revoke teammate.");
-      }
+      } catch (err) { console.error("Failed to revoke teammate."); }
   };
 
   const getCommunityName = (mod, id) => {
-      if (mod === 'bx_groups') {
-          return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
-      } else {
-          return unaData.crowds.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
-      }
+      if (mod === 'bx_groups') return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
+      return unaData.crowds.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
   };
 
-  // MULTI-SELECT FOR REGULAR MAPPINGS
+  // MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
-  
-  const updateMapping = (id, field, value) => {
-      setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
-  };
-  
-  const toggleCommunity = (mappingId, commId) => {
-      setMappings(prev => prev.map(m => {
-          if (m.id !== mappingId) return m;
-          const currentComms = m.communities || [];
-          const newComms = currentComms.includes(commId) 
-              ? currentComms.filter(c => c !== commId)
-              : [...currentComms, commId];
-          return { ...m, communities: newComms };
-      }));
-  };
+  const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  const toggleCommunity = (mappingId, commId) => setMappings(prev => prev.map(m => {
+      if (m.id !== mappingId) return m;
+      const currentComms = m.communities || [];
+      return { ...m, communities: currentComms.includes(commId) ? currentComms.filter(c => c !== commId) : [...currentComms, commId] };
+  }));
   
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
@@ -665,16 +611,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) {
-      console.error("Failed to delete mapping.");
-    }
+    } catch (err) { console.error("Failed to delete mapping."); }
   };
 
   const copyWebhook = () => {
     const url = `https://bridge.selloutcrowds.com/api/${activeTab}-webhook`;
     navigator.clipboard.writeText(url);
-    setWebhookCopied(true);
-    setTimeout(() => setWebhookCopied(false), 2000);
+    setWebhookCopied(true); setTimeout(() => setWebhookCopied(false), 2000);
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
@@ -1097,7 +1040,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             >
                               <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
                               <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active</span>
                                   <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
                               </div>
                             </div>
@@ -1262,21 +1205,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to grant access to a teammate or VIP.</p>
                           </div>
                         ) : (
-                            manualUsers.map((user) => (
-                                <div key={user.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
+                            manualUsers.map((user, idx) => (
+                                <div key={idx} onClick={() => setManualModalData(user)} className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group cursor-pointer transition-colors">
                                     <div className="flex-1 w-full text-center md:text-left">
-                                        <p className="text-sm font-bold text-white">{user.email}</p>
-                                        <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
-                                            {getCommunityName(user.una_module, user.una_content_id)}
-                                        </p>
+                                        <p className="text-sm font-bold text-white group-hover:text-[#9df01c] transition-colors">{user.email}</p>
                                     </div>
-                                    <button 
-                                        onClick={() => handleRemoveManualUser(user)}
-                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
-                                        title="Revoke Access"
-                                    >
-                                        <UserX size={16} /> <span className="md:hidden">Revoke</span>
-                                    </button>
+                                    <div className="flex items-center gap-4 shrink-0">
+                                        <span className="bg-[#9df01c]/10 text-[#9df01c] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-[#9df01c]/20">
+                                            {user.communities.length} {user.communities.length === 1 ? 'Community' : 'Communities'}
+                                        </span>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -1394,6 +1332,46 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               </div>
             </div>
           </div>
+
+        {/* --- MANUAL USERS MODAL --- */}
+        {manualModalData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden text-left">
+              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
+                <div>
+                  <h3 className="text-xl font-black uppercase text-white">{manualModalData.email}</h3>
+                  <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">Manual Access Granted</p>
+                </div>
+                <button onClick={() => setManualModalData(null)} className="p-2 text-gray-400 hover:text-white transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+                {manualModalData.communities.map((comm, i) => (
+                    <div key={i} className="border border-white/5 rounded-xl p-4 flex justify-between items-center bg-black hover:border-white/10 transition-colors">
+                        <div className="flex-1">
+                            <p className="text-sm font-bold text-white flex items-center gap-2">
+                                {getCommunityName(comm.module, comm.contentId)}
+                                <UserCheck className="w-4 h-4 text-[#9df01c]" />
+                            </p>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                handleRemoveManualUser({ id: comm.id, email: manualModalData.email, una_module: comm.module, una_content_id: comm.contentId });
+                                const updatedComms = manualModalData.communities.filter(c => c.id !== comm.id);
+                                if (updatedComms.length === 0) setManualModalData(null);
+                                else setManualModalData({...manualModalData, communities: updatedComms});
+                            }} 
+                            className="p-2 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors" title="Revoke Access"
+                        >
+                            <UserX className="w-4 h-4" />
+                        </button>
+                    </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* --- AUDIENCE MODAL --- */}
         {modalData && (
