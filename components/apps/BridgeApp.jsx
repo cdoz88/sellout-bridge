@@ -28,7 +28,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [paypalUsers, setPaypalUsers] = useState([]); 
   const [error, setError] = useState(null);
 
-  // Manual User States
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
   const [manualCommunities, setManualCommunities] = useState([]); 
@@ -40,7 +39,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [aliasTarget, setAliasTarget] = useState('');
   const [isAliasSaving, setIsAliasSaving] = useState(false);
 
-  // Team State
+  // --- TEAM STATE ---
   const [teamLimit, setTeamLimit] = useState(0);
   const [teamUsed, setTeamUsed] = useState(0);
   const [teammates, setTeammates] = useState([]);
@@ -136,19 +135,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.users) {
-              // Group the rows by email so we can display them as Bundles in the UI
-              const grouped = {};
-              data.users.forEach(row => {
-                  if (!grouped[row.email]) {
-                      grouped[row.email] = { email: row.email, status: row.status, communities: [] };
-                  }
-                  grouped[row.email].communities.push({
-                      id: row.id,
-                      module: row.una_module,
-                      contentId: row.una_content_id
-                  });
-              });
-              setManualUsers(Object.values(grouped));
+              setManualUsers(data.users);
           }
       } catch (err) { console.error("Failed to load manual users."); }
   };
@@ -199,11 +186,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         });
         
         if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+        
         const data = await res.json();
+        
         if (data.error) throw new Error(data.error);
 
         setProviderProducts(prev => ({ ...prev, [provider]: data.products || [] }));
-        if (provider === 'stripe') fetchAudienceStats(activeToken);
+
+        if (provider === 'stripe') {
+            fetchAudienceStats(activeToken);
+        }
     } catch (err) {
         setError(err.message || `Failed to fetch ${provider} products.`);
         setProviderProducts(prev => ({ ...prev, [provider]: [] }));
@@ -363,7 +355,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             setAudienceStats(data.stats);
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
-    } catch (err) { console.error("Failed to load stats"); } finally { setIsStatsLoading(false); }
+    } catch (err) {
+        console.error("Failed to load stats");
+    } finally {
+        setIsStatsLoading(false);
+    }
   };
 
   const saveMappingsToDatabase = async () => {
@@ -381,7 +377,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { setError("Failed to save mappings."); } finally { setIsSaving(false); }
+    } catch (err) {
+      setError("Failed to save mappings.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const syncExistingSubscribers = async () => {
@@ -397,20 +397,27 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
-          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first. If their Stripe email is different than their account email, use the 'Email to Email' tool!)`);
+          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first!)`);
       } else {
-          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
+          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { setError(err.message || "Failed to sync subscribers."); } finally { setIsSyncingSubs(false); }
+    } catch (err) {
+      setError(err.message || "Sync failed.");
+    } finally {
+      setIsSyncingSubs(false);
+    }
   };
 
   const runPatreonImport = async () => {
-      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
       try {
           const patreonMappings = mappings.filter(m => m.provider === 'patreon');
           if (patreonMappings.length === 0) throw new Error("Please map at least one Patreon Tier first.");
@@ -422,13 +429,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
-          setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
+          setSyncSubsResult({ success: true, text: `Added ${data.added}, Revoked ${data.revoked}.` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) { setError(err.message || "Failed to import Patreon users."); } finally { setIsSyncingSubs(false); }
+      } catch (err) {
+          setError(err.message || "Import fail.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
   };
 
   const runPaypalImport = async () => {
-      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
       try {
           const ppMappings = mappings.filter(m => m.provider === 'paypal');
           if (ppMappings.length === 0) throw new Error("Please map at least one PayPal Plan first.");
@@ -440,9 +453,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import PayPal users.");
-          setSyncSubsResult({ success: true, text: `Imported ${data.added} Historic Users!` });
+          setSyncSubsResult({ success: true, text: `Imported ${data.added} Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) { setError(err.message || "Failed to import PayPal users."); } finally { setIsSyncingSubs(false); }
+      } catch (err) {
+          setError(err.message || "Import fail.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
   };
 
   const toggleUserAccess = async (email, action) => {
@@ -455,12 +472,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           await fetchAudienceStats(); 
-      } catch (err) { console.error("Failed to toggle access."); } finally { setProcessingUser(null); }
+      } catch (err) {
+          console.error("Toggle fail");
+      } finally {
+          setProcessingUser(null);
+      }
   };
 
-  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
-      setManualCommunities(prev => prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]);
+      setManualCommunities(prev => 
+          prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
+      );
   };
 
   const handleAddManualUser = async () => {
@@ -468,7 +490,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsManualSaving(true); setError(null);
+      setIsManualSaving(true);
+      setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
@@ -488,7 +511,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) { setError(err.message); } finally { setIsManualSaving(false); }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsManualSaving(false);
+      }
   };
 
   const handleRemoveManualUser = async (user) => {
@@ -500,7 +527,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchManualUsers();
-      } catch (err) { console.error("Failed to remove manual user."); }
+      } catch (err) {}
   };
 
   const handleAddAlias = async () => {
@@ -508,7 +535,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Both emails are required.");
           return;
       }
-      setIsAliasSaving(true); setError(null);
+      setIsAliasSaving(true);
+      setError(null);
       try {
           const res = await fetch('/api/add-alias', {
               method: 'POST',
@@ -529,7 +557,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) { setError(err.message); } finally { setIsAliasSaving(false); }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsAliasSaving(false);
+      }
   };
 
   const handleRemoveAlias = async (id) => {
@@ -542,7 +574,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchAliases();
           fetchAudienceStats();
-      } catch (err) { console.error("Failed to remove alias."); }
+      } catch (err) {}
   };
 
   const handleInviteTeammate = async () => {
@@ -550,7 +582,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email address.");
           return;
       }
-      setIsTeamSaving(true); setError(null);
+      setIsTeamSaving(true);
+      setError(null);
       try {
           const res = await fetch('/api/team/invite', {
               method: 'POST',
@@ -570,7 +603,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) { setError(err.message); } finally { setIsTeamSaving(false); }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsTeamSaving(false);
+      }
   };
 
   const handleRevokeTeammate = async (email) => {
@@ -583,22 +620,37 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchTeamData();
-      } catch (err) { console.error("Failed to revoke teammate."); }
+      } catch (err) {}
   };
 
   const getCommunityName = (mod, id) => {
-      if (mod === 'bx_groups') return unaData.spaces.find(s => s.id === id.toString())?.title || `Space #${id}`;
-      return unaData.crowds.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
+      // Check if id is defined before trying to call toString() on it
+      if (id === undefined || id === null) {
+          return 'Unknown Community';
+      }
+      if (mod === 'bx_groups') {
+          return unaData.spaces?.find(s => s.id === id.toString())?.title || `Space #${id}`;
+      } else {
+          return unaData.crowds?.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
+      }
   };
 
-  // MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
-  const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
-  const toggleCommunity = (mappingId, commId) => setMappings(prev => prev.map(m => {
-      if (m.id !== mappingId) return m;
-      const currentComms = m.communities || [];
-      return { ...m, communities: currentComms.includes(commId) ? currentComms.filter(c => c !== commId) : [...currentComms, commId] };
-  }));
+  
+  const updateMapping = (id, field, value) => {
+      setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+  
+  const toggleCommunity = (mappingId, commId) => {
+      setMappings(prev => prev.map(m => {
+          if (m.id !== mappingId) return m;
+          const currentComms = m.communities || [];
+          const newComms = currentComms.includes(commId) 
+              ? currentComms.filter(c => c !== commId)
+              : [...currentComms, commId];
+          return { ...m, communities: newComms };
+      }));
+  };
   
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
@@ -611,13 +663,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { console.error("Failed to delete mapping."); }
+    } catch (err) {}
   };
 
   const copyWebhook = () => {
     const url = `https://bridge.selloutcrowds.com/api/${activeTab}-webhook`;
     navigator.clipboard.writeText(url);
-    setWebhookCopied(true); setTimeout(() => setWebhookCopied(false), 2000);
+    setWebhookCopied(true);
+    setTimeout(() => setWebhookCopied(false), 2000);
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
@@ -680,7 +733,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Invite Teammate
                       </label>
                       <input 
@@ -716,12 +769,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <Repeat size={18} className="text-[#9df01c]" />
                     Create Email Alias
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
                     Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Original Payment Email
                       </label>
                       <input 
@@ -738,7 +791,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </datalist>
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Alias Email (Sellout Crowds)
                       </label>
                       <input 
@@ -789,8 +842,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         Grant Access To (Select Multiple)
                       </label>
                       <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
-                          {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                          {unaData.crowds.map(c => {
+                          {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                          {unaData.crowds?.map(c => {
                               const commId = `bx_spaces_${c.id}`;
                               const isChecked = manualCommunities.includes(commId);
                               return (
@@ -803,8 +856,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               );
                           })}
 
-                          {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                          {unaData.spaces.map(s => {
+                          {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                          {unaData.spaces?.map(s => {
                               const commId = `bx_groups_${s.id}`;
                               const isChecked = manualCommunities.includes(commId);
                               return (
@@ -817,7 +870,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               );
                           })}
                           
-                          {unaData.crowds.length === 0 && unaData.spaces.length === 0 && (
+                          {(!unaData.crowds || unaData.crowds.length === 0) && (!unaData.spaces || unaData.spaces.length === 0) && (
                               <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
                           )}
                       </div>
@@ -840,7 +893,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -989,7 +1042,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     
                     {['patreon', 'paypal'].includes(activeTab) && (
                       <div className="mb-6">
-                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                           {activeTab === 'patreon' ? 'Patreon Audience CSV' : 'PayPal Subscriptions CSV'}
                         </label>
                         <input 
@@ -1040,7 +1093,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             >
                               <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
                               <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active</span>
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active on SC</span>
                                   <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
                               </div>
                             </div>
@@ -1206,13 +1259,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           </div>
                         ) : (
                             manualUsers.map((user, idx) => (
-                                <div key={idx} onClick={() => setManualModalData(user)} className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group cursor-pointer transition-colors">
+                                <div 
+                                    key={idx} 
+                                    onClick={() => setManualModalData(user)} 
+                                    className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group cursor-pointer transition-colors"
+                                >
                                     <div className="flex-1 w-full text-center md:text-left">
                                         <p className="text-sm font-bold text-white group-hover:text-[#9df01c] transition-colors">{user.email}</p>
                                     </div>
                                     <div className="flex items-center gap-4 shrink-0">
                                         <span className="bg-[#9df01c]/10 text-[#9df01c] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-[#9df01c]/20">
-                                            {user.communities.length} {user.communities.length === 1 ? 'Community' : 'Communities'}
+                                            {user.communities?.length || 0} {(user.communities?.length === 1) ? 'Community' : 'Communities'}
                                         </span>
                                     </div>
                                 </div>
@@ -1254,7 +1311,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               
                               <div className="flex-1 w-full md:mt-1">
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1 text-left">
-                                  Payment Product
+                                  {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
                                 </label>
                                 
                                 <select 
@@ -1263,9 +1320,15 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                    onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
                                 >
                                   <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
-                                  {providerProducts[activeTab] && providerProducts[activeTab].map(prod => (
-                                      <option key={prod.id} value={prod.id}>{prod.name}</option>
-                                  ))}
+                                  {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
+                                      providerProducts[activeTab].map(prod => (
+                                          <option key={prod.id} value={prod.id}>{prod.name}</option>
+                                      ))
+                                  ) : (
+                                      <option value="" disabled>
+                                          {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV or create plans in PayPal first.' : 'No products found. Sync Credentials first.'}
+                                      </option>
+                                  )}
                                 </select>
                               </div>
 
@@ -1277,8 +1340,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To (Select Multiple)</label>
                                 <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
                                     
-                                    {unaData.crowds.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                    {unaData.crowds.map(c => {
+                                    {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                                    {unaData.crowds?.map(c => {
                                         const commId = `bx_spaces_${c.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
                                         return (
@@ -1291,8 +1354,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         );
                                     })}
 
-                                    {unaData.spaces.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                    {unaData.spaces.map(s => {
+                                    {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                                    {unaData.spaces?.map(s => {
                                         const commId = `bx_groups_${s.id}`;
                                         const isChecked = mapping.communities?.includes(commId);
                                         return (
@@ -1304,6 +1367,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             </div>
                                         );
                                     })}
+                                    
+                                    {(!unaData.crowds || unaData.crowds.length === 0) && (!unaData.spaces || unaData.spaces.length === 0) && (
+                                        <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
+                                    )}
                                 </div>
                               </div>
 
@@ -1347,7 +1414,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </button>
               </div>
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
-                {manualModalData.communities.map((comm, i) => (
+                {manualModalData.communities?.map((comm, i) => (
                     <div key={i} className="border border-white/5 rounded-xl p-4 flex justify-between items-center bg-black hover:border-white/10 transition-colors">
                         <div className="flex-1">
                             <p className="text-sm font-bold text-white flex items-center gap-2">
@@ -1368,7 +1435,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         </button>
                     </div>
                 ))}
-              </div>
+            </div>
             </div>
           </div>
         )}
@@ -1391,7 +1458,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               </div>
               
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                {modalData.users.length === 0 ? (
+                {(!modalData.users || modalData.users.length === 0) ? (
                     <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
                 ) : (
                     <div className="flex flex-col">

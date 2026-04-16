@@ -191,9 +191,9 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 6; 
-        else if (user.role === 16) limit = 3; 
-        else if (user.role === 3) limit = 999; 
+        if (user.role === 17) limit = 5; // H.O.F.
+        else if (user.role === 16) limit = 3; // All-Star
+        else if (user.role === 3) limit = 999; // Admins
 
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
         
@@ -215,7 +215,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 6;
+        if (user.role === 17) limit = 5;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -730,7 +730,6 @@ app.post('/api/add-manual-user', async (req, res) => {
         if (allSuccess) {
             res.json({ success: true });
         } else {
-            // WE NOW RETURN A 400 IF ANY PART OF THE BUNDLE FAILED SO THE FRONTEND DOESN'T THINK IT WORKED
             res.status(400).json({ error: lastError });
         }
     } catch (error) { 
@@ -1149,7 +1148,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {
