@@ -9,6 +9,7 @@ import BioPageApp, { PublicBioView } from './components/apps/BioPageApp';
 import AddressBookApp from './components/apps/AddressBookApp';
 import AssetsApp from './components/apps/AssetsApp';
 import GuidesApp from './components/apps/GuidesApp';
+import TeammatesApp from './components/apps/TeammatesApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 const WordPressIcon = ({ className }) => (
@@ -204,6 +205,11 @@ export default function App() {
     } catch(e) {}
   };
 
+  const handleLoginRedirect = () => {
+    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
+    window.location.href = `${UNA_AUTH_URL}&response_type=code&client_id=${UNA_CLIENT_ID}&redirect_uri=${redirectUri}&state=xyz`;
+  };
+
   const handleCallback = async (code) => {
     setIsLoading(true);
     setError(null);
@@ -239,12 +245,17 @@ export default function App() {
   };
 
   const fetchUser = async (token) => {
-    try {
-      const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-      const data = await res.json();
-      setUnaData(prev => ({ ...prev, user: data.user }));
-    } catch (err) { console.error("Could not load user data"); }
+      try {
+          const res = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          const data = await res.json();
+          if (data.user) {
+              setUnaData(prev => ({ ...prev, user: data.user }));
+              if (currentApp === 'bridge') {
+                  syncCommunities(token); 
+              }
+          }
+      } catch (err) {}
   };
 
   const syncCommunities = async (overrideToken) => {
@@ -258,9 +269,10 @@ export default function App() {
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
-      setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [] }));
-    } catch (err) { 
-        console.error("Failed to sync communities from Sellout Crowds."); 
+      if (data.crowds || data.spaces) {
+          setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [], debug: data.debug }));
+      }
+    } catch (err) {
     } finally {
         setIsSyncingCommunities(false);
     }
@@ -429,31 +441,28 @@ export default function App() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-        <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
-          
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-start gap-3 relative z-10 text-left">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="mb-1">Authentication Error</p>
-                <p className="text-xs font-medium opacity-80 normal-case tracking-normal">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
-          <h1 className="text-2xl font-black mb-4 uppercase tracking-tight relative z-10">Creator Hub</h1>
-          <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed relative z-10">
-            {isOAuthFlow 
-                ? "Please log in to authorize the connection to your WordPress site."
-                : "Login with your Sellout Crowds credentials to access your business tools and integrations."}
-          </p>
-          <button onClick={startLogin} style={{ backgroundColor: brandColor }} className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10">
-            Login to Hub
-          </button>
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
+        <div className="w-20 h-20 rounded-3xl bg-[#111] border border-white/10 flex items-center justify-center mb-8 shadow-2xl p-3">
+            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
         </div>
+        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 leading-none text-white">Welcome to<br/>SC Hub</h1>
+        <p className="text-gray-400 max-w-md mx-auto mb-10 text-sm font-medium leading-relaxed">
+            Manage your digital business card, sync your subscriptions, and access exclusive tools to grow your community.
+        </p>
+        
+        {error && (
+          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 flex items-center gap-2 text-xs font-bold justify-center">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        <button 
+          onClick={startLogin}
+          disabled={isLoading}
+          className="bg-[#9df01c] hover:bg-[#8ce015] text-black font-black uppercase text-[11px] tracking-widest py-3.5 px-8 rounded-xl transition-all flex items-center justify-center min-w-[200px] shadow-lg shadow-[#9df01c]/10"
+        >
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login to SC"}
+        </button>
       </div>
     );
   }
@@ -527,6 +536,8 @@ export default function App() {
             <main className="flex-1 overflow-auto relative custom-scrollbar">
                 {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
                 
+                {currentApp === 'teammates' && <TeammatesApp session={session} unaData={unaData} />}
+
                 {currentApp === 'business-card' && (
                     ['builder', 'design', 'url'].includes(activeTab) ? (
                         <BusinessCardApp session={session} activeTab={activeTab} />

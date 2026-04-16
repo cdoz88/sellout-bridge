@@ -182,15 +182,6 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-8 border-t border-white/5">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Sellout Crowds</p>
-                            <div className="space-y-1 mb-4">
-                                <button onClick={() => handleNavClick('team')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'team' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Users size={16} /> Teammates
-                                </button>
-                            </div>
-                        </div>
-
                         <div className="mt-auto pt-8 pb-4">
                             <button 
                                 onClick={() => syncCommunities()}
@@ -202,6 +193,17 @@ export default function Sidebar({
                             <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed">
                                 Click to refresh your Space and Crowd lists if you recently added a new one on the main site.
                             </p>
+                        </div>
+                    </div>
+                )}
+
+                {currentApp === 'teammates' && (
+                    <div className="px-4">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
+                        <div className="space-y-1">
+                            <button onClick={() => handleNavClick('manage')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manage' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Users size={16} /> Manage Team
+                            </button>
                         </div>
                     </div>
                 )}
