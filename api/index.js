@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FULLY RESTORED: BUNDLES, MODULE ROUTING, DIAGNOSTICS, AND MANUAL MULTI-SELECT
+ * FULLY RESTORED: BUNDLES, MODULE ROUTING, DIAGNOSTICS, MANUAL MULTI-SELECT, AND ONBOARDING
  */
 
 import express from 'express';
@@ -123,6 +123,12 @@ async function ensureSchema() {
             
             try { await sql`ALTER TABLE bridge_guide_categories ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
             try { await sql`ALTER TABLE bridge_guides ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
+        } catch(e) {}
+
+        // NEW: ONBOARDING TABLES
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_onboarding_steps (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, action_url TEXT, order_index INTEGER DEFAULT 0)`;
+            await sql`CREATE TABLE IF NOT EXISTS bridge_user_progress (user_id INTEGER, step_id INTEGER, completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, step_id))`;
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -566,6 +572,77 @@ app.post('/api/assets/delete', async (req, res) => {
 });
 
 // ==========================================
+// ONBOARDING CHECKLIST ENDPOINTS
+// ==========================================
+app.get('/api/onboarding/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+        const steps = await sql`SELECT * FROM bridge_onboarding_steps ORDER BY order_index ASC, id ASC`;
+        const progressRows = await sql`SELECT step_id FROM bridge_user_progress WHERE user_id = ${user.id}`;
+        const completedStepIds = progressRows.map(r => r.step_id);
+
+        res.json({ steps, completedStepIds });
+    } catch (e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/onboarding/steps/bulk', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { steps } = req.body;
+        if (Array.isArray(steps)) {
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                const safeOrder = i;
+                
+                if (step.id && !step.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_onboarding_steps SET title = ${step.title}, description = ${step.description}, action_url = ${step.action_url}, order_index = ${safeOrder} WHERE id = ${step.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_onboarding_steps (title, description, action_url, order_index) VALUES (${step.title}, ${step.description}, ${step.action_url}, ${safeOrder})`;
+                }
+            }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/onboarding/steps/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_onboarding_steps WHERE id = ${id}`;
+        await sql`DELETE FROM bridge_user_progress WHERE step_id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/onboarding/progress', async (req, res) => {
+    const { step_id, completed } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+        if (completed) {
+            await sql`INSERT INTO bridge_user_progress (user_id, step_id) VALUES (${user.id}, ${step_id}) ON CONFLICT DO NOTHING`;
+        } else {
+            await sql`DELETE FROM bridge_user_progress WHERE user_id = ${user.id} AND step_id = ${step_id}`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+
+// ==========================================
 // OTHER API ENDPOINTS (OAuth, Users, Subscriptions)
 // ==========================================
 app.post('/api/auth/callback', async (req, res) => {
@@ -694,7 +771,6 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
-// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -702,7 +778,6 @@ app.get('/api/get-manual-users', async (req, res) => {
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
         
-        // Group by email so the frontend can treat them as bundles
         const grouped = {};
         rows.forEach(row => {
             if (!grouped[row.email]) {
@@ -719,7 +794,6 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
-// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -756,7 +830,6 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
-        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -767,7 +840,6 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
-// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -1178,7 +1250,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {

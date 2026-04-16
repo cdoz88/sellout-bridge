@@ -10,6 +10,7 @@ import AddressBookApp from './components/apps/AddressBookApp';
 import AssetsApp from './components/apps/AssetsApp';
 import GuidesApp from './components/apps/GuidesApp';
 import TeammatesApp from './components/apps/TeammatesApp';
+import OnboardingApp from './components/apps/OnboardingApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 
 const WordPressIcon = ({ className }) => (
@@ -378,49 +379,33 @@ export default function App() {
       );
   }
 
-  // THE RESTORED UI FOR LOGIN/OAUTH
+  // --- RESTORED CLASSIC LOGIN SCREEN ---
   if (!session) {
-      return (
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-          <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
-            
-            {error && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-widest flex items-start gap-3 relative z-10 text-left">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <div>
-                  <p className="mb-1">Authentication Error</p>
-                  <p className="text-xs font-medium opacity-80 normal-case tracking-normal">{error}</p>
-                </div>
-              </div>
-            )}
-
-            {isOAuthFlow && oauthError && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold relative z-10 text-left">
-                  {oauthError}
-              </div>
-            )}
-
-            <img src={logoUrl} alt="Sellout Crowds" className="max-w-[200px] mx-auto mb-10 relative z-10" />
-            <h1 className="text-2xl font-black mb-4 uppercase tracking-tight relative z-10">
-                {isOAuthFlow ? 'Login Required' : 'Creator Hub'}
-            </h1>
-            <p className="text-gray-500 mb-10 text-sm font-medium leading-relaxed relative z-10">
-              {isOAuthFlow 
-                  ? "You need to log into Sellout Crowds to connect your account."
-                  : "Login with your Sellout Crowds credentials to access your business tools and integrations."}
-            </p>
-            <button 
-              onClick={isOAuthFlow ? handleLoginRedirect : startLogin} 
-              disabled={isLoading} 
-              style={{ backgroundColor: brandColor }} 
-              className="w-full text-black font-black py-4 rounded-2xl uppercase text-[11px] tracking-[0.2em] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-[#9df01c]/10 relative z-10 flex items-center justify-center gap-2"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isOAuthFlow ? "Login to Connect" : "Login to Hub")}
-            </button>
-          </div>
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
+        <div className="w-20 h-20 rounded-3xl bg-[#111] border border-white/10 flex items-center justify-center mb-8 shadow-2xl p-3">
+            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
         </div>
-      );
+        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 leading-none text-white">Welcome to<br/>SC Hub</h1>
+        <p className="text-gray-400 max-w-md mx-auto mb-10 text-sm font-medium leading-relaxed">
+            Manage your digital business card, sync your subscriptions, and access exclusive tools to grow your community.
+        </p>
+        
+        {error && (
+          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 flex items-center gap-2 text-xs font-bold justify-center">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        <button 
+          onClick={startLogin}
+          disabled={isLoading}
+          className="bg-[#9df01c] hover:bg-[#8ce015] text-black font-black uppercase text-[11px] tracking-widest py-3.5 px-8 rounded-xl transition-all flex items-center justify-center min-w-[200px] shadow-lg shadow-[#9df01c]/10"
+        >
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login to SC"}
+        </button>
+      </div>
+    );
   }
 
   if (isOAuthFlow && session) {
@@ -539,6 +524,8 @@ export default function App() {
               return <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'guides':
               return <GuidesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'onboarding':
+              return <OnboardingApp session={session} unaData={unaData} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }
@@ -560,6 +547,7 @@ export default function App() {
                 isSyncingCommunities={isSyncingCommunities}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
                 session={session}
+                handleAppSwitch={handleAppSwitch}
             />
         </div>
 
@@ -573,30 +561,7 @@ export default function App() {
             />
 
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
-                
-                {currentApp === 'teammates' && <TeammatesApp session={session} unaData={unaData} />}
-
-                {currentApp === 'business-card' && (
-                    ['builder', 'design', 'url'].includes(activeTab) ? (
-                        <BusinessCardApp session={session} activeTab={activeTab} />
-                    ) : (
-                        <BusinessCardApp session={session} activeTab="builder" />
-                    )
-                )}
-
-                {currentApp === 'address-book' && <AddressBookApp />}
-                
-                {currentApp === 'linktree' && (
-                    ['links', 'design', 'url'].includes(activeTab) ? (
-                        <BioPageApp session={session} activeTab={activeTab} />
-                    ) : (
-                        <BioPageApp session={session} activeTab="links" />
-                    )
-                )}
-
-                {currentApp === 'assets' && <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />}
-                {currentApp === 'guides' && <GuidesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />}
+                {renderApp()}
             </main>
         </div>
 

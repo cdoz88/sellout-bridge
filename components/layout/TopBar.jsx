@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout
@@ -13,6 +13,7 @@ export default function TopBar({
             case 'linktree': return { name: 'Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
+            case 'onboarding': return { name: 'Getting Started', icon: <ListChecks size={20} className="text-[#9df01c]" /> };
             default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
@@ -58,6 +59,10 @@ export default function TopBar({
                             
                             <button onClick={() => handleAppSwitch('guides', 'library')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'guides' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <FileText size={18} className={currentApp === 'guides' ? 'text-[#9df01c]' : ''}/> Help and Guides
+                            </button>
+
+                            <button onClick={() => handleAppSwitch('onboarding', 'checklist')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors border-t border-white/5 ${currentApp === 'onboarding' ? 'bg-white/10 text-white' : 'text-[#9df01c] hover:bg-white/5'}`}>
+                                <ListChecks size={18} className="text-[#9df01c]" /> Getting Started
                             </button>
 
                         </div>
