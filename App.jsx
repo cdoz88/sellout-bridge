@@ -273,8 +273,7 @@ export default function App() {
       if (data.crowds || data.spaces) {
           setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [], debug: data.debug }));
       }
-    } catch (err) { 
-        console.error("Failed to sync communities from Sellout Crowds."); 
+    } catch (err) {
     } finally {
         setIsSyncingCommunities(false);
     }
@@ -441,14 +440,14 @@ export default function App() {
     );
   }
 
-  // --- RESTORED CLASSIC LOGIN SCREEN ---
+  // --- RESTORED CLASSIC LOGIN PAGE DESIGN ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
         <div className="w-20 h-20 rounded-3xl bg-[#111] border border-white/10 flex items-center justify-center mb-8 shadow-2xl p-3">
             <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
         </div>
-        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic mb-4 leading-none text-white">Welcome to<br/>SC Hub</h1>
+        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 leading-none text-white">Welcome to<br/>SC Hub</h1>
         <p className="text-gray-400 max-w-md mx-auto mb-10 text-sm font-medium leading-relaxed">
             Manage your digital business card, sync your subscriptions, and access exclusive tools to grow your community.
         </p>
@@ -464,7 +463,7 @@ export default function App() {
           disabled={isLoading}
           className="bg-[#9df01c] hover:bg-[#8ce015] text-black font-black uppercase text-[11px] tracking-widest py-3.5 px-8 rounded-xl transition-all flex items-center justify-center min-w-[200px] shadow-lg shadow-[#9df01c]/10"
         >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "LOGIN TO SC"}
+          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login to SC"}
         </button>
       </div>
     );
@@ -552,13 +551,13 @@ export default function App() {
 
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
             <TopBar 
-                currentApp={currentApp}
+                currentApp={currentApp} 
                 handleAppSwitch={handleAppSwitch}
                 isAppSwitcherOpen={isAppSwitcherOpen}
                 setIsAppSwitcherOpen={setIsAppSwitcherOpen}
                 handleLogout={handleLogout}
             />
-
+            
             <main className="flex-1 overflow-auto relative custom-scrollbar">
                 {renderApp()}
             </main>
