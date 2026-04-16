@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Repeat, ArrowRight, LogOut } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
