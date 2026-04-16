@@ -191,9 +191,9 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 5; // H.O.F.
-        else if (user.role === 16) limit = 3; // All-Star
-        else if (user.role === 3) limit = 999; // Admins
+        if (user.role === 17) limit = 5; 
+        else if (user.role === 16) limit = 3; 
+        else if (user.role === 3) limit = 999; 
 
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
         
@@ -690,7 +690,7 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
-// --- UPDATED FOR MULTI-SELECT MANUAL GRANTS ---
+// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -727,11 +727,13 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
-        if (allSuccess) {
-            res.json({ success: true });
-        } else {
-            res.status(400).json({ error: lastError });
-        }
+        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
+        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
+        res.json({ 
+            success: true, 
+            notice: !allSuccess ? lastError : null 
+        });
+
     } catch (error) { 
         res.status(500).json({ error: "Failed to add manual user" }); 
     }
@@ -1148,6 +1150,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
+        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {

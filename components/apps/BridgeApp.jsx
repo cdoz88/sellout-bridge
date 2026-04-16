@@ -397,13 +397,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
-      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
-          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first!)`);
+          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first. If their Stripe email is different than their account email, use the 'Email to Email' tool!)`);
       } else {
-          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} Users!` });
+          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
       if (activeTab === 'stripe') fetchAudienceStats(); 
@@ -429,10 +428,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
-          setSyncSubsResult({ success: true, text: `Added ${data.added}, Revoked ${data.revoked}.` });
+          setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       } catch (err) {
-          setError(err.message || "Import fail.");
+          setError(err.message || "Failed to import Patreon users.");
       } finally {
           setIsSyncingSubs(false);
       }
@@ -453,10 +452,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Failed to import PayPal users.");
-          setSyncSubsResult({ success: true, text: `Imported ${data.added} Users!` });
+          setSyncSubsResult({ success: true, text: `Imported ${data.added} Historic Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       } catch (err) {
-          setError(err.message || "Import fail.");
+          setError(err.message || "Failed to import PayPal users.");
       } finally {
           setIsSyncingSubs(false);
       }
@@ -473,12 +472,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           await fetchAudienceStats(); 
       } catch (err) {
-          console.error("Toggle fail");
+          console.error("Failed to toggle access.");
       } finally {
           setProcessingUser(null);
       }
   };
 
+  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualCommunities(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -507,7 +507,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualCommunities([]);
-              fetchManualUsers();
+              fetchManualUsers(); // Automatically updates UI without refresh!
+              
+              if (data.notice) {
+                  setError(`Saved to Database! However, UNA reported: "${data.notice}". This is normal if the user hasn't registered yet. They will be granted access automatically once they do!`);
+              } else {
+                  setError(null);
+              }
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
@@ -527,7 +533,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchManualUsers();
-      } catch (err) {}
+      } catch (err) { console.error("Failed to remove manual user."); }
   };
 
   const handleAddAlias = async () => {
@@ -574,7 +580,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchAliases();
           fetchAudienceStats();
-      } catch (err) {}
+      } catch (err) {
+          console.error("Failed to remove alias.");
+      }
   };
 
   const handleInviteTeammate = async () => {
@@ -620,7 +628,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchTeamData();
-      } catch (err) {}
+      } catch (err) {
+          console.error("Failed to revoke teammate.");
+      }
   };
 
   const getCommunityName = (mod, id) => {
@@ -635,6 +645,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // THE MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
@@ -663,7 +674,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) {}
+    } catch (err) {
+      console.error("Failed to delete mapping.");
+    }
   };
 
   const copyWebhook = () => {
@@ -687,7 +700,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
           <p className="text-sm text-gray-500 font-medium max-w-xs">
-              The Subscription Bridge requires mapping configurations and CSV uploads that are best handled on a desktop computer.
+              Access Control requires mapping configurations and CSV uploads that are best handled on a desktop computer.
           </p>
       </div>
 
@@ -721,7 +734,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <Users size={18} className="text-[#9df01c]" />
-                    My Team
+                    Teammates
                   </h3>
                   
                   <div className="mb-6 p-4 bg-black border border-white/5 rounded-2xl text-center">
@@ -733,7 +746,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Invite Teammate
                       </label>
                       <input 
@@ -769,12 +782,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <Repeat size={18} className="text-[#9df01c]" />
                     Create Email Alias
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                     Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Original Payment Email
                       </label>
                       <input 
@@ -791,7 +804,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </datalist>
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Alias Email (Sellout Crowds)
                       </label>
                       <input 
@@ -893,7 +906,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -1303,7 +1316,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (

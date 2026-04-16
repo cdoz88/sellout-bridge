@@ -147,7 +147,7 @@ export default function Sidebar({
 
     return (
         <div className="w-64 bg-[#0a0a0a] border-r border-white/5 flex flex-col h-full shadow-xl flex-shrink-0 z-40 relative pb-16 lg:pb-0">
-            <div className="p-5 border-b border-white/5 flex items-center gap-3">
+            <div className="p-5 border-b border-white/5 flex items-center gap-3 flex-shrink-0">
                 <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/10 flex items-center justify-center text-black overflow-hidden p-1.5 flex-shrink-0">
                     <img src={iconUrl} alt="SC Icon" className="w-full h-full object-contain" />
                 </div>
@@ -157,10 +157,10 @@ export default function Sidebar({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-6 space-y-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto py-6 custom-scrollbar flex flex-col">
                 
                 {currentApp === 'bridge' && (
-                    <div className="px-4 flex flex-col h-full">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
                             <div className="space-y-1">
@@ -186,10 +186,12 @@ export default function Sidebar({
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Sellout Crowds</p>
                             <div className="space-y-1 mb-4">
                                 <button onClick={() => handleNavClick('team')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'team' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Users size={16} /> My Team
+                                    <Users size={16} /> Teammates
                                 </button>
                             </div>
+                        </div>
 
+                        <div className="mt-auto pt-8 pb-4">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities}
