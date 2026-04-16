@@ -126,19 +126,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           const res = await fetch('/api/get-manual-users', { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
+          // FIXED: Removed double-grouping logic. The backend already groups the bundles perfectly!
           if (data.users) {
-              const grouped = {};
-              data.users.forEach(row => {
-                  if (!grouped[row.email]) {
-                      grouped[row.email] = { email: row.email, status: row.status, communities: [] };
-                  }
-                  grouped[row.email].communities.push({
-                      id: row.id,
-                      module: row.una_module,
-                      contentId: row.una_content_id
-                  });
-              });
-              setManualUsers(Object.values(grouped));
+              setManualUsers(data.users);
           }
       } catch (err) { console.error("Failed to load manual users."); }
   };
@@ -386,12 +376,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
           setError(`Sync complete! Some Stripe subscribers haven't created an account on your site yet, so their access is pending. (If they used a different email, use the 'Email to Email' tool!)`);
       } else {
-          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} Users!` });
+          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
       if (activeTab === 'stripe') fetchAudienceStats(); 
@@ -467,6 +458,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualCommunities(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -495,7 +487,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualCommunities([]);
-              fetchManualUsers();
+              fetchManualUsers(); // Automatically updates UI without refresh!
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
