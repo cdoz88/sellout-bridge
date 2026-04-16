@@ -191,7 +191,7 @@ app.get('/api/team', async (req, res) => {
         await ensureSchema();
         
         let limit = 0;
-        if (user.role === 17) limit = 5; 
+        if (user.role === 17) limit = 6; 
         else if (user.role === 16) limit = 3; 
         else if (user.role === 3) limit = 999; 
 
@@ -215,7 +215,7 @@ app.post('/api/team/invite', async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         
         let limit = 0;
-        if (user.role === 17) limit = 5;
+        if (user.role === 17) limit = 6;
         else if (user.role === 16) limit = 3;
         else if (user.role === 3) limit = 999;
 
@@ -728,7 +728,6 @@ app.post('/api/add-manual-user', async (req, res) => {
         }
 
         // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
-        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -1150,7 +1149,6 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {

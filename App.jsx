@@ -272,7 +272,8 @@ export default function App() {
       if (data.crowds || data.spaces) {
           setUnaData(prev => ({ ...prev, crowds: data.crowds || [], spaces: data.spaces || [], debug: data.debug }));
       }
-    } catch (err) {
+    } catch (err) { 
+        console.error("Failed to sync communities from Sellout Crowds."); 
     } finally {
         setIsSyncingCommunities(false);
     }
@@ -381,7 +382,6 @@ export default function App() {
       return (
           <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
               <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
                   
                   <div className="flex justify-center mb-6 relative z-10">
                       <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
@@ -505,6 +505,27 @@ export default function App() {
       );
   }
 
+  const renderApp = () => {
+      switch (currentApp) {
+          case 'business-card':
+              return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'address-book':
+              return <AddressBookApp session={session} unaData={unaData} />;
+          case 'bridge':
+              return <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />;
+          case 'teammates':
+              return <TeammatesApp session={session} unaData={unaData} />;
+          case 'linktree':
+              return <BioPageApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'assets':
+              return <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'guides':
+              return <GuidesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          default:
+              return <PlaceholderApp currentApp={currentApp} />;
+      }
+  };
+
   return (
     <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
         {isMobileMenuOpen && (
@@ -526,38 +547,21 @@ export default function App() {
 
         <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
             <TopBar 
-                currentApp={currentApp}
+                currentApp={currentApp} 
                 handleAppSwitch={handleAppSwitch}
                 isAppSwitcherOpen={isAppSwitcherOpen}
                 setIsAppSwitcherOpen={setIsAppSwitcherOpen}
                 handleLogout={handleLogout}
             />
+            
+            <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+                <div className="lg:hidden absolute top-4 left-4 z-40">
+                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-[#111] border border-white/10 rounded-xl text-white shadow-lg">
+                        <Menu size={20} />
+                    </button>
+                </div>
 
-            <main className="flex-1 overflow-auto relative custom-scrollbar">
-                {currentApp === 'bridge' && <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />}
-                
-                {currentApp === 'teammates' && <TeammatesApp session={session} unaData={unaData} />}
-
-                {currentApp === 'business-card' && (
-                    ['builder', 'design', 'url'].includes(activeTab) ? (
-                        <BusinessCardApp session={session} activeTab={activeTab} />
-                    ) : (
-                        <BusinessCardApp session={session} activeTab="builder" />
-                    )
-                )}
-
-                {currentApp === 'address-book' && <AddressBookApp />}
-                
-                {currentApp === 'linktree' && (
-                    ['links', 'design', 'url'].includes(activeTab) ? (
-                        <BioPageApp session={session} activeTab={activeTab} />
-                    ) : (
-                        <BioPageApp session={session} activeTab="links" />
-                    )
-                )}
-
-                {currentApp === 'assets' && <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />}
-                {currentApp === 'guides' && <GuidesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />}
+                {renderApp()}
             </main>
         </div>
 
