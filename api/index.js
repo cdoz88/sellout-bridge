@@ -280,7 +280,6 @@ app.post('/api/team/revoke', async (req, res) => {
     }
 });
 
-
 // ==========================================
 // BUSINESS CARD & BIO PAGE ENDPOINTS
 // ==========================================
@@ -610,14 +609,44 @@ app.get('/api/get-communities', async (req, res) => {
         try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
+        // --- FETCH OWNED COMMUNITIES ---
+        let ownedSpaces = [];
+        let ownedGroups = [];
+        try {
+            if (meData.email) {
+                const url = `${UNA_BASE_URL}/bridge-connector.php`;
+                const ownedRes = await fetch(url, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
+                    body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids' }) 
+                });
+                const ownedData = await ownedRes.json();
+                if (ownedData.success) {
+                    ownedSpaces = ownedData.owned_spaces || [];
+                    ownedGroups = ownedData.owned_groups || [];
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch owned profile IDs", e);
+        }
+
         const crowds = []; const spaces = []; let currentCategory = null;
         parsedData.allow_view_to.values.forEach(item => {
-            if (item.type === 'group_header') { if (item.value === 'CROWD') currentCategory = 'CROWD'; if (item.value === 'SPACE') currentCategory = 'SPACE';
-            } else if (item.type === 'group_end') { currentCategory = null;
+            if (item.type === 'group_header') { 
+                if (item.value === 'CROWD') currentCategory = 'CROWD'; 
+                if (item.value === 'SPACE') currentCategory = 'SPACE';
+            } else if (item.type === 'group_end') { 
+                currentCategory = null;
             } else if (item.key !== undefined && typeof item.key === 'number') {
                 const trueId = Math.abs(item.key).toString();
-                if (currentCategory === 'CROWD') crowds.push({ id: trueId, title: item.value });
-                else if (currentCategory === 'SPACE') spaces.push({ id: trueId, title: item.value });
+                const numId = parseInt(trueId, 10);
+                
+                // Only include the community if the user actually owns it
+                if (currentCategory === 'CROWD' && ownedSpaces.includes(numId)) {
+                    crowds.push({ id: trueId, title: item.value });
+                } else if (currentCategory === 'SPACE' && ownedGroups.includes(numId)) {
+                    spaces.push({ id: trueId, title: item.value });
+                }
             }
         });
         res.json({ crowds, spaces });
@@ -1149,6 +1178,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const accountId = settingsRows[0].stripe_account_id;
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
+        // Group mappings by product ID
         const mappingRows = await sql`SELECT stripe_product_id, una_module, una_content_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
         const mappingsMap = {};
         mappingRows.forEach(row => {
