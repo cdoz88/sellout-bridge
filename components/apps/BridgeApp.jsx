@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Repeat, ArrowRight, LogOut } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -108,7 +108,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             fetchProviderProducts(null, null, token, 'paypal');
         }
       }
-    } catch (err) { console.error("Failed to load settings."); }
+    } catch (err) { console.error("Failed to load settings from database."); }
   };
 
   const fetchDatabaseMappings = async (token) => {
@@ -117,7 +117,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.mappings) setMappings(data.mappings);
-    } catch (err) { console.error("Failed to load mappings."); }
+    } catch (err) { console.error("Failed to load mappings from database."); }
   };
 
   const fetchManualUsers = async (token = session) => {
@@ -175,11 +175,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         });
         
         if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+        
         const data = await res.json();
+        
         if (data.error) throw new Error(data.error);
 
         setProviderProducts(prev => ({ ...prev, [provider]: data.products || [] }));
-        if (provider === 'stripe') fetchAudienceStats(activeToken);
+
+        if (provider === 'stripe') {
+            fetchAudienceStats(activeToken);
+        }
     } catch (err) {
         setError(err.message || `Failed to fetch ${provider} products.`);
         setProviderProducts(prev => ({ ...prev, [provider]: [] }));
@@ -339,7 +344,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             setAudienceStats(data.stats);
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
-    } catch (err) { console.error("Failed to load stats"); } finally { setIsStatsLoading(false); }
+    } catch (err) {
+        console.error("Failed to load stats");
+    } finally {
+        setIsStatsLoading(false);
+    }
   };
 
   const saveMappingsToDatabase = async () => {
@@ -357,7 +366,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { setError("Failed to save mappings."); } finally { setIsSaving(false); }
+    } catch (err) {
+      setError("Failed to save mappings.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const syncExistingSubscribers = async () => {
@@ -382,11 +395,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { setError(err.message || "Failed to sync subscribers."); } finally { setIsSyncingSubs(false); }
+    } catch (err) {
+      setError(err.message || "Sync failed.");
+    } finally {
+      setIsSyncingSubs(false);
+    }
   };
 
   const runPatreonImport = async () => {
-      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
       try {
           const patreonMappings = mappings.filter(m => m.provider === 'patreon');
           if (patreonMappings.length === 0) throw new Error("Please map at least one Patreon Tier first.");
@@ -400,11 +419,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (!res.ok) throw new Error(data.error || "Failed to import Patreon users.");
           setSyncSubsResult({ success: true, text: `Synced! Added ${data.added}, Revoked ${data.revoked}.` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) { setError(err.message || "Failed to import Patreon users."); } finally { setIsSyncingSubs(false); }
+      } catch (err) {
+          setError(err.message || "Failed to import Patreon users.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
   };
 
   const runPaypalImport = async () => {
-      setIsSyncingSubs(true); setSyncSubsResult(null); setError(null);
+      setIsSyncingSubs(true);
+      setSyncSubsResult(null);
+      setError(null);
       try {
           const ppMappings = mappings.filter(m => m.provider === 'paypal');
           if (ppMappings.length === 0) throw new Error("Please map at least one PayPal Plan first.");
@@ -418,7 +443,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (!res.ok) throw new Error(data.error || "Failed to import PayPal users.");
           setSyncSubsResult({ success: true, text: `Imported ${data.added} Historic Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
-      } catch (err) { setError(err.message || "Failed to import PayPal users."); } finally { setIsSyncingSubs(false); }
+      } catch (err) {
+          setError(err.message || "Failed to import PayPal users.");
+      } finally {
+          setIsSyncingSubs(false);
+      }
   };
 
   const toggleUserAccess = async (email, action) => {
@@ -431,12 +460,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           await fetchAudienceStats(); 
-      } catch (err) { console.error("Failed to toggle access."); } finally { setProcessingUser(null); }
+      } catch (err) {
+          console.error("Failed to toggle access.");
+      } finally {
+          setProcessingUser(null);
+      }
   };
 
-  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
-      setManualCommunities(prev => prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]);
+      setManualCommunities(prev => 
+          prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
+      );
   };
 
   const handleAddManualUser = async () => {
@@ -444,7 +478,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsManualSaving(true); setError(null);
+      setIsManualSaving(true);
+      setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
@@ -460,7 +495,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualCommunities([]);
-              fetchManualUsers();
+              fetchManualUsers(); 
               
               if (data.notice) {
                   setError(`Saved to Database! However, UNA reported: "${data.notice}". This is normal if the user hasn't registered yet. They will be granted access automatically once they do!`);
@@ -470,7 +505,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) { setError(err.message); } finally { setIsManualSaving(false); }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsManualSaving(false);
+      }
   };
 
   const handleRemoveManualUser = async (user) => {
@@ -490,7 +529,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Both emails are required.");
           return;
       }
-      setIsAliasSaving(true); setError(null);
+      setIsAliasSaving(true);
+      setError(null);
       try {
           const res = await fetch('/api/add-alias', {
               method: 'POST',
@@ -511,7 +551,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           } else {
               throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
           }
-      } catch (err) { setError(err.message); } finally { setIsAliasSaving(false); }
+      } catch (err) {
+          setError(err.message);
+      } finally {
+          setIsAliasSaving(false);
+      }
   };
 
   const handleRemoveAlias = async (id) => {
@@ -524,23 +568,38 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchAliases();
           fetchAudienceStats();
-      } catch (err) { console.error("Failed to remove alias."); }
+      } catch (err) {
+          console.error("Failed to remove alias.");
+      }
   };
 
   const getCommunityName = (mod, id) => {
-      if (id === undefined || id === null) return 'Unknown Community';
-      if (mod === 'bx_groups') return unaData.spaces?.find(s => s.id === id.toString())?.title || `Space #${id}`;
-      return unaData.crowds?.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
+      if (id === undefined || id === null) {
+          return 'Unknown Community';
+      }
+      if (mod === 'bx_groups') {
+          return unaData.spaces?.find(s => s.id === id.toString())?.title || `Space #${id}`;
+      } else {
+          return unaData.crowds?.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
+      }
   };
 
-  // MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
-  const updateMapping = (id, field, value) => setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
-  const toggleCommunity = (mappingId, commId) => setMappings(prev => prev.map(m => {
-      if (m.id !== mappingId) return m;
-      const currentComms = m.communities || [];
-      return { ...m, communities: currentComms.includes(commId) ? currentComms.filter(c => c !== commId) : [...currentComms, commId] };
-  }));
+  
+  const updateMapping = (id, field, value) => {
+      setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+  
+  const toggleCommunity = (mappingId, commId) => {
+      setMappings(prev => prev.map(m => {
+          if (m.id !== mappingId) return m;
+          const currentComms = m.communities || [];
+          const newComms = currentComms.includes(commId) 
+              ? currentComms.filter(c => c !== commId)
+              : [...currentComms, commId];
+          return { ...m, communities: newComms };
+      }));
+  };
   
   const removeMapping = async (id) => {
     const newMappings = mappings.filter(m => m.id !== id);
@@ -553,13 +612,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       if (activeTab === 'stripe') fetchAudienceStats(); 
-    } catch (err) { console.error("Failed to delete mapping."); }
+    } catch (err) {
+      console.error("Failed to delete mapping.");
+    }
   };
 
   const copyWebhook = () => {
     const url = `https://bridge.selloutcrowds.com/api/${activeTab}-webhook`;
     navigator.clipboard.writeText(url);
-    setWebhookCopied(true); setTimeout(() => setWebhookCopied(false), 2000);
+    setWebhookCopied(true);
+    setTimeout(() => setWebhookCopied(false), 2000);
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
@@ -612,12 +674,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <Repeat size={18} className="text-[#9df01c]" />
                     Create Email Alias
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
                     Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Original Payment Email
                       </label>
                       <input 
@@ -634,7 +696,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </datalist>
                     </div>
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">
                         Alias Email (Sellout Crowds)
                       </label>
                       <input 
@@ -664,7 +726,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Grant Access
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Add your team members, partners, or VIPs to your community for free without requiring a payment plan.
+                    Add your partners or VIPs to your community for free without requiring a payment plan.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
@@ -736,7 +798,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -936,7 +998,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             >
                               <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
                               <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active SC Fans</span>
+                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active on SC</span>
                                   <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
                               </div>
                             </div>
@@ -1015,7 +1077,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <UserPlus className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Manual Users</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to grant access to a teammate or VIP.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to grant access to a partner or VIP.</p>
                           </div>
                         ) : (
                             manualUsers.map((user, idx) => (
@@ -1063,7 +1125,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
@@ -1071,7 +1133,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               
                               <div className="flex-1 w-full md:mt-1">
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1 text-left">
-                                  {activeTab === 'stripe' ? 'Stripe Product' : activeTab === 'patreon' ? 'Patreon Tier' : 'PayPal Plan'}
+                                  Payment Product
                                 </label>
                                 
                                 <select 
