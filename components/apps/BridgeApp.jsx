@@ -108,7 +108,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             fetchProviderProducts(null, null, token, 'paypal');
         }
       }
-    } catch (err) { console.error("Failed to load settings from database."); }
+    } catch (err) { console.error("Failed to load settings."); }
   };
 
   const fetchDatabaseMappings = async (token) => {
@@ -117,7 +117,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.mappings) setMappings(data.mappings);
-    } catch (err) { console.error("Failed to load mappings from database."); }
+    } catch (err) { console.error("Failed to load mappings."); }
   };
 
   const fetchManualUsers = async (token = session) => {
@@ -127,18 +127,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.users) {
-              const grouped = {};
-              data.users.forEach(row => {
-                  if (!grouped[row.email]) {
-                      grouped[row.email] = { email: row.email, status: row.status, communities: [] };
-                  }
-                  grouped[row.email].communities.push({
-                      id: row.id,
-                      module: row.una_module,
-                      contentId: row.una_content_id
-                  });
-              });
-              setManualUsers(Object.values(grouped));
+              setManualUsers(data.users);
           }
       } catch (err) { console.error("Failed to load manual users."); }
   };
@@ -345,7 +334,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
             setModalData(prev => prev ? data.stats.find(s => s.productId === prev.productId) || prev : null);
         }
     } catch (err) {
-        console.error("Failed to load audience stats");
+        console.error("Failed to load stats");
     } finally {
         setIsStatsLoading(false);
     }
@@ -367,7 +356,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
-      setError("Failed to save mappings to the database.");
+      setError("Failed to save mappings.");
     } finally {
       setIsSaving(false);
     }
@@ -386,7 +375,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
-      
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
@@ -395,10 +383,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
-
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
-      setError(err.message || "Failed to sync subscribers.");
+      setError(err.message || "Sync failed.");
     } finally {
       setIsSyncingSubs(false);
     }
@@ -587,6 +574,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // THE MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
@@ -801,7 +789,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -1128,7 +1116,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
