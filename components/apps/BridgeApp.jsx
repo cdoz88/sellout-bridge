@@ -127,7 +127,18 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.users) {
-              setManualUsers(data.users);
+              const grouped = {};
+              data.users.forEach(row => {
+                  if (!grouped[row.email]) {
+                      grouped[row.email] = { email: row.email, status: row.status, communities: [] };
+                  }
+                  grouped[row.email].communities.push({
+                      id: row.id,
+                      module: row.una_module,
+                      contentId: row.una_content_id
+                  });
+              });
+              setManualUsers(Object.values(grouped));
           }
       } catch (err) { console.error("Failed to load manual users."); }
   };
@@ -378,9 +389,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
-          setError(`Sync finished, but 0 users were bridged. Example: ${data.debug[0]}. (Remember: Users MUST create an account on your site first. If their Stripe email is different than their account email, use the 'Email to Email' tool!)`);
+          setError(`Sync complete! Some Stripe subscribers haven't created an account on your site yet, so their access is pending. (If they used a different email, use the 'Email to Email' tool!)`);
       } else {
-          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
+          setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
       }
       if (activeTab === 'stripe') fetchAudienceStats(); 
@@ -456,7 +467,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualCommunities(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -485,10 +495,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualCommunities([]);
-              fetchManualUsers(); // Automatically updates UI without refresh!
+              fetchManualUsers();
               
               if (data.notice) {
-                  setError(`Saved to Database! However, UNA reported: "${data.notice}". This is normal if the user hasn't registered yet. They will be granted access automatically once they do!`);
+                  setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
               } else {
                   setError(null);
               }
@@ -574,7 +584,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // THE MULTI-SELECT MAPPING LOGIC
   const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
@@ -647,11 +656,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           )}
 
           {error && (
-              <div className="mb-8 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-left flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="mb-8 p-5 bg-[#1a1a1a] border border-[#9df01c]/30 rounded-2xl text-[#9df01c] text-left flex items-start gap-3 shadow-lg shadow-[#9df01c]/5">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#9df01c]" />
                 <div>
-                  <p className="font-black uppercase text-[10px] tracking-widest mb-1">Action Required</p>
-                  <p className="text-xs font-medium opacity-80">{error}</p>
+                  <p className="font-black uppercase text-[10px] tracking-widest mb-1 text-white">System Notice</p>
+                  <p className="text-xs font-medium opacity-90">{error}</p>
                 </div>
               </div>
           )}
@@ -789,7 +798,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </h3>
                   <div className="space-y-5 relative z-10">
                     <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
                         Patreon Audience CSV
                       </label>
                       <input 
@@ -1116,7 +1125,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to your Crowds or Spaces.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
