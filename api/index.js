@@ -163,7 +163,27 @@ async function getAuthenticatedUser(token) {
             headers: { 'Authorization': token }
         });
         const meData = await meRes.json();
-        if (meData && meData.id) return meData;
+        
+        if (meData && meData.id) {
+            // FIX: UNA oauth2/api/me returns role:1 for everyone. We must override it with their actual ACL Level.
+            try {
+                if (meData.email) {
+                    const url = `${UNA_BASE_URL}/bridge-connector.php`;
+                    const roleRes = await fetch(url, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
+                        body: JSON.stringify({ email: meData.email, action: 'get_role' }) 
+                    });
+                    const roleData = await roleRes.json();
+                    if (roleData && roleData.success && roleData.role) {
+                        meData.role = roleData.role; 
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch custom role", err);
+            }
+            return meData;
+        }
         return null;
     } catch (e) { return null; }
 }
@@ -267,7 +287,7 @@ app.post('/api/team/revoke', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 11 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 18 }) 
         });
 
         const responseText = await response.text();
@@ -485,7 +505,6 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
-// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -510,7 +529,6 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
-// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -547,8 +565,6 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
-        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
-        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -559,7 +575,6 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
-// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

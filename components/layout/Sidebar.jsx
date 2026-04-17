@@ -166,7 +166,7 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
-    // --- NEW: Helper function to map UNA Role IDs to Display Names ---
+    // --- FIX: Exact Custom Membership Roles Mapping ---
     const getRoleName = (roleId) => {
         if (!roleId) return 'Creator';
         switch (Number(roleId)) {
@@ -175,7 +175,7 @@ export default function Sidebar({
             case 16: return 'All-Star';
             case 17: return 'H.O.F.';
             case 18: return 'Teammate';
-            default: return 'Rookie'; // Fallback for any other paid tier (Free are already blocked)
+            default: return 'Creator'; 
         }
     };
 
