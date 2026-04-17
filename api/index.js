@@ -232,7 +232,7 @@ app.post('/api/team/invite', async (req, res) => {
         const response = await fetch(url, { 
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 11 }) 
+            body: JSON.stringify({ email: cleanEmail, action: 'assign_teammate', level_id: 18 }) 
         });
         
         const responseText = await response.text();
