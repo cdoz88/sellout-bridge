@@ -166,6 +166,19 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
+    // --- NEW: Helper function to map UNA Role IDs to Display Names ---
+    const getRoleName = (roleId) => {
+        if (!roleId) return 'Creator';
+        switch (Number(roleId)) {
+            case 3: return 'Admin';
+            case 15: return 'Rookie';
+            case 16: return 'All-Star';
+            case 17: return 'H.O.F.';
+            case 18: return 'Teammate';
+            default: return 'Rookie'; // Fallback for any other paid tier (Free are already blocked)
+        }
+    };
+
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     const showProgressBar = onboardingSteps.length > 0 && progressPercent < 100;
 
@@ -177,7 +190,9 @@ export default function Sidebar({
                 </div>
                 <div className="overflow-hidden">
                     <span className="block font-black uppercase tracking-tighter text-sm italic leading-none text-white truncate">{unaData.user?.name || 'Creator'}</span>
-                    <span className="text-[9px] text-[#9df01c] font-black uppercase tracking-[0.2em] mt-1 block truncate">Creator Hub</span>
+                    <span className="text-[9px] text-[#9df01c] font-black uppercase tracking-[0.2em] mt-1 block truncate">
+                        {getRoleName(unaData.user?.role)}
+                    </span>
                 </div>
             </div>
 
