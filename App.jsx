@@ -559,6 +559,12 @@ export default function App() {
             />
             
             <main className="flex-1 overflow-auto relative custom-scrollbar">
+                <div className="lg:hidden absolute top-4 left-4 z-40">
+                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-[#111] border border-white/10 rounded-xl text-white shadow-lg">
+                        <Menu size={20} />
+                    </button>
+                </div>
+
                 {renderApp()}
             </main>
         </div>
