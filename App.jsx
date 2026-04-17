@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2, ListChecks } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
@@ -440,13 +440,11 @@ export default function App() {
     );
   }
 
-  // --- RESTORED CLASSIC LOGIN PAGE DESIGN ---
+  // --- RESTORED CLASSIC LOGIN PAGE DESIGN WITH LARGE LOGO ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
-        <div className="w-20 h-20 rounded-3xl bg-[#111] border border-white/10 flex items-center justify-center mb-8 shadow-2xl p-3">
-            <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
-        </div>
+        <img src={logoUrl} alt="Sellout Crowds" className="max-w-[300px] w-full mb-10 relative z-10" />
         <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 leading-none text-white">Welcome to<br/>SC Hub</h1>
         <p className="text-gray-400 max-w-md mx-auto mb-10 text-sm font-medium leading-relaxed">
             Manage your digital business card, sync your subscriptions, and access exclusive tools to grow your community.
@@ -559,12 +557,6 @@ export default function App() {
             />
             
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                <div className="lg:hidden absolute top-4 left-4 z-40">
-                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-[#111] border border-white/10 rounded-xl text-white shadow-lg">
-                        <Menu size={20} />
-                    </button>
-                </div>
-
                 {renderApp()}
             </main>
         </div>
