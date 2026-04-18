@@ -1,8 +1,8 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap } from 'lucide-react';
 
 export default function TopBar({
-    currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout
+    currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
 }) {
     const getAppConfig = () => {
         switch(currentApp) {
@@ -18,6 +18,10 @@ export default function TopBar({
         }
     };
     const config = getAppConfig();
+    
+    const role = Number(unaData?.user?.role);
+    // Show upgrade button for everyone EXCEPT role 17 (H.O.F.)
+    const showUpgrade = role && role !== 17;
 
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 z-30 sticky top-0 flex-shrink-0">
@@ -71,6 +75,19 @@ export default function TopBar({
             </div>
 
             <div className="flex items-center gap-3">
+                {showUpgrade && (
+                    <a 
+                        href="https://www.selloutcrowds.com/plans" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20 px-3 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] transition-colors shadow-sm"
+                        title="Upgrade Account"
+                    >
+                        <Zap size={14} className="fill-current" />
+                        <span className="hidden sm:inline">Unlock More</span>
+                        <span className="sm:hidden">Upgrade</span>
+                    </a>
+                )}
                 <button onClick={handleLogout} className="bg-white/5 p-2.5 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all text-gray-500 shadow-sm" title="Log Out">
                     <LogOut className="w-4 h-4" />
                 </button>
