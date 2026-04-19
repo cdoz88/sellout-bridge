@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function GuidesApp({ session, unaData, activeTab, setActiveTab }) {
-    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
     const [guides, setGuides] = useState([]);
@@ -202,6 +202,34 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
     const activeCategory = activeGuide ? categories.find(c => c.id === activeGuide.category_id) : categories.find(c => c.id === activeCatId);
     const visibleGuides = guides.filter(g => g.category_id === activeCatId);
 
+    const moveGuide = async (guide, direction) => {
+        const catGuides = guides.filter(g => g.category_id === activeCatId);
+        const index = catGuides.findIndex(g => g.id === guide.id);
+        if (index < 0) return;
+        if (direction === -1 && index === 0) return;
+        if (direction === 1 && index === catGuides.length - 1) return;
+
+        const newCatGuides = [...catGuides];
+        const swapIndex = index + direction;
+        [newCatGuides[index], newCatGuides[swapIndex]] = [newCatGuides[swapIndex], newCatGuides[index]];
+        
+        // Force order index increment
+        newCatGuides.forEach((g, i) => g.order_index = i);
+
+        const otherGuides = guides.filter(g => g.category_id !== activeCatId);
+        setGuides([...otherGuides, ...newCatGuides]);
+
+        try {
+            await fetch('/api/guides/bulk-order', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guides: newCatGuides })
+            });
+        } catch(e) {
+            console.error("Failed to reorder guides", e);
+        }
+    };
+
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     const renderActiveGuideContent = () => {
@@ -360,7 +388,7 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {visibleGuides.map(guide => (
+                        {visibleGuides.map((guide, index) => (
                             <div key={guide.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col group hover:border-[#9df01c]/50 hover:bg-[#151515] transition-all cursor-pointer shadow-lg" onClick={() => setActiveTab(`guide_${guide.id}`)}>
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="w-10 h-10 rounded-xl bg-black border border-white/10 flex items-center justify-center text-[#9df01c] group-hover:scale-110 transition-transform">
@@ -374,9 +402,11 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                                     <span>Read Guide &rarr;</span>
                                     
                                     {isAdmin && (
-                                        <span className="flex items-center gap-2">
-                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditGuide(guide); }} className="text-gray-500 hover:text-white transition-colors p-1"><Pencil size={14}/></button>
-                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGuide(guide.id); }} className="text-gray-500 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
+                                        <span className="flex items-center gap-1 sm:gap-2">
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveGuide(guide, -1); }} disabled={index === 0} title="Move Earlier" className={`p-1 transition-colors ${index === 0 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-500 hover:text-white'}`}><ChevronLeft size={14}/></button>
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveGuide(guide, 1); }} disabled={index === visibleGuides.length - 1} title="Move Later" className={`p-1 transition-colors ${index === visibleGuides.length - 1 ? 'text-gray-700 cursor-not-allowed' : 'text-gray-500 hover:text-white'}`}><ChevronRight size={14}/></button>
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditGuide(guide); }} title="Edit" className="text-gray-500 hover:text-white transition-colors p-1 ml-1"><Pencil size={14}/></button>
+                                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteGuide(guide.id); }} title="Delete" className="text-gray-500 hover:text-red-500 transition-colors p-1"><Trash2 size={14}/></button>
                                         </span>
                                     )}
                                 </p>
