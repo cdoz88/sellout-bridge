@@ -423,7 +423,8 @@ app.get('/api/guides/data', async (req, res) => {
         let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
         
-        const guides = await sql`SELECT * FROM bridge_guides ORDER BY id DESC`;
+        // FIXED: Sort guides by the order_index so your custom sorting is respected
+        const guides = await sql`SELECT * FROM bridge_guides ORDER BY order_index ASC, id DESC`;
         res.json({ categories, guides });
     } catch (e) { res.status(500).json({error: e.message}); }
 });
@@ -489,6 +490,25 @@ app.post('/api/guides/delete', async (req, res) => {
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
         await sql`DELETE FROM bridge_guides WHERE id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+// NEW: Endpoint to save custom guide order
+app.post('/api/guides/bulk-order', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { guides } = req.body;
+        if (Array.isArray(guides)) {
+            for (let i = 0; i < guides.length; i++) {
+                const guideId = guides[i].id;
+                const safeOrder = i;
+                await sql`UPDATE bridge_guides SET order_index = ${safeOrder} WHERE id = ${guideId}`;
+            }
+        }
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
@@ -670,7 +690,6 @@ app.post('/api/onboarding/progress', async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
-
 
 // ==========================================
 // OTHER API ENDPOINTS (OAuth, Users, Subscriptions)
