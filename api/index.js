@@ -132,6 +132,10 @@ async function ensureSchema() {
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_onboarding_steps (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, action_url TEXT, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_user_progress (user_id INTEGER, step_id INTEGER, completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, step_id))`;
+            
+            try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_text VARCHAR(255)`; } catch(e) {}
+            try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_url_2 TEXT`; } catch(e) {}
+            try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_text_2 VARCHAR(255)`; } catch(e) {}
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -168,6 +172,7 @@ async function getAuthenticatedUser(token) {
         const meData = await meRes.json();
         
         if (meData && meData.id) {
+            // FIX: UNA oauth2/api/me returns role:1 for everyone. We must override it with their actual ACL Level.
             try {
                 if (meData.email) {
                     const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -622,10 +627,14 @@ app.post('/api/onboarding/steps/bulk', async (req, res) => {
                 const step = steps[i];
                 const safeOrder = i;
                 
+                const actionText = step.action_text || null;
+                const actionUrl2 = step.action_url_2 || null;
+                const actionText2 = step.action_text_2 || null;
+
                 if (step.id && !step.id.toString().startsWith('temp_')) {
-                    await sql`UPDATE bridge_onboarding_steps SET title = ${step.title}, description = ${step.description}, action_url = ${step.action_url}, order_index = ${safeOrder} WHERE id = ${step.id}`;
+                    await sql`UPDATE bridge_onboarding_steps SET title = ${step.title}, description = ${step.description}, action_url = ${step.action_url}, action_text = ${actionText}, action_url_2 = ${actionUrl2}, action_text_2 = ${actionText2}, order_index = ${safeOrder} WHERE id = ${step.id}`;
                 } else {
-                    await sql`INSERT INTO bridge_onboarding_steps (title, description, action_url, order_index) VALUES (${step.title}, ${step.description}, ${step.action_url}, ${safeOrder})`;
+                    await sql`INSERT INTO bridge_onboarding_steps (title, description, action_url, action_text, action_url_2, action_text_2, order_index) VALUES (${step.title}, ${step.description}, ${step.action_url}, ${actionText}, ${actionUrl2}, ${actionText2}, ${safeOrder})`;
                 }
             }
         }
@@ -792,7 +801,6 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
-// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -800,7 +808,6 @@ app.get('/api/get-manual-users', async (req, res) => {
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
         
-        // Group by email so the frontend can treat them as bundles
         const grouped = {};
         rows.forEach(row => {
             if (!grouped[row.email]) {
@@ -817,7 +824,6 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
-// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -854,8 +860,6 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
-        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
-        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -866,7 +870,6 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
-// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
