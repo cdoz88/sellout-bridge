@@ -345,6 +345,7 @@ export default function BusinessCardApp({ session, activeTab }) {
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [mobileView, setMobileView] = useState('edit');
+    const [isDownloadingQr, setIsDownloadingQr] = useState(false);
 
     useEffect(() => {
         const handleOpenQrModal = () => {
@@ -442,10 +443,112 @@ export default function BusinessCardApp({ session, activeTab }) {
     const removeLink = (id) => setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
 
     const getShareUrl = () => slug ? `https://crowds.bio/${slug}` : '';
+    
     const copyShareLink = () => {
         const url = getShareUrl();
         if (!url) { alert("Save your custom link first!"); return; }
         navigator.clipboard.writeText(url); alert("Public link copied to clipboard!");
+    };
+
+    const handleDownloadQR = async () => {
+        setIsDownloadingQr(true);
+        try {
+            const size = 1000;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // White Background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=H&margin=2&data=${encodeURIComponent(getShareUrl())}`;
+            
+            const loadImg = async (url) => {
+                try {
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    const objUrl = URL.createObjectURL(blob);
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = objUrl;
+                    });
+                } catch(e) {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = url;
+                    });
+                }
+            };
+
+            const qrImg = await loadImg(qrUrl);
+            ctx.drawImage(qrImg, 0, 0, size, size);
+
+            if (cardData.qrLogoEnabled && (cardData.qrLogoUrl || cardData.logoUrl)) {
+                try {
+                    const logoSize = size * 0.24;
+                    const center = size / 2;
+                    const halfLogo = logoSize / 2;
+
+                    ctx.fillStyle = cardData.qrLogoBg || '#ffffff';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(center - halfLogo, center - halfLogo, logoSize, logoSize, logoSize * 0.15);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(center - halfLogo, center - halfLogo, logoSize, logoSize);
+                    }
+
+                    ctx.lineWidth = size * 0.012;
+                    ctx.strokeStyle = '#ffffff';
+                    if (ctx.roundRect) {
+                        ctx.stroke();
+                    } else {
+                        ctx.strokeRect(center - halfLogo, center - halfLogo, logoSize, logoSize);
+                    }
+
+                    const logoImg = await loadImg(cardData.qrLogoUrl || cardData.logoUrl);
+                    
+                    const maxImgSize = logoSize * 0.8;
+                    let drawW = logoImg.width;
+                    let drawH = logoImg.height;
+                    const ratio = Math.min(maxImgSize / drawW, maxImgSize / drawH);
+                    drawW *= ratio;
+                    drawH *= ratio;
+
+                    ctx.drawImage(logoImg, center - (drawW / 2), center - (drawH / 2), drawW, drawH);
+                } catch (e) {
+                    console.warn("Could not load logo for QR code compositing", e);
+                }
+            }
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `${slug || 'sc_card'}_qr_code.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error('QR Download Error:', error);
+            // Fallback: If canvas gets tainted, directly download the standard QR Code image 
+            const fallbackLink = document.createElement('a');
+            fallbackLink.target = '_blank';
+            fallbackLink.download = 'qr_code.png';
+            fallbackLink.href = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&ecc=H&margin=2&data=${encodeURIComponent(getShareUrl())}`;
+            document.body.appendChild(fallbackLink);
+            fallbackLink.click();
+            document.body.removeChild(fallbackLink);
+        } finally {
+            setIsDownloadingQr(false);
+        }
     };
 
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
@@ -713,6 +816,15 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 </div>
                             )}
                         </div>
+
+                        <button 
+                            onClick={handleDownloadQR} 
+                            disabled={isDownloadingQr}
+                            className="mt-8 w-full py-3 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20"
+                        >
+                            {isDownloadingQr ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            {isDownloadingQr ? 'Generating...' : 'Download QR Code'}
+                        </button>
                     </div>
                 </div>
             )}
