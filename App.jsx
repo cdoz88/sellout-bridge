@@ -46,10 +46,15 @@ export default function App() {
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
 
+  // FIX: Initialize state correctly directly from local storage if a code is present!
   const [currentApp, setCurrentApp] = useState(() => {
       try {
           if (typeof window !== 'undefined') {
               const params = new URLSearchParams(window.location.search);
+              const savedApp = localStorage.getItem('hub_login_redirect_app');
+              if (params.get('code') && savedApp) {
+                  return savedApp;
+              }
               return params.get('app') || 'business-card';
           }
       } catch(e) {}
@@ -60,6 +65,10 @@ export default function App() {
       try {
           if (typeof window !== 'undefined') {
               const params = new URLSearchParams(window.location.search);
+              const savedTab = localStorage.getItem('hub_login_redirect_tab');
+              if (params.get('code') && savedTab) {
+                  return savedTab;
+              }
               return params.get('tab') || 'builder';
           }
       } catch(e) {}
@@ -244,26 +253,15 @@ export default function App() {
             return;
         }
 
-        // 2. Restore their original destination if we saved one!
-        const savedApp = localStorage.getItem('hub_login_redirect_app');
-        const savedTab = localStorage.getItem('hub_login_redirect_tab');
+        // 2. Clean up storage since we already initialized the state with it in the useState hooks
+        localStorage.removeItem('hub_login_redirect_app');
+        localStorage.removeItem('hub_login_redirect_tab');
         
         let newUrl = new URL(window.location);
         newUrl.searchParams.delete('code');
         newUrl.searchParams.delete('state');
-        
-        if (savedApp) {
-            setCurrentApp(savedApp);
-            newUrl.searchParams.set('app', savedApp);
-            localStorage.removeItem('hub_login_redirect_app');
-        }
-        if (savedTab) {
-            setActiveTab(savedTab);
-            newUrl.searchParams.set('tab', savedTab);
-            localStorage.removeItem('hub_login_redirect_tab');
-        }
-        
         window.history.replaceState({}, document.title, newUrl);
+        
         setIsLoading(false);
         return;
 
@@ -481,15 +479,6 @@ export default function App() {
               </div>
           </div>
       );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
-        <Loader2 className="w-12 h-12 animate-spin mb-4" />
-        <span className="font-black uppercase tracking-[0.3em] text-[10px]">Processing...</span>
-      </div>
-    );
   }
 
   if (unaData.user && (unaData.user.role === 1 || unaData.user.role === 2)) {
