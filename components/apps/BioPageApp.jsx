@@ -64,7 +64,7 @@ const SelloutIcon = ({ size=20, className="" }) => (
             <path d="m55.53,297.21c-.14.02-.07.04,0,.03-.03.08-.53.08-.6.07.14-.11,1.74-.25.6-.1Z" fill="currentColor" fillRule="evenodd" />
             <path d="m46.61,298.67v-.13c-.77.11-2,.29-2.54.24.9-.21,2.86-.23,3.49-.52.16.01.45-.02.6,0,2.1-.47,4.44-.52,6.63-.92-.95.46-3.25.26-4.34.75-.19,0,0-.03.12-.05-.98.12-2.74.26-3.97.63Z" fill="currentColor" fillRule="evenodd" />
             <path d="m47.93,302.65c-.18.08-.51.14-.71.22-.11,0,.46-.27.71-.22Z" fill="currentColor" fillRule="evenodd" />
-            <path d="m289.44,296.4c.54.04,1.14-.05,1.7-.01,1.32.08,2.5.28,3.84.3,1.18,0,2.3-.03,3.53.04.91.06,1.21.04,1.82.05,1.78.05,3.23.25,4.03-.01,1.26-.1,2.84-.08,3.95-.18.17-.02.54.03.61.03,2.82-.25,4.61-.93,7.92-.99.31-.16.53-.42,1.11-.6.26-.08.83-.1,1.02-.19.71-.34.18-.9,1.46-1.09.08-.09-.14-.14-.2-.22.13-.8-.3-1.52.08-2.11-.82-.45-.58-.85-1.21-1.26-.39-.25-1.18-.53-1.69-.79-.58-.29-1.2-.54-1.69-.82.03-.24-.74-.36-.87-.58-.93-.24-1.63-.51-2.57-.75-.08-.09-.31-.16-.32-.26-1.98-.6-3.97-1.31-6.73-1.73-.25-.04-.78-.12-1.09-.14-2.06-.19-5.22-.57-6.27-.99-.37-.06-.37.02-.74-.04-.22-.19-1.29-.53-2.24-.59-.33-.02-.91.15-1.63.15-1.07-.01-2.06-.36-3.02-.37-.44,0-.92.15-1.39.16-1.21.04-3.63-.2-4.63-.33-.79-.1-1.08-.27-1.68-.28-.55,0-.97.14-.93.39-1.59.45-5.58-.23-7.99-.14-1.75-.33-3.45-.02-5.14-.13-.34-.02-.74-.1-1.09-.11-.58-.02-1.35.06-2.1.07-1.27.02-2.39-.03-3.43.01-1.6-.38-2.8-.05-4.15-.11-.51-.02-1-.15-1.57-.16-.48-.02-.95.06-1.47.03-.52-.03-1.07-.15-1.57-.16-.38-.01-.68.04-.98.02-.4-.02-.66-.11-1.09-.11-.45,0-.91.11-1.36.1-1.66-.02-3.45-.18-5.02.05-2.83-.24-5.3.06-8.65-.2-.84.05-1.45.09-2.32.02-.19.02-.19.1-.5.09-1.74-.12-3.58.13-5.37,0-.06.04-.14.07-.25.09-2.48-.2-5.62-.24-7.56-.02-1.51-.15-3.27.05-5.12.07-.87,0-1.74-.07-2.56-.03-1.6.08-3.7.02-5.25.07-.46.02-.9.11-1.35.13-.81.03-1.69-.05-2.56,0-3.35.18-7.19.18-10.12.25-.91.02-1.68.15-2.69.21-1.68.11-3.43-.02-5.11.07-.42.02-.83.1-1.22.12-1.01.06-1.98.02-3.04.06-2.61.08-5.22.32-7.68.29-3.12.35-7.69.47-11.33.66-.81.21-1.59.09-2.44.15-2.6.18-5.92.51-8.65.55-5.72.48-11.56.86-17.38,1.25-5.82.45-11.63.92-17.27,1.49-.89-.07-2.26.1-3.03.27-.17-.07-.69-.02-1.09-.02-1.4.33-3.19.3-4.98.5-.44.25-1.53.18-2.19.39-.3-.09.38-.13-.12-.15-1.13.48-5.05.62-6.8.87.12,0,.15.05,0,.07-.43-.06-.62.15-1.09.18-3.18.33-5.42.92-8.12,1.31-.35-.02-1.27-.1-1.57.07.49-.02,1.11-.09,1.09.07-.82.02-1.89.2-2.42.37-1.01.11-1.53.07-2.42.27-.22.02.23.14-.24.18-1.42.05-2.12.25-3.39.3-.35.19-1.83.38-2.3.35-.41.11.47.08.12.15-1.14.16-2.2.34-3.27.35-.25.1-.42.21-.85.28-.29.04.07-.15-.36-.06-.4.13.33.12.24.24-.57.11-.45.18-.72.3-.81,0-1.34.23-2.06.36-.74.13-1.58.16-2.3.29-.62.1-.87.24-1.57.32-.57.06-1.06,0-1.69.08-.33.06.24.09-.24.16-2.21.29-4.42.57-6.04.96,2.48-.53,4.34-.47,6.52-.95.35.11.98-.2,1.33-.04.14-.1-.38-.1.12-.14.16,0,.23.02.48-.02-.29.21.17.16.37.25,1.87-.23,3.34-.41,4.95-.61.3-.07-.22-.08.12-.14.61-.09,1.09-.12,1.81-.24.23.11.73.12.48.31-2.19.22-5.13.77-7.73,1.07-.79.1-1.62.06-2.05.31,1.16-.19,2.12-.08,3.14-.16,1.32-.11,2.7-.46,3.99-.55.36-.02.52.02.84-.02.26-.03.68-.17.97-.19.31-.03.34.04.6,0,.55-.07.96-.22,1.57-.28,1.02-.1,2.03-.08,3.14-.24.21.04.13.19-.12.24-1.32.14-1.55.17-2.9.31.15,0,.25.02.24.07-.42.03-.57,0-.85.11,1-.11.94.15.61.3-2.5.21-5.55.64-7.61.76-.22.09-.35.2-.72.26-2.3.34-4.89.55-7.36.9,2.84-.12,5.78-.59,9.05-1,.13.02.04.12.36.06,1.39-.24,3.02-.38,4.1-.52.5.09.98.18,1.45.28,3.43-.47,6-.17,9.29-.46,0,.1.25.1.36.16-.26.1-.42.23-.72.32-.54.06-1.09.16-1.57.14-2.75.54-6.7.77-10.13,1.28-.4.2-.06.29.24.4,1.67-.08,3.16-.46,4.94-.44.67.32.03.65-1.32.81-2.25.27-6.13.63-7.59.73-6.57.94-13.12,1.59-19.84,2.6,3.76-.37,7.19-1.02,10.57-1.24-.02-.07.1-.11.36-.14,3.31-.32,6.98-.77,9.87-1.18,1.24.11,3.56-.41,4.82-.3-.27.4-1.26.67-2.53.89,1.3-.16,2.52-.16,3.61-.25.9-.07,2.43-.34,2.89-.31.11,0-.09.1.12.09-.37.03.65-.09.72-.1.48-.09.39-.11.96-.16.74-.06.73-.06,1.2-.01,2.56-.18,5.04-.53,7.59-.69.27-.02.8-.07.84-.07.24,0,.04.08.36.07.18,0,.09-.08.36-.1,1-.06,2.14-.14,3.13-.24,2.49-.27,5.45-.41,7.48-.59.46-.01-.13.15.48.09,3.51-.21,7.22-.45,10.97-.73.28-.01.07.15.48.09.52-.02.38-.17.85-.19.29.02.56.05.72.12,4.31-.18,8.73-.63,13.16-1,4.13-.36,8.28-.6,12.2-.84,3.09-.2,6.05-.51,8.82-.57,1.85-.16,3.58-.29,5.29-.39,1.7-.08,3.38-.16,5.11-.24,2.51-.12,5.27-.16,7.38-.33.36-.03.79-.12,1.22-.14.64-.03,1.29.05,1.93.03,1.73-.07,3.49-.28,5.21-.35,1.93-.07,3.79-.08,5.68-.12,1.07-.02,2.09-.15,3.15-.19.7-.02,1.44.04,2.17.02,2.04-.06,4.12-.26,6.06-.28,2.59-.02,5.24.02,7.86-.16,2.9.06,6.42.04,9.19-.04,2.25.24,4.59-.05,7.13,0,.27,0,.45.05.72.06,1.92.08,3.96.02,5.9-.03,1.94-.02,3.79-.04,5.35.07,1.17-.15,2.17.04,3.26.1,1.17.06,2.26-.04,3.39-.03.37,0,.71.07,1.08.09,1.14.04,2.26-.05,3.52-.06,1.88,0,3.88.3,6.03.15,1.66.12,4.12.39,6.03.3,3.21.36,6.47.19,9.77.42,1.11.08,2.12.29,3.25.17,1.16.22,2.55.16,3.97.24,1.4.07,2.86.22,4.32.36,2.08.19,4.68.21,6.22.66.67.78,2.11-.21,3.76.04.87.2.74.4,1.1.69.78.16,1.52.14,2.29.13.89.13,1.51.5,2.7.58Zm-211.93-2.69s-.03-.06-.12-.05c.24-.18.84-.01.12.05Zm-.24.09c-1,.12-2.4.41-3.14.37-.2.02.19.17-.12.24-.44-.04-.95-.04-1.69.03-.08-.26,1.41-.25,1.45-.5.57-.04.85-.05,1.09-.2,1.17-.03,1.41-.22,2.3-.22-.22.18.17.1.12.28Z" fill="currentColor" fillRule="evenodd" />
+            <path d="m289.44,296.4c.54.04,1.14-.05,1.7-.01,1.32.08,2.5.28,3.84.3,1.18,0,2.3-.03,3.53.04.91.06,1.21.04,1.82.05,1.78.05,3.23.25,4.03-.01,1.26-.1,2.84-.08,3.95-.18.17-.02.54.03.61.03,2.82-.25,4.61-.93,7.92-.99.31-.16.53-.42,1.11-.6.26-.08.83-.1,1.02-.19.71-.34.18-.9,1.46-1.09.08-.09-.14-.14-.2-.22.13-.8-.3-1.52.08-2.11-.82-.45-.58-.85-1.21-1.26-.39-.25-1.18-.53-1.69-.79-.58-.29-1.2-.54-1.69-.82.03-.24-.74-.36-.87-.58-.93-.24-1.63-.51-2.57-.75-.08-.09-.31-.16-.32-.26-1.98-.6-3.97-1.31-6.73-1.73-.25-.04-.78-.12-1.09-.14-2.06-.19-5.22-.57-6.27-.99-.37-.06-.37.02-.74-.04-.22-.19-1.29-.53-2.24-.59-.33-.02-.91.15-1.63.15-1.07-.01-2.06-.36-3.02-.37-.44,0-.92.15-1.39.16-1.21.04-3.63-.2-4.63-.33-.79-.1-1.08-.27-1.68-.28-.55,0-.97.14-.93.39-1.59.45-5.58-.23-7.99-.14-1.75-.33-3.45-.02-5.14-.13-.34-.02-.74-.1-1.09-.11-.58-.02-1.35.06-2.1.07-1.27.02-2.39-.03-3.43.01-1.6-.38-2.8-.05-4.15-.11-.51-.02-1-.15-1.57-.16-.48-.02-.95.06-1.47.03-.52-.03-1.07-.15-1.57-.16-.38-.01-.68.04-.98.02-.4-.02-.66-.11-1.09-.11-.45,0-.91.11-1.36.1-1.66-.02-3.45-.18-5.02.05-2.83-.24-5.3.06-8.65-.2-.84.05-1.45.09-2.32.02-.19.02-.19.1-.5.09-1.74-.12-3.58.13-5.37,0-.06.04-.14.07-.25.09-2.48-.2-5.62-.24-7.56-.02-1.51-.15-3.27.05-5.12.07-.87,0-1.74-.07-2.56-.03-1.6.08-3.7.02-5.25.07-.46.02-.9.11-1.35.13-.81.03-1.69-.05-2.56,0-3.35.18-7.19.18-10.12.25-.91.02-1.68.15-2.69.21-1.68.11-3.43-.02-5.11.07-.42.02-.83.1-1.22.12-1.01.06-1.98.02-3.04.06-2.61.08-5.22.32-7.68.29-3.12.35-7.69.47-11.33.66-.81.21-1.59.09-2.44.15-2.6.18-5.92.51-8.65.55-5.72.48-11.56.86-17.38,1.25-5.82.45-11.63.92-17.27,1.49-.89-.07-2.26.1-3.03.27-.17-.07-.69-.02-1.09-.02-1.4.33-3.19.3-4.98.5-.44.25-1.53.18-2.19.39-.3-.09.38-.13-.12-.15-1.13.48-5.05.62-6.8.87.12,0,.15.05,0,.07-.43-.06-.62.15-1.09.18-3.18.33-5.42.92-8.12,1.31-.35-.02-1.27-.1-1.57.07.49-.02,1.11-.09,1.09.07-.82.02-1.89.2-2.42.37-1.01.11-1.53.07-2.42.27-.22.02.23.14-.24.18-1.42.05-2.12.25-3.39.3-.35.19-1.83.38-2.3.35-.41.11.47.08.12.15-1.14.16-2.2.34-3.27.35-.25.1-.42.21-.85.28-.29.04.07-.15-.36-.06-.4.13.33.12.24.24-.57.11-.45.18-.72.3-.81,0-1.34.23-2.06.36-.74.13-1.58.16-2.3.29-.62.1-.87.24-1.57.32-.57.06-1.06,0-1.69.08-.33.06.24.09-.24.16-2.21.29-4.42.57-6.04.96,2.48-.53,4.34-.47,6.52-.95.35.11.98-.2,1.33-.04.14-.1-.38-.1.12-.14.16,0,.23.02.48-.02-.29.21.17.16.37.25,1.87-.23,3.34-.41,4.95-.61.3-.07-.22-.08.12-.14.61-.09,1.09-.12,1.81-.24.23.11.73.12.48.31-2.19.22-5.13.77-7.73,1.07-.79.1-1.62.06-2.05.31,1.16-.19,2.12-.08,3.14-.16,1.32-.11,2.7-.46,3.99-.55.36-.02.52.02.84-.02.26-.03.68-.17.97-.19.31-.03.34.04.6,0,.55-.07.96-.22,1.57-.28,1.02-.1,2.03-.08,3.14-.24.21.04.13.19-.12.24-1.32.14-1.55.17-2.9.31.15,0,.25.02.24.07-.42.03-.57,0-.85.11,1-.11.94.15.61.3-2.5.21-5.55.64-7.61.76-.22.09-.35.2-.72.26-2.3.34-4.89.55-7.36.9,2.84-.12,5.78-.59,9.05-1,.13.02.04.12.36.06,1.39-.24,3.02-.38,4.1-.52.5.09.98.18,1.45.28,3.43-.47,6-.17,9.29-.46,0,.1.25.1.36.16-.26.1-.42.23-.72.32-.54.06-1.09.16-1.57.14-2.75.54-6.7.77-10.13,1.28-.4.2-.06.29.24.4,1.67-.08,3.16-.46,4.94-.44.67.32.03.65-1.32.81-2.25.27-6.13.63-7.59.73-6.57.94-13.12,1.59-19.84,2.6,3.76-.37,7.19-1.02,10.57-1.24-.02-.07.1-.11.36-.14,3.31-.32,6.98-.77,9.87-1.18,1.24.11,3.56-.41,4.82-.3-.27.4-1.26.67-2.53.89,1.3-.16,2.52-.16,3.61-.25.9-.07,2.43-.34,2.89-.31.11,0-.09.1.12.09-.37.03.65-.09.72-.1.48-.09.39-.11.96-.16.74-.06.73-.06,1.2-.01,2.56-.18,5.04-.53,7.59-.69.27-.02.8-.07.84-.07.24,0,.04.08.36.07.18,0,.09-.08.36-.1,1-.06,2.14-.14,3.13-.24,2.49-.27,5.45-.41,7.48-.59.45-.01-.13.15.48.09,3.51-.21,7.22-.45,10.97-.73.28-.01.07.15.48.09.52-.02.38-.17.85-.19.29.02.56.05.72.12,4.31-.18,8.73-.63,13.16-1,4.13-.36,8.28-.6,12.2-.84,3.09-.2,6.05-.51,8.82-.57,1.85-.16,3.59-.29,5.29-.39,1.7-.08,3.38-.16,5.11-.24,2.51-.12,5.27-.16,7.38-.33.36-.03.79-.12,1.22-.14.64-.03,1.29.05,1.93.03,1.73-.07,3.49-.28,5.21-.35,1.93-.07,3.79-.08,5.68-.12,1.07-.02,2.09-.15,3.15-.19.7-.02,1.44.04,2.17.02,2.04-.06,4.12-.26,6.06-.28,2.59-.02,5.24.02,7.86-.16,2.9.06,6.42.04,9.19-.04,2.25.24,4.59-.05,7.13,0,.27,0,.45.05.72.06,1.92.08,3.96.02,5.9-.03,1.94-.02,3.79-.04,5.35.07,1.17-.15,2.17.04,3.26.1,1.17.06,2.26-.04,3.39-.03.37,0,.71.07,1.08.09,1.14.04,2.26-.05,3.52-.06,1.88,0,3.88.3,6.03.15,1.66.12,4.12.39,6.03.3,3.21.36,6.47.19,9.77.42,1.11.08,2.12.29,3.25.17,1.16.22,2.55.16,3.97.24,1.4.07,2.86.22,4.32.36,2.08.19,4.68.21,6.22.66.67.78,2.11-.21,3.76.04.87.2.74.4,1.1.69.78.16,1.52.14,2.29.13.89.13,1.51.5,2.7.58Zm-211.93-2.69s-.03-.06-.12-.05c.24-.18.84-.01.12.05Zm-.24.09c-1,.12-2.4.41-3.14.37-.2.02.19.17-.12.24-.44-.04-.95-.04-1.69.03-.08-.26,1.41-.25,1.45-.5.57-.04.85-.05,1.09-.2,1.17-.03,1.41-.22,2.3-.22-.22.18.17.1.12.28Z" fill="currentColor" fillRule="evenodd" />
             <path d="m148.83,143.24c-9.14-8.94-14.98-21.48-17.42-34.23-2.71-12.63-3.99-25.75-3.66-38.65-1.16-30.21,23.88-54.66,54.06-53.06,22.34-1.51,46.43,14.47,52.05,39.42,1.57,7.33,1.33,14.78,1.23,22.28-1.11,21.91-4.06,46.24-19.83,62.79,3.23-5.34,5.74-11.05,7.47-17.01,4.63-17.88,4.25-36.6,2.76-54.91-.23-2.78-.55-5.83-1.29-8.51-4.26-19.24-23.49-33.41-43.08-31.71-18.12-1.21-35.99,10.94-41.4,28.36-1.43,3.93-1.93,8.62-2.32,12.81-.63,6.25-.82,12.37-.86,18.6.04,18.58,1.52,37.98,12.3,53.83h0Z" fill="currentColor" />
             <path d="m100.25,272.48L2.2,43.53c-2.95-6.9-2.94-14.8.04-21.68,2.98-6.89,8.73-12.31,15.78-14.88l14.49-5.29c13.79-5.03,29.02,1.64,34.68,15.17l43.74,100.47c.82,1.89,1.25,3.93,1.25,5.99l-8.6,12.94L52.51,22.98c-2.37-5.67-8.76-8.47-14.54-6.36l-14.49,5.29c-3,1.09-5.36,3.31-6.62,6.25-1.27,2.93-1.27,6.16-.02,9.1l82.74,198.35c.79,1.9,1.19,3.95,1.15,6.01l-.48,30.86Z" fill="currentColor" />
             <path d="m262.6,272.48l98.05-228.95c2.95-6.9,2.94-14.8-.04-21.68-2.98-6.89-8.73-12.31-15.78-14.88l-14.49-5.29c-13.79-5.03-29.02,1.64-34.68,15.17l-43.74,100.47c-.82,1.89-1.25,3.93-1.25,5.99l8.6,12.94,51.07-113.26c2.37-5.67,8.76-8.47,14.54-6.36l14.49,5.29c3,1.09,5.36,3.31,6.62,6.25,1.27,2.93,1.27,6.16.02,9.1l-82.74,198.35c-.79,1.9-1.19,3.95-1.15,6.01l.48,30.86Z" fill="currentColor" />
@@ -75,8 +75,6 @@ const SelloutIcon = ({ size=20, className="" }) => (
 );
 
 const DEFAULT_LINKS = [
-    { id: 'phone', type: 'phone', title: 'Phone Number', defaultSubtitle: 'Call or Text', url: '' },
-    { id: 'email', type: 'email', title: 'Email Address', defaultSubtitle: 'Email me', url: '' },
     { id: 'website', type: 'website', title: 'Official Website', defaultSubtitle: 'Visit my site', url: '' },
     { id: 'shop', type: 'shop', title: 'Official Shop', defaultSubtitle: 'Browse my store', url: '' },
     { id: 'podcast', type: 'podcast', title: 'Podcast', defaultSubtitle: 'Listen to my podcast', url: '' },
@@ -92,12 +90,10 @@ const DEFAULT_LINKS = [
     { id: 'twitch', type: 'twitch', title: 'Twitch', defaultSubtitle: 'Watch my stream', url: '' }
 ];
 
-const DEFAULT_CARD = {
-    name: "Your Name",
-    title: "Your Title",
-    company: "Your Company",
+const DEFAULT_BIO_PAGE = {
+    pageTitle: "Your Page Title",
+    hideTitle: false,
     links: DEFAULT_LINKS, 
-    avatarUrl: "",
     logoUrl: "", 
     logoSize: 56, 
     logoOffsetX: 0, 
@@ -109,7 +105,11 @@ const DEFAULT_CARD = {
     cardBgType: "dark",
     qrLogoEnabled: false, 
     qrLogoUrl: "", 
-    qrLogoBg: "#ffffff"
+    qrLogoBg: "#ffffff",
+    promoEnabled: false,
+    promoText: "Use code PROMO for 20% off!",
+    promoHighlight: "PROMO",
+    promoLink: ""
 };
 
 const PRESETS = [
@@ -123,8 +123,6 @@ const PRESETS = [
 
 const getIconForType = (type) => {
     switch(type) {
-        case 'phone': return Phone;
-        case 'email': return Mail;
         case 'website': return Globe;
         case 'shop': return ShoppingBag;
         case 'podcast': return Podcast;
@@ -138,6 +136,7 @@ const getIconForType = (type) => {
         case 'whatsapp': return WhatsappIcon;
         case 'bluesky': return BlueskyIcon;
         case 'twitch': return TwitchIcon;
+        case 'image_embed': return ImageIcon; 
         case 'custom': return Link2; 
         default: return Link2;
     }
@@ -150,198 +149,149 @@ const getSubtitle = (link) => {
     return link.defaultSubtitle;
 };
 
-export const PublicCardView = ({ data, isFullScreen = false }) => {
+const getYoutubeId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+};
+
+export const PublicBioView = ({ data, isFullScreen = false }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
     const cardBgColor = data.cardBgColor || (isLight ? '#ffffff' : '#111111');
 
-    const [showNotesModal, setShowNotesModal] = useState(false);
-    const [notes, setNotes] = useState('');
-    const [showPhoneAction, setShowPhoneAction] = useState(false);
-    const [activePhoneString, setActivePhoneString] = useState(''); 
-
     const activeLinks = data.links || [];
-    const emailLink = activeLinks.find(l => l.type === 'email' && l.url.trim());
-    const primaryId = emailLink ? emailLink.url : data.name;
-
-    useEffect(() => {
-        if (primaryId) {
-            const saved = localStorage.getItem(`sc_notes_${btoa(primaryId)}`);
-            if (saved) setNotes(saved);
-        }
-    }, [primaryId]);
-
-    const handleSaveNotes = () => {
-        if (primaryId) {
-            localStorage.setItem(`sc_notes_${btoa(primaryId)}`, notes);
-        }
-        setShowNotesModal(false);
-    };
-    
-    const handleSaveContact = () => {
-        const escapeVCardValue = (val) => (val || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n');
-        let parts = ['BEGIN:VCARD', 'VERSION:3.0'];
-        const nameParts = (data.name || 'Contact').trim().split(/\s+/);
-        const lastName = nameParts.pop() || '';
-        const firstName = nameParts.join(' ');
-
-        parts.push(`N:${escapeVCardValue(lastName)};${escapeVCardValue(firstName)}`);
-        parts.push(`FN:${escapeVCardValue(data.name)}`);
-        if (data.company) parts.push(`ORG:${escapeVCardValue(data.company)}`);
-        if (data.title) parts.push(`TITLE:${escapeVCardValue(data.title)}`);
-        
-        activeLinks.forEach(link => {
-            if (!link.url || link.url.trim() === '') return;
-            if (link.type === 'phone') parts.push(`TEL;TYPE=WORK,VOICE:${link.url}`);
-            if (link.type === 'email') parts.push(`EMAIL:${link.url}`);
-            if (link.type === 'website' || link.type === 'shop' || link.type === 'custom') parts.push(`URL:https://${link.url.replace(/^https?:\/\//,'')}`);
-        });
-        
-        if (notes && notes.trim() !== '') parts.push(`NOTE:${escapeVCardValue(notes.trim())}`);
-        parts.push('END:VCARD');
-
-        const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${(data.name || 'contact').replace(/\s/g, '_')}.vcf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
 
     const containerClasses = isFullScreen 
         ? "w-full max-w-md mx-auto font-sans relative" 
         : "w-full max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden font-sans relative pb-8";
     const containerStyle = isFullScreen ? {} : { backgroundColor: cardBgColor, borderColor: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.05)' };
     const textNameClass = isLight ? 'text-gray-900' : 'text-white';
-    const textCompanyClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const buttonBgClass = isLight ? 'bg-black/5 hover:bg-black/10 border border-black/5 shadow-sm' : 'bg-white/5 hover:bg-white/10 border border-white/5 shadow-lg';
     const buttonIconBgClass = isLight ? 'bg-white group-hover:bg-gray-50' : 'bg-black/20 group-hover:bg-black/40';
     const buttonTitleClass = isLight ? 'text-gray-900' : 'text-white';
     const buttonSubtitleClass = isLight ? 'text-gray-500' : 'text-gray-400';
     const arrowClass = isLight ? 'text-gray-400' : 'text-gray-500';
 
-    const renderLinks = activeLinks.filter(l => l.url && l.url.trim() !== '').map(link => {
-        let formattedUrl = link.url.trim();
-        if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
-        else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
-        else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
+    const renderPromoText = () => {
+        return data.promoHighlight && data.promoText.includes(data.promoHighlight) ? (
+            data.promoText.split(data.promoHighlight).map((part, i, arr) => (
+                <React.Fragment key={i}>
+                    {part}
+                    {i !== arr.length - 1 && (
+                        <span className="px-2 py-0.5 rounded-md font-black mx-1 whitespace-nowrap" style={{ backgroundColor: data.theme, color: cardBgColor }}>
+                            {data.promoHighlight}
+                        </span>
+                    )}
+                </React.Fragment>
+            ))
+        ) : (
+            <span>{data.promoText}</span>
+        );
+    };
 
-        return { ...link, subtitle: getSubtitle(link), url: formattedUrl, rawUrl: link.url.trim(), icon: getIconForType(link.type) };
-    });
+    const promoBannerContent = (
+        <div className={`p-4 rounded-2xl border text-sm font-medium leading-relaxed flex items-center justify-center flex-wrap gap-y-1 ${!data.promoLink ? 'mt-6 mb-2' : ''}`} style={{ borderColor: `${data.theme}40`, backgroundColor: `${data.theme}0D`, color: isLight ? '#4b5563' : '#d1d5db' }}>
+            {renderPromoText()}
+        </div>
+    );
 
     return (
         <div className={containerClasses} style={containerStyle}>
             {data.logoUrl && (
-                <div className="w-full flex justify-center pt-2 sm:pt-6 relative z-10">
+                <div className="w-full flex justify-center pt-8 relative z-10">
                     <img 
                         src={data.logoUrl} 
-                        alt="Company Logo" 
+                        alt="Logo" 
                         className="object-contain transition-transform" 
                         style={{ height: `${data.logoSize || 56}px`, transform: `translateX(${data.logoOffsetX || 0}px)` }} 
                     />
                 </div>
             )}
-
-            <div className={`relative flex justify-center ${data.logoUrl ? 'mt-6' : 'mt-12'}`}>
-                {data.avatarUrl ? (
-                    <img src={data.avatarUrl} className="w-28 h-28 rounded-full object-cover border-2 relative z-10" style={{ borderColor: data.theme, boxShadow: `0 0 35px ${data.theme}40` }} alt="Profile" />
-                ) : (
-                    <div className="w-28 h-28 rounded-full border-2 flex items-center justify-center text-4xl font-black relative z-10" style={{ backgroundColor: cardBgColor, borderColor: data.theme, color: data.theme, boxShadow: `0 0 35px ${data.theme}40` }}>
-                        {data.name.charAt(0)}
-                    </div>
-                )}
-            </div>
             
-            <div className="pt-6 pb-2 px-6 text-center">
-                <h1 className={`text-3xl font-black uppercase tracking-tight ${textNameClass}`}>{data.name}</h1>
-                <p className="text-sm font-bold uppercase tracking-widest mt-2" style={{ color: data.theme }}>{data.company}</p>
-                <p className={`text-xs font-medium mt-1 ${textCompanyClass}`}>{data.title}</p>
+            <div className={`pt-6 pb-2 px-6 text-center ${!data.logoUrl ? 'pt-12' : ''}`}>
+                {!data.hideTitle && (
+                    <h1 className={`text-2xl font-black uppercase tracking-tight ${textNameClass}`}>{data.pageTitle || "Links"}</h1>
+                )}
 
-                <div className="mt-10 space-y-3 text-left">
-                    {renderLinks.map(link => {
-                        if (link.type === 'phone') {
+                {data.promoEnabled && data.promoText && (
+                    data.promoLink ? (
+                        <a href={data.promoLink.startsWith('http') ? data.promoLink : `https://${data.promoLink}`} target="_blank" rel="noreferrer" className="block mt-6 mb-2 hover:opacity-90 transition-opacity cursor-pointer">
+                            {promoBannerContent}
+                        </a>
+                    ) : (
+                        promoBannerContent
+                    )
+                )}
+
+                <div className="mt-6 space-y-3 text-left">
+                    {activeLinks.map(link => {
+                        if (!link.url || link.url.trim() === '') return null;
+
+                        if (link.type === 'youtube_embed') {
+                            const ytId = getYoutubeId(link.url);
+                            if (!ytId) return null;
                             return (
-                                <button key={link.id} onClick={() => { setActivePhoneString(link.rawUrl); setShowPhoneAction(true); }} className={`w-full flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group text-left ${buttonBgClass}`}>
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
-                                        <link.icon size={20} />
+                                <div key={link.id} className={`overflow-hidden rounded-2xl border ${isLight ? 'border-black/5 shadow-sm' : 'border-white/5 shadow-lg'}`}>
+                                    <div className="relative w-full pb-[56.25%] bg-black">
+                                        <iframe className="absolute top-0 left-0 w-full h-full" src={`https://www.youtube.com/embed/${ytId}`} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
                                     </div>
-                                    <div className="flex-1 min-w-0 py-1">
-                                        <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
-                                        <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
-                                    </div>
-                                    <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
-                                </button>
+                                </div>
                             );
                         }
 
+                        if (link.type === 'image_embed') {
+                            const imgContent = (
+                                <img src={link.url} alt="Promo" className="rounded-2xl shadow-lg object-cover" style={{ width: `${link.width || 100}%` }} />
+                            );
+                            
+                            return (
+                                <div key={link.id} className="w-full flex justify-center py-2">
+                                    {link.linkUrl ? (
+                                        <a href={link.linkUrl} target="_blank" rel="noreferrer" className="w-full flex justify-center hover:opacity-90 transition-opacity">
+                                            {imgContent}
+                                        </a>
+                                    ) : (
+                                        imgContent
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        let formattedUrl = link.url.trim();
+                        if (link.type === 'phone') formattedUrl = `tel:${formattedUrl.replace(/\D/g, '')}`;
+                        else if (link.type === 'email') formattedUrl = `mailto:${formattedUrl}`;
+                        else if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`;
+
+                        const IconComp = getIconForType(link.type);
+
                         return (
-                            <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
+                            <a key={link.id} href={formattedUrl} target="_blank" rel="noreferrer" className={`flex items-center gap-4 p-2 pr-4 rounded-2xl transition-all group ${buttonBgClass}`}>
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${buttonIconBgClass}`} style={{ color: data.iconColor }}>
-                                    <link.icon size={20} />
+                                    <IconComp size={20} />
                                 </div>
                                 <div className="flex-1 min-w-0 py-1">
                                     <p className={`text-sm font-bold uppercase tracking-wide truncate ${buttonTitleClass}`}>{link.title}</p>
-                                    <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{link.subtitle}</p>
+                                    <p className={`text-xs truncate mt-0.5 ${buttonSubtitleClass}`}>{getSubtitle(link)}</p>
                                 </div>
                                 <ArrowRight size={18} className={`flex-shrink-0 transition-transform group-hover:translate-x-1 ${arrowClass}`} />
                             </a>
                         );
                     })}
                 </div>
-
-                <div className="mt-8 flex gap-3">
-                    <button onClick={() => setShowNotesModal(true)} className={`flex-1 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}>
-                        <FileText size={16} /> Notes
-                    </button>
-                    <button onClick={handleSaveContact} className="flex-[2] py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                        <Download size={16} /> Save Contact
-                    </button>
-                </div>
             </div>
-
-            {showPhoneAction && (
-                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPhoneAction(false)}>
-                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowPhoneAction(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><Phone size={24} /></div>
-                        <h3 className={`text-xl font-black uppercase tracking-tight mb-4 ${textNameClass}`}>Contact Options</h3>
-                        <div className="space-y-3">
-                            <a href={`tel:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
-                                <div className="flex items-center gap-3"><Phone size={18} style={{ color: data.theme }} /><span>Call {activePhoneString}</span></div>
-                                <ArrowRight size={16} className={arrowClass} />
-                            </a>
-                            <a href={`sms:${activePhoneString.replace(/\D/g, '')}`} className={`flex items-center justify-between p-4 rounded-2xl font-bold transition-all border ${isLight ? 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900' : 'bg-[#111] border-white/10 hover:bg-white/5 text-white'}`}>
-                                <div className="flex items-center gap-3"><MessageSquare size={18} style={{ color: data.theme }} /><span>Text (SMS)</span></div>
-                                <ArrowRight size={16} className={arrowClass} />
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showNotesModal && (
-                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNotesModal(false)}>
-                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowNotesModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><FileText size={24} /></div>
-                        <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Personal Notes</h3>
-                        <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Jot down details to remember this person. These save directly to your phone contacts.</p>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="4" placeholder="E.g., Met at the conference..." className={`w-full p-4 rounded-2xl text-sm outline-none border transition-colors mb-6 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}></textarea>
-                        <button onClick={handleSaveNotes} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]" style={{ backgroundColor: data.theme, color: data.textColor }}>Save Notes</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
 
-export default function BusinessCardApp({ session, activeTab }) {
-    const [cardData, setCardData] = useState(DEFAULT_CARD);
+export default function BioPageApp({ session, activeTab }) {
+    const [cardData, setCardData] = useState(DEFAULT_BIO_PAGE);
     const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState({ avatar: false, logo: false, qrLogo: false });
+    const [isUploading, setIsUploading] = useState({ logo: false, qrLogo: false });
+    const [isUploadingLink, setIsUploadingLink] = useState(null); 
     const [showQrModal, setShowQrModal] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [mobileView, setMobileView] = useState('edit');
@@ -358,14 +308,14 @@ export default function BusinessCardApp({ session, activeTab }) {
 
     useEffect(() => {
         if (!session) return;
-        fetch('/api/get-card', { headers: { 'Authorization': `Bearer ${session}` } })
+        fetch('/api/get-bio-page', { headers: { 'Authorization': `Bearer ${session}` } })
             .then(res => {
                 if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); throw new Error('401'); }
                 return res.json();
             })
             .then(data => {
-                if (data.card) {
-                    let fetchedCard = data.card;
+                if (data.page) {
+                    let fetchedCard = data.page;
                     if (!fetchedCard.links) {
                         fetchedCard.links = DEFAULT_LINKS.map(defaultLink => ({ ...defaultLink, url: fetchedCard[defaultLink.type] || '' }));
                     } else {
@@ -375,12 +325,21 @@ export default function BusinessCardApp({ session, activeTab }) {
                             fetchedCard.links = [...fetchedCard.links, ...missingLinks];
                         }
                     }
+
                     fetchedCard.links = fetchedCard.links.map(link => {
                         if (link.type === 'shop' && link.title === 'Shop URL') return { ...link, title: 'Official Shop' };
                         return link;
                     });
-                    
-                    setCardData({ ...DEFAULT_CARD, ...fetchedCard, logoOffsetX: fetchedCard.logoOffsetX || 0 }); 
+
+                    if (fetchedCard.promoEnabled === undefined) {
+                        fetchedCard.promoEnabled = false;
+                        fetchedCard.promoText = "Use code PROMO for 20% off!";
+                        fetchedCard.promoHighlight = "PROMO";
+                    }
+                    if (fetchedCard.promoLink === undefined) fetchedCard.promoLink = "";
+                    if (fetchedCard.hideTitle === undefined) fetchedCard.hideTitle = false;
+
+                    setCardData({ ...DEFAULT_BIO_PAGE, ...fetchedCard, logoOffsetX: fetchedCard.logoOffsetX || 0 }); 
                 }
                 if (data.slug) setSlug(data.slug);
                 setIsLoading(false);
@@ -392,12 +351,12 @@ export default function BusinessCardApp({ session, activeTab }) {
         if (!slug || slug.trim() === '') { alert("Please claim a custom link on the 'Custom URL' page before saving!"); return; }
         setIsSaving(true);
         try {
-            const res = await fetch('/api/save-card', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ card: cardData, slug: slug }) });
+            const res = await fetch('/api/save-bio-page', { method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ page: cardData, slug: slug }) });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const result = await res.json();
             if (result.error) { alert(result.error); setIsSaving(false); return; }
             setTimeout(() => setIsSaving(false), 1000);
-        } catch (err) { alert("Failed to save card."); setIsSaving(false); }
+        } catch (err) { alert("Failed to save bio page."); setIsSaving(false); }
     };
 
     const handleImageUpload = async (e, fieldName) => {
@@ -413,6 +372,21 @@ export default function BusinessCardApp({ session, activeTab }) {
             } else alert("Upload failed.");
         } catch (err) { alert("Image server unreachable."); } 
         finally { setIsUploading(prev => ({ ...prev, [fieldName]: false })); }
+    };
+
+    const handleLinkImageUpload = async (e, linkId) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsUploadingLink(linkId);
+        const formData = new FormData(); formData.append('file', file);
+        try {
+            const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.success) {
+                updateLink(linkId, 'url', result.url);
+            } else alert("Upload failed.");
+        } catch (err) { alert("Image server unreachable."); } 
+        finally { setIsUploadingLink(null); }
     };
 
     const handlePresetSelect = (preset) => {
@@ -436,13 +410,25 @@ export default function BusinessCardApp({ session, activeTab }) {
     const updateLink = (id, field, value) => {
         setCardData({ ...cardData, links: cardData.links.map(l => l.id === id ? { ...l, [field]: value } : l) });
     };
+
     const addCustomLink = () => {
         const newLink = { id: 'custom_' + Date.now(), type: 'custom', title: 'Custom Link', defaultSubtitle: 'Click here', url: '' };
         setCardData({ ...cardData, links: [...cardData.links, newLink] });
     };
+
+    const addYoutubeEmbed = () => {
+        const newLink = { id: 'yt_' + Date.now(), type: 'youtube_embed', title: 'YouTube Video', defaultSubtitle: '', url: '' };
+        setCardData({ ...cardData, links: [...cardData.links, newLink] });
+    };
+
+    const addImageEmbed = () => {
+        const newLink = { id: 'img_' + Date.now(), type: 'image_embed', title: 'Promo Image', url: '', linkUrl: '', width: 100 };
+        setCardData({ ...cardData, links: [...cardData.links, newLink] });
+    };
+
     const removeLink = (id) => setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
 
-    const getShareUrl = () => slug ? `https://crowds.bio/${slug}` : '';
+    const getShareUrl = () => slug ? `https://crowds.bio/page/${slug}` : '';
     
     const copyShareLink = () => {
         const url = getShareUrl();
@@ -546,7 +532,7 @@ export default function BusinessCardApp({ session, activeTab }) {
 
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
-            link.download = `${slug || 'sc_card'}_qr_code.png`;
+            link.download = `${slug || 'sc_bio'}_qr_code.png`;
             link.href = dataUrl;
             document.body.appendChild(link);
             link.click();
@@ -569,17 +555,17 @@ export default function BusinessCardApp({ session, activeTab }) {
 
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
 
-    const showPreviewCols = ['builder', 'design', 'url'].includes(activeTab);
+    const showPreviewCols = ['links', 'design', 'url'].includes(activeTab);
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
-                        {activeTab === 'design' ? 'Design' : activeTab === 'url' ? 'Custom URL' : 'Card Builder'}
+                        {activeTab === 'design' ? 'Design' : activeTab === 'url' ? 'Custom URL' : 'Links and Info'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                        {activeTab === 'design' ? 'Customize the look and feel of your card.' : activeTab === 'url' ? 'Claim your custom public link.' : 'Update your contact and social information.'}
+                        {activeTab === 'design' ? 'Customize the look and feel of your page.' : activeTab === 'url' ? 'Claim your custom public link.' : 'Update your links and information.'}
                     </p>
                 </div>
                 
@@ -609,7 +595,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black p-1.5 sm:pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
                                     <div className="flex items-center flex-1 min-w-0 px-3 sm:px-0 py-2 sm:py-0">
-                                        <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio /</span>
+                                        <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio/page/</span>
                                         <input type="text" value={slug} onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} placeholder="your-name" className="flex-1 bg-transparent text-white font-bold outline-none min-w-[50px] ml-1" />
                                     </div>
                                     <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-[#9df01c] text-black hover:bg-[#8ce015] px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0">
@@ -621,77 +607,162 @@ export default function BusinessCardApp({ session, activeTab }) {
                         </div>
                     )}
 
-                    {activeTab === 'builder' && (
+                    {activeTab === 'links' && (
                         <div className="animate-in fade-in duration-300">
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 mb-6 flex flex-col sm:flex-row items-center gap-6 shadow-lg">
-                                <div className="relative shrink-0">
-                                    {cardData.avatarUrl ? (
-                                        <img src={cardData.avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
-                                    ) : (
-                                        <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={28} className="text-gray-500" /></div>
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
+                                
+                                <div className="mb-6 pb-6 border-b border-white/5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2"><Type size={18} className="text-[#9df01c]"/> Title</h3>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Hide Title</span>
+                                            <button onClick={() => setCardData({...cardData, hideTitle: !cardData.hideTitle})} className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ${cardData.hideTitle ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-3 bg-white rounded-full transition-all ${cardData.hideTitle ? 'left-6 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
+                                        </div>
+                                    </div>
+                                    <div className={cardData.hideTitle ? 'opacity-50' : ''}>
+                                        <input type="text" value={cardData.pageTitle} onChange={e => setCardData({...cardData, pageTitle: e.target.value})} disabled={cardData.hideTitle} placeholder="e.g. My Awesome Links" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors disabled:cursor-not-allowed" />
+                                    </div>
+                                </div>
+
+                                <div className="mb-6 pb-6 border-b border-white/5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2"><Megaphone size={18} className="text-[#9df01c]"/> Promo Banner</h3>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Display a highlighted message or promo code.</p>
+                                        </div>
+                                        <button onClick={() => setCardData({...cardData, promoEnabled: !cardData.promoEnabled})} className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cardData.promoEnabled ? 'bg-[#9df01c]' : 'bg-white/10'}`}><div className={`absolute top-1 bottom-1 w-4 bg-white rounded-full transition-all ${cardData.promoEnabled ? 'left-7 bg-black' : 'left-1 bg-gray-400'}`}></div></button>
+                                    </div>
+                                    
+                                    {cardData.promoEnabled && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in">
+                                            <div className="sm:col-span-2">
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Banner Text</label>
+                                                <input type="text" value={cardData.promoText} onChange={e => setCardData({...cardData, promoText: e.target.value})} placeholder="If you saw us at FSGA, use promocode FSGA50 to save 50%" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Text to Highlight</label>
+                                                <input type="text" value={cardData.promoHighlight} onChange={e => setCardData({...cardData, promoHighlight: e.target.value})} placeholder="FSGA50" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                            </div>
+                                            <div className="sm:col-span-3 mt-2">
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Banner Link URL (Optional)</label>
+                                                <div className="flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-xl px-4 py-3">
+                                                    <Link2 size={14} className="text-gray-500" />
+                                                    <input 
+                                                        type="text" 
+                                                        value={cardData.promoLink || ''} 
+                                                        onChange={e => setCardData({...cardData, promoLink: e.target.value})} 
+                                                        placeholder="https://..." 
+                                                        className="bg-transparent text-white text-xs outline-none w-full flex-1" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
-                                <div className="flex flex-col gap-3 items-center sm:items-start text-center sm:text-left w-full">
-                                    <div>
-                                        <h3 className="text-lg font-black uppercase tracking-tighter text-white">Profile Photo</h3>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Upload your professional headshot</p>
-                                    </div>
-                                    <label className={`px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center sm:justify-start gap-2 border border-white/10 w-full sm:w-auto ${isUploading.avatar ? 'opacity-50 pointer-events-none' : ''}`}>
-                                        {isUploading.avatar ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
-                                        {isUploading.avatar ? 'Uploading...' : 'Upload Photo'}
-                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'avatarUrl')} />
-                                    </label>
-                                </div>
-                            </div>
 
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8">
-                                <h3 className="text-lg font-black uppercase tracking-tighter mb-6 text-white flex items-center gap-2"><User size={18} className="text-[#9df01c]"/> Details</h3>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Full Name</label><input type="text" value={cardData.name} onChange={e => setCardData({...cardData, name: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
-                                    <div><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Title</label><input type="text" value={cardData.title} onChange={e => setCardData({...cardData, title: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
-                                    <div className="sm:col-span-2"><label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Company</label><input type="text" value={cardData.company} onChange={e => setCardData({...cardData, company: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" /></div>
-                                </div>
-
-                                <div className="mt-8 pt-8 border-t border-white/5">
+                                <div className="">
                                     <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white flex items-center gap-2"><Link2 size={18} className="text-[#9df01c]"/> Links & Social Media</h3>
                                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6">Drag to reorder. Leave blank to hide.</p>
                                     
                                     <div className="flex flex-col gap-3">
                                         {cardData.links.map((link, index) => {
-                                            const IconComponent = getIconForType(link.type);
+                                            const IconComponent = ['youtube_embed', 'image_embed'].includes(link.type) ? null : getIconForType(link.type);
+                                            
                                             return (
                                                 <div key={link.id} draggable onDragStart={(e) => handleDragStart(e, index)} onDragOver={(e) => handleDragOver(e, index)} onDragEnd={handleDragEnd} className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-black p-3 sm:p-2.5 rounded-xl border transition-all ${draggedIndex === index ? 'border-[#9df01c] opacity-50' : 'border-white/10 focus-within:border-white/30'}`}>
                                                     <div className="flex items-center w-full sm:w-auto">
                                                         <GripVertical size={16} className="text-gray-600 cursor-grab hover:text-white flex-shrink-0 ml-1 mr-2 sm:mr-0" />
-                                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0 mx-2"><IconComponent size={16} /></div>
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/5 text-gray-400 flex-shrink-0 mx-2">
+                                                            {link.type === 'youtube_embed' ? <Youtube size={16} className="text-red-500" /> : link.type === 'image_embed' ? <ImageIcon size={16} className="text-purple-400" /> : <IconComponent size={16} />}
+                                                        </div>
+                                                        
                                                         {link.type === 'custom' ? (
                                                             <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none flex-1 sm:w-1/3 sm:hidden" placeholder="Link Title" />
+                                                        ) : link.type === 'youtube_embed' ? (
+                                                            <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex-1 sm:hidden">YouTube Video</span>
+                                                        ) : link.type === 'image_embed' ? (
+                                                            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest flex-1 sm:hidden">Promo Image</span>
                                                         ) : (
                                                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex-1 sm:hidden">{link.title}</span>
                                                         )}
-                                                        {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
+                                                        
+                                                        {['custom', 'youtube_embed', 'image_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 sm:hidden flex-shrink-0"><Trash2 size={16} /></button>}
                                                     </div>
                                                     
-                                                    <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
-                                                        {link.type === 'custom' ? (
-                                                            <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
-                                                        )}
-                                                        <input type="text" value={link.url} onChange={(e) => updateLink(link.id, 'url', e.target.value)} placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : 'URL or username...'} className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" />
-                                                    </div>
-                                                    {link.type === 'custom' && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
+                                                    {link.type === 'image_embed' ? (
+                                                        <div className="flex-1 flex flex-col gap-2 w-full items-start pl-8 sm:pl-0 pr-2 pb-2 sm:pb-0">
+                                                            <div className="flex items-center gap-4 w-full border-t border-white/5 pt-2 sm:border-none sm:pt-0">
+                                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center p-1 flex-shrink-0 overflow-hidden">
+                                                                    {link.url ? <img src={link.url} className="max-w-full max-h-full object-cover" /> : <ImageIcon size={16} className="text-gray-500" />}
+                                                                </div>
+                                                                <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 flex-1 sm:flex-none ${isUploadingLink === link.id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                                    {isUploadingLink === link.id ? <Loader2 size={12} className="animate-spin"/> : <UploadCloud size={12}/>}
+                                                                    Upload Image
+                                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLinkImageUpload(e, link.id)} />
+                                                                </label>
+                                                            </div>
+                                                            {link.url && (
+                                                                <div className="w-full mt-2 bg-white/5 p-3 rounded-xl space-y-3">
+                                                                    <div>
+                                                                        <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5 block">Target Link URL (Optional)</label>
+                                                                        <div className="flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-lg px-3 py-2">
+                                                                            <Link2 size={12} className="text-gray-500" />
+                                                                            <input 
+                                                                                type="text" 
+                                                                                value={link.linkUrl || ''} 
+                                                                                onChange={e => updateLink(link.id, 'linkUrl', e.target.value)} 
+                                                                                placeholder="https://..." 
+                                                                                className="bg-transparent text-white text-xs outline-none w-full flex-1" 
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="flex justify-between items-center mb-1">
+                                                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Image Width</label>
+                                                                            <span className="text-[9px] text-[#9df01c] font-bold">{link.width || 100}%</span>
+                                                                        </div>
+                                                                        <input type="range" min="10" max="100" value={link.width || 100} onChange={e => updateLink(link.id, 'width', parseInt(e.target.value))} className="w-full accent-[#9df01c] cursor-pointer" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex-1 flex flex-col sm:flex-row gap-2 sm:gap-4 w-full items-center pl-8 sm:pl-0 pr-2">
+                                                            {link.type === 'custom' ? (
+                                                                <input type="text" value={link.title} onChange={(e) => updateLink(link.id, 'title', e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none w-full sm:w-1/3 hidden sm:block" placeholder="Link Title" />
+                                                            ) : link.type === 'youtube_embed' ? (
+                                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center gap-2">YouTube Video</span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-full sm:w-1/3 hidden sm:flex items-center">{link.title}</span>
+                                                            )}
+                                                            <input 
+                                                                type="text" 
+                                                                value={link.url} 
+                                                                onChange={(e) => updateLink(link.id, 'url', e.target.value)} 
+                                                                placeholder={link.type === 'phone' ? '(555) 555-5555' : link.type === 'email' ? 'email@example.com' : link.type === 'youtube_embed' ? 'Paste YouTube URL...' : 'URL or username...'} 
+                                                                className="bg-transparent text-white text-xs outline-none w-full flex-1 border-t border-white/5 pt-2 sm:border-none sm:pt-0" 
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {['custom', 'youtube_embed', 'image_embed'].includes(link.type) && <button onClick={() => removeLink(link.id)} className="text-gray-600 hover:text-red-500 p-2 mr-1 flex-shrink-0 rounded-lg hover:bg-red-500/10 transition-colors hidden sm:block"><Trash2 size={16} /></button>}
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                    <button onClick={addCustomLink} className="mt-4 w-full py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Plus size={14} /> Add Custom Link</button>
+                                    
+                                    <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-4">
+                                        <button onClick={addCustomLink} className="flex-1 py-3 rounded-xl border border-dashed border-white/10 text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/30 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Plus size={14} /> Add Custom Link</button>
+                                        <button onClick={addYoutubeEmbed} className="flex-1 py-3 rounded-xl border border-dashed border-red-500/30 text-red-500 hover:text-white hover:bg-red-500 hover:border-red-500 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><Youtube size={14} /> Embed YouTube</button>
+                                        <button onClick={addImageEmbed} className="flex-1 py-3 rounded-xl border border-dashed border-purple-500/30 text-purple-400 hover:text-white hover:bg-purple-500 hover:border-purple-500 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"><ImageIcon size={14} /> Embed Image</button>
+                                    </div>
                                 </div>
 
                                 <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
                                     <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Card'}
+                                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}{isSaving ? 'Saving...' : 'Save Page'}
                                     </button>
                                 </div>
                             </div>
@@ -809,7 +880,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 <MonitorSmartphone size={14} /> Live Preview
                             </div>
                             <div className={`p-4 sm:p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
-                               <PublicCardView data={cardData} />
+                               <PublicBioView data={cardData} />
                             </div>
                         </div>
                     </div>
