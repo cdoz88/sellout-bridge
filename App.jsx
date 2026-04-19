@@ -206,9 +206,18 @@ export default function App() {
     } catch(e) {}
   };
 
-  const handleLoginRedirect = () => {
-    const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-    window.location.href = `${UNA_AUTH_URL}&response_type=code&client_id=${UNA_CLIENT_ID}&redirect_uri=${redirectUri}&state=xyz`;
+  const startLogin = () => {
+    // 1. Remember their intended destination before sending them to login!
+    localStorage.setItem('hub_login_redirect_app', currentApp);
+    localStorage.setItem('hub_login_redirect_tab', activeTab);
+
+    if (isOAuthFlow) {
+        localStorage.setItem('hub_pending_oauth', window.location.pathname + window.location.search);
+    }
+    const origin = window.location.origin;
+    const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
+    const state = Math.random().toString(36).substring(7);
+    window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
   const handleCallback = async (code) => {
@@ -234,12 +243,37 @@ export default function App() {
             window.location.href = pendingOAuth; 
             return;
         }
+
+        // 2. Restore their original destination if we saved one!
+        const savedApp = localStorage.getItem('hub_login_redirect_app');
+        const savedTab = localStorage.getItem('hub_login_redirect_tab');
+        
+        let newUrl = new URL(window.location);
+        newUrl.searchParams.delete('code');
+        newUrl.searchParams.delete('state');
+        
+        if (savedApp) {
+            setCurrentApp(savedApp);
+            newUrl.searchParams.set('app', savedApp);
+            localStorage.removeItem('hub_login_redirect_app');
+        }
+        if (savedTab) {
+            setActiveTab(savedTab);
+            newUrl.searchParams.set('tab', savedTab);
+            localStorage.removeItem('hub_login_redirect_tab');
+        }
+        
+        window.history.replaceState({}, document.title, newUrl);
+        setIsLoading(false);
+        return;
+
       } else {
         setError(data.error_description || data.error || "Authentication failed. Sellout Crowds rejected the login code.");
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
-      window.history.replaceState({}, document.title, window.location.pathname);
     } catch (err) {
       setError("The server is not responding. Please try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
     } finally {
       setIsLoading(false);
     }
@@ -278,16 +312,6 @@ export default function App() {
     } finally {
         setIsSyncingCommunities(false);
     }
-  };
-
-  const startLogin = () => {
-    if (isOAuthFlow) {
-        localStorage.setItem('hub_pending_oauth', window.location.pathname + window.location.search);
-    }
-    const origin = window.location.origin;
-    const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
-    const state = Math.random().toString(36).substring(7);
-    window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
   const handleAppSwitch = (appId, defaultTab) => {
@@ -459,6 +483,15 @@ export default function App() {
       );
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <span className="font-black uppercase tracking-[0.3em] text-[10px]">Processing...</span>
+      </div>
+    );
+  }
+
   if (unaData.user && (unaData.user.role === 1 || unaData.user.role === 2)) {
       return (
           <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -550,6 +583,12 @@ export default function App() {
             />
             
             <main className="flex-1 overflow-auto relative custom-scrollbar">
+                <div className="lg:hidden absolute top-4 left-4 z-40">
+                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-[#111] border border-white/10 rounded-xl text-white shadow-lg">
+                        <Menu size={20} />
+                    </button>
+                </div>
+
                 {renderApp()}
             </main>
         </div>
