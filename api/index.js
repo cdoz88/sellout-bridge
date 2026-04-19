@@ -20,6 +20,9 @@ const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO";
 
 const sql = neon(process.env.DATABASE_URL);
 
+// DEFINING ADMIN EMAILS GLOBALLY
+const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
@@ -165,7 +168,6 @@ async function getAuthenticatedUser(token) {
         const meData = await meRes.json();
         
         if (meData && meData.id) {
-            // FIX: UNA oauth2/api/me returns role:1 for everyone. We must override it with their actual ACL Level.
             try {
                 if (meData.email) {
                     const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -307,7 +309,291 @@ app.post('/api/team/revoke', async (req, res) => {
 });
 
 // ==========================================
-// ONBOARDING PROGRESS ENDPOINTS
+// BUSINESS CARD & BIO PAGE ENDPOINTS
+// ==========================================
+
+// Business Card
+app.get('/api/get-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${user.id}`;
+        if (rows.length > 0) {
+            res.json({ card: rows[0].card_data, slug: rows[0].custom_slug || '' });
+        } else {
+            res.json({ card: null, slug: '' });
+        }
+    } catch (err) { res.status(500).json({ error: "Failed to fetch card" }); }
+});
+
+app.post('/api/save-card', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { card, slug } = req.body;
+    
+    try {
+        await ensureSchema();
+        if (slug) {
+            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            if (slugCheck.length > 0) return res.status(400).json({ error: "This Custom URL is already taken." });
+        }
+        
+        await sql`
+            INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) 
+            VALUES (${user.id}, ${card}, ${slug}) 
+            ON CONFLICT (user_id) 
+            DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to save card" }); }
+});
+
+app.get('/api/public-card/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT card_data FROM bridge_business_cards WHERE custom_slug = ${req.params.slug}`;
+        if (rows.length > 0) res.json({ success: true, card: rows[0].card_data });
+        else res.status(404).json({ error: "Card not found" });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// Bio Page
+app.get('/api/get-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${user.id}`;
+        if (rows.length > 0) {
+            res.json({ page: rows[0].page_data, slug: rows[0].custom_slug || '' });
+        } else {
+            res.json({ page: null, slug: '' });
+        }
+    } catch (err) { res.status(500).json({ error: "Failed to fetch bio page" }); }
+});
+
+app.post('/api/save-bio-page', async (req, res) => {
+    const user = await getAuthenticatedUser(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+    const { page, slug } = req.body;
+    
+    try {
+        await ensureSchema();
+        if (slug) {
+            const slugCheck = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            if (slugCheck.length > 0) return res.status(400).json({ error: "This Custom URL is already taken." });
+        }
+        
+        await sql`
+            INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) 
+            VALUES (${user.id}, ${page}, ${slug}) 
+            ON CONFLICT (user_id) 
+            DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug
+        `;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to save bio page" }); }
+});
+
+app.get('/api/public-bio-page/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const rows = await sql`SELECT page_data FROM bridge_bio_pages WHERE custom_slug = ${req.params.slug}`;
+        if (rows.length > 0) res.json({ success: true, page: rows[0].page_data });
+        else res.status(404).json({ error: "Page not found" });
+    } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// ==========================================
+// GUIDES ENDPOINTS
+// ==========================================
+
+app.get('/api/guides/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        
+        let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
+        if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
+        
+        const guides = await sql`SELECT * FROM bridge_guides ORDER BY id DESC`;
+        res.json({ categories, guides });
+    } catch (e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/categories/bulk', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const safeOrder = i;
+                const isHiddenBool = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_guide_categories SET name = ${cat.name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_guide_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
+                }
+            }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/categories/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_guide_categories WHERE id = ${id}`;
+        await sql`DELETE FROM bridge_guides WHERE category_id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides', async (req, res) => {
+    const { id, category_id, title, type, content } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        if (id) {
+            await sql`UPDATE bridge_guides SET category_id = ${category_id}, title = ${title}, type = ${type}, content = ${content} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_guides (category_id, title, type, content) VALUES (${category_id}, ${title}, ${type}, ${content})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/guides/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_guides WHERE id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+// ==========================================
+// ASSET ENDPOINTS 
+// ==========================================
+app.get('/api/assets/data', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+        
+        let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
+        if (!isAdmin) {
+            categories = categories.filter(c => !c.is_hidden);
+        }
+        const assets = await sql`SELECT * FROM bridge_assets ORDER BY id DESC`;
+        res.json({ categories, assets });
+    } catch (e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories/bulk', async (req, res) => {
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { categories } = req.body;
+        if (Array.isArray(categories)) {
+            for (let i = 0; i < categories.length; i++) {
+                const cat = categories[i];
+                const safeOrder = i;
+                const isHiddenBool = cat.is_hidden === true || cat.is_hidden === 'true';
+                
+                if (cat.id && !cat.id.toString().startsWith('temp_')) {
+                    await sql`UPDATE bridge_asset_categories SET name = ${cat.name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${cat.id}`;
+                } else {
+                    await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${cat.name}, ${isHiddenBool}, ${safeOrder})`;
+                }
+            }
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories', async (req, res) => {
+    const { id, name, is_hidden, order_index } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        let safeOrder = 0;
+        if (order_index !== undefined && order_index !== null) {
+            safeOrder = parseInt(order_index, 10);
+            if (isNaN(safeOrder)) safeOrder = 0;
+        }
+
+        const isHiddenBool = is_hidden === true || is_hidden === 'true';
+
+        if (id) {
+            await sql`UPDATE bridge_asset_categories SET name = ${name}, is_hidden = ${isHiddenBool}, order_index = ${safeOrder} WHERE id = ${id}`;
+        } else {
+            await sql`INSERT INTO bridge_asset_categories (name, is_hidden, order_index) VALUES (${name}, ${isHiddenBool}, ${safeOrder})`;
+        }
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/categories/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_asset_categories WHERE id = ${id}`;
+        await sql`DELETE FROM bridge_assets WHERE category_id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets', async (req, res) => {
+    const { category_id, title, file_url } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`INSERT INTO bridge_assets (category_id, title, file_url) VALUES (${category_id}, ${title}, ${file_url})`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+app.post('/api/assets/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await ensureSchema();
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_assets WHERE id = ${id}`;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+// ==========================================
+// ONBOARDING CHECKLIST ENDPOINTS
 // ==========================================
 app.get('/api/onboarding/data', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -375,6 +661,7 @@ app.post('/api/onboarding/progress', async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({error: e.message}); }
 });
+
 
 // ==========================================
 // OTHER API ENDPOINTS (OAuth, Users, Subscriptions)
@@ -505,6 +792,7 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
+// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -529,6 +817,7 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
+// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -565,6 +854,8 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
+        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
+        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -575,6 +866,7 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
+// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
