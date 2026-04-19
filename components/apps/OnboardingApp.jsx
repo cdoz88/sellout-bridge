@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save } from 'lucide-react';
 
 export default function OnboardingApp({ session, unaData }) {
-    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
     const [steps, setSteps] = useState([]);
@@ -99,7 +99,7 @@ export default function OnboardingApp({ session, unaData }) {
     };
 
     const addStep = () => {
-        setSteps([...steps, { id: `temp_${Date.now()}`, title: '', description: '', action_url: '' }]);
+        setSteps([...steps, { id: `temp_${Date.now()}`, title: '', description: '', action_url: '', action_text: '', action_url_2: '', action_text_2: '' }]);
     };
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
@@ -167,7 +167,29 @@ export default function OnboardingApp({ session, unaData }) {
                                         <div className="flex-1 space-y-3">
                                             <input value={step.title} onChange={e => updateStep(step.id, 'title', e.target.value)} placeholder="Step Title (e.g. Connect your Stripe Account)" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white focus:border-[#9df01c] outline-none transition-colors" />
                                             <textarea value={step.description} onChange={e => updateStep(step.id, 'description', e.target.value)} placeholder="Description (Tell the user exactly how to complete this step)" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors custom-scrollbar" rows="3" />
-                                            <input value={step.action_url || ''} onChange={e => updateStep(step.id, 'action_url', e.target.value)} placeholder="Action Button URL (Optional, e.g. /?app=bridge)" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono text-gray-400 focus:border-[#9df01c] outline-none transition-colors" />
+                                            
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white/5 border border-white/5 rounded-xl">
+                                                <div>
+                                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Button 1 Text</label>
+                                                    <input value={step.action_text || ''} onChange={e => updateStep(step.id, 'action_text', e.target.value)} placeholder="e.g. Go to Integrations" className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Button 1 URL</label>
+                                                    <input value={step.action_url || ''} onChange={e => updateStep(step.id, 'action_url', e.target.value)} placeholder="e.g. /?app=bridge" className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-gray-400 focus:border-[#9df01c] outline-none transition-colors" />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-white/5 border border-white/5 rounded-xl">
+                                                <div>
+                                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Button 2 Text (Optional)</label>
+                                                    <input value={step.action_text_2 || ''} onChange={e => updateStep(step.id, 'action_text_2', e.target.value)} placeholder="e.g. Download Plugin" className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Button 2 URL (Optional)</label>
+                                                    <input value={step.action_url_2 || ''} onChange={e => updateStep(step.id, 'action_url_2', e.target.value)} placeholder="e.g. https://..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-gray-400 focus:border-[#9df01c] outline-none transition-colors" />
+                                                </div>
+                                            </div>
+
                                         </div>
                                         <button onClick={() => handleDeleteStep(step.id)} className="text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-colors p-2 rounded-lg self-start flex-shrink-0"><Trash2 size={18}/></button>
                                     </div>
@@ -181,14 +203,23 @@ export default function OnboardingApp({ session, unaData }) {
                                 <button onClick={() => toggleProgress(step.id)} className="mt-1 flex-shrink-0 transition-transform hover:scale-110 focus:outline-none">
                                     {isCompleted ? <CheckCircle2 size={28} className="text-[#9df01c]" /> : <Circle size={28} className="text-gray-600 hover:text-gray-400" />}
                                 </button>
-                                <div className="flex-1">
+                                <div className="flex-1 min-w-0">
                                     <h3 className={`text-lg font-black uppercase tracking-tight mb-1 transition-colors ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>{step.title}</h3>
                                     <p className={`text-sm font-medium leading-relaxed transition-colors ${isCompleted ? 'text-gray-600' : 'text-gray-400'}`}>{step.description}</p>
                                     
-                                    {!isCompleted && step.action_url && (
-                                        <a href={step.action_url} className="inline-flex items-center gap-2 mt-4 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2 rounded-lg text-[#9df01c] font-black uppercase tracking-widest text-[10px] transition-colors">
-                                            Complete Step <ArrowRight size={12} />
-                                        </a>
+                                    {!isCompleted && (step.action_url || step.action_url_2) && (
+                                        <div className="flex flex-wrap gap-3 mt-4">
+                                            {step.action_url && (
+                                                <a href={step.action_url} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-[#9df01c] font-black uppercase tracking-widest text-[10px] transition-colors">
+                                                    {step.action_text || 'Complete Step'} <ArrowRight size={12} />
+                                                </a>
+                                            )}
+                                            {step.action_url_2 && (
+                                                <a href={step.action_url_2} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-white font-black uppercase tracking-widest text-[10px] transition-colors">
+                                                    {step.action_text_2 || 'Secondary Action'} <ArrowRight size={12} />
+                                                </a>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
