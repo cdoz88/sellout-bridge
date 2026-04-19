@@ -452,41 +452,27 @@ export default function BioPageApp({ session, activeTab }) {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=H&margin=2&data=${encodeURIComponent(getShareUrl())}`;
             
             const loadImg = async (url) => {
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-                try {
-                    // Try to fetch directly first
-                    const res = await fetch(url);
-                    if (!res.ok) throw new Error('Direct fetch failed');
-                    const blob = await res.blob();
-                    return new Promise((resolve, reject) => {
-                        const img = new Image();
-                        img.onload = () => resolve(img);
-                        img.onerror = reject;
-                        img.src = URL.createObjectURL(blob);
-                    });
-                } catch (e) {
-                    // Fallback to proxy to bypass CORS
+                const proxyUrls = [
+                    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+                ];
+
+                for (const proxyUrl of proxyUrls) {
                     try {
                         const res = await fetch(proxyUrl);
-                        if (!res.ok) throw new Error('Proxy fetch failed');
+                        if (!res.ok) continue;
                         const blob = await res.blob();
-                        return new Promise((resolve, reject) => {
+                        return await new Promise((resolve, reject) => {
                             const img = new Image();
                             img.onload = () => resolve(img);
                             img.onerror = reject;
                             img.src = URL.createObjectURL(blob);
                         });
-                    } catch (err) {
-                        // Final fallback just standard Image
-                        return new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.crossOrigin = 'anonymous';
-                            img.onload = () => resolve(img);
-                            img.onerror = reject;
-                            img.src = url;
-                        });
+                    } catch (e) {
+                        console.warn("Proxy attempt failed, trying next...");
                     }
                 }
+                throw new Error("All proxies failed to load image.");
             };
 
             const qrImg = await loadImg(qrUrl);
