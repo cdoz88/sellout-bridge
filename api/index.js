@@ -692,6 +692,28 @@ app.post('/api/onboarding/progress', async (req, res) => {
 });
 
 // ==========================================
+// IMAGE PROXY ENDPOINT
+// ==========================================
+app.get('/api/proxy-image', async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url) return res.status(400).send('No URL provided');
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        
+        const buffer = await response.arrayBuffer();
+        const contentType = response.headers.get('content-type') || 'image/png';
+        
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.send(Buffer.from(buffer));
+    } catch (error) {
+        res.status(500).send('Error proxying image');
+    }
+});
+
+// ==========================================
 // OTHER API ENDPOINTS (OAuth, Users, Subscriptions)
 // ==========================================
 app.post('/api/auth/callback', async (req, res) => {
@@ -820,6 +842,7 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
+// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -827,6 +850,7 @@ app.get('/api/get-manual-users', async (req, res) => {
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
         
+        // Group by email so the frontend can treat them as bundles
         const grouped = {};
         rows.forEach(row => {
             if (!grouped[row.email]) {
@@ -843,6 +867,7 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
+// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -879,6 +904,8 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
+        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
+        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -889,6 +916,7 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
+// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

@@ -466,27 +466,28 @@ export default function BusinessCardApp({ session, activeTab }) {
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&ecc=H&margin=2&data=${encodeURIComponent(getShareUrl())}`;
             
             const loadImg = async (url) => {
-                const proxyUrls = [
-                    `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-                ];
-
-                for (const proxyUrl of proxyUrls) {
-                    try {
-                        const res = await fetch(proxyUrl);
-                        if (!res.ok) continue;
-                        const blob = await res.blob();
-                        return await new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.onload = () => resolve(img);
-                            img.onerror = reject;
-                            img.src = URL.createObjectURL(blob);
-                        });
-                    } catch (e) {
-                        console.warn("Proxy attempt failed, trying next...");
-                    }
+                try {
+                    // Try our own secure backend proxy first! This completely bypasses browser CORS.
+                    const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(url)}`;
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) throw new Error('Proxy fetch failed');
+                    const blob = await res.blob();
+                    return await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = URL.createObjectURL(blob);
+                    });
+                } catch (e) {
+                    console.warn("Backend proxy failed, trying standard fetch...");
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = url;
+                    });
                 }
-                throw new Error("All proxies failed to load image.");
             };
 
             const qrImg = await loadImg(qrUrl);
