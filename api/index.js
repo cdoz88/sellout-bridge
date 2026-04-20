@@ -128,7 +128,7 @@ async function ensureSchema() {
             try { await sql`ALTER TABLE bridge_guides ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
-        // NEW: ONBOARDING TABLES
+        // NEW: ONBOARDING TABLES WITH ROLE GATING
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_onboarding_steps (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, action_url TEXT, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_user_progress (user_id INTEGER, step_id INTEGER, completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, step_id))`;
@@ -136,6 +136,7 @@ async function ensureSchema() {
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_text VARCHAR(255)`; } catch(e) {}
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_url_2 TEXT`; } catch(e) {}
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_text_2 VARCHAR(255)`; } catch(e) {}
+            try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS allowed_roles TEXT`; } catch(e) {}
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -423,7 +424,6 @@ app.get('/api/guides/data', async (req, res) => {
         let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
         if (!isAdmin) categories = categories.filter(c => !c.is_hidden);
         
-        // FIXED: Sort guides by the order_index so your custom sorting is respected
         const guides = await sql`SELECT * FROM bridge_guides ORDER BY order_index ASC, id DESC`;
         res.json({ categories, guides });
     } catch (e) { res.status(500).json({error: e.message}); }
@@ -494,7 +494,6 @@ app.post('/api/guides/delete', async (req, res) => {
     } catch(e) { res.status(500).json({error: e.message}); }
 });
 
-// NEW: Endpoint to save custom guide order
 app.post('/api/guides/bulk-order', async (req, res) => {
     try {
         await ensureSchema();
@@ -650,11 +649,12 @@ app.post('/api/onboarding/steps/bulk', async (req, res) => {
                 const actionText = step.action_text || null;
                 const actionUrl2 = step.action_url_2 || null;
                 const actionText2 = step.action_text_2 || null;
+                const allowedRoles = Array.isArray(step.allowed_roles) ? JSON.stringify(step.allowed_roles) : null;
 
                 if (step.id && !step.id.toString().startsWith('temp_')) {
-                    await sql`UPDATE bridge_onboarding_steps SET title = ${step.title}, description = ${step.description}, action_url = ${step.action_url}, action_text = ${actionText}, action_url_2 = ${actionUrl2}, action_text_2 = ${actionText2}, order_index = ${safeOrder} WHERE id = ${step.id}`;
+                    await sql`UPDATE bridge_onboarding_steps SET title = ${step.title}, description = ${step.description}, action_url = ${step.action_url}, action_text = ${actionText}, action_url_2 = ${actionUrl2}, action_text_2 = ${actionText2}, allowed_roles = ${allowedRoles}, order_index = ${safeOrder} WHERE id = ${step.id}`;
                 } else {
-                    await sql`INSERT INTO bridge_onboarding_steps (title, description, action_url, action_text, action_url_2, action_text_2, order_index) VALUES (${step.title}, ${step.description}, ${step.action_url}, ${actionText}, ${actionUrl2}, ${actionText2}, ${safeOrder})`;
+                    await sql`INSERT INTO bridge_onboarding_steps (title, description, action_url, action_text, action_url_2, action_text_2, allowed_roles, order_index) VALUES (${step.title}, ${step.description}, ${step.action_url}, ${actionText}, ${actionUrl2}, ${actionText2}, ${allowedRoles}, ${safeOrder})`;
                 }
             }
         }
@@ -842,7 +842,6 @@ app.post('/api/remove-alias', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
-// --- GET MANUAL USERS: GROUPED BY EMAIL ---
 app.get('/api/get-manual-users', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -850,7 +849,6 @@ app.get('/api/get-manual-users', async (req, res) => {
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
         
-        // Group by email so the frontend can treat them as bundles
         const grouped = {};
         rows.forEach(row => {
             if (!grouped[row.email]) {
@@ -867,7 +865,6 @@ app.get('/api/get-manual-users', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to fetch manual users" }); }
 });
 
-// --- UPDATED FOR GRACEFUL ERROR HANDLING ---
 app.post('/api/add-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -904,8 +901,6 @@ app.post('/api/add-manual-user', async (req, res) => {
             `;
         }
 
-        // ALWAYS RETURN SUCCESS SO THE UI CAN REFRESH!
-        // We pass the "notice" object if UNA rejected it, so the UI can gracefully inform the user.
         res.json({ 
             success: true, 
             notice: !allSuccess ? lastError : null 
@@ -916,7 +911,6 @@ app.post('/api/add-manual-user', async (req, res) => {
     }
 });
 
-// --- UPDATED TO REMOVE SINGLE COMMUNITY FROM BUNDLE ---
 app.post('/api/remove-manual-user', async (req, res) => {
     const user = await getAuthenticatedUser(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Not authenticated" });

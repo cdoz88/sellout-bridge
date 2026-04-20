@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save } from 'lucide-react';
+import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save, Lock } from 'lucide-react';
+
+const AVAILABLE_ROLES = [
+    { id: 18, name: 'Teammate' },
+    { id: 15, name: 'Rookie' },
+    { id: 16, name: 'All-Star' },
+    { id: 17, name: 'H.O.F.' }
+];
 
 export default function OnboardingApp({ session, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -16,7 +23,16 @@ export default function OnboardingApp({ session, unaData }) {
             const res = await fetch(`/api/onboarding/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` }});
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
-            if (data.steps) setSteps(data.steps);
+            if (data.steps) {
+                const parsedSteps = data.steps.map(s => {
+                    let roles = [];
+                    if (s.allowed_roles) {
+                        try { roles = JSON.parse(s.allowed_roles); } catch(e) {}
+                    }
+                    return { ...s, allowed_roles: roles };
+                });
+                setSteps(parsedSteps);
+            }
             if (data.completedStepIds) setCompletedSteps(data.completedStepIds);
             setIsLoading(false);
         } catch (e) { setIsLoading(false); }
@@ -32,7 +48,6 @@ export default function OnboardingApp({ session, unaData }) {
         const isCompleted = completedSteps.includes(stepId);
         const newStatus = !isCompleted;
         
-        // Optimistic update for snappy UI
         if (newStatus) setCompletedSteps([...completedSteps, stepId]);
         else setCompletedSteps(completedSteps.filter(id => id !== stepId));
 
@@ -99,7 +114,7 @@ export default function OnboardingApp({ session, unaData }) {
     };
 
     const addStep = () => {
-        setSteps([...steps, { id: `temp_${Date.now()}`, title: '', description: '', action_url: '', action_text: '', action_url_2: '', action_text_2: '' }]);
+        setSteps([...steps, { id: `temp_${Date.now()}`, title: '', description: '', action_url: '', action_text: '', action_url_2: '', action_text_2: '', allowed_roles: [] }]);
     };
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
@@ -132,7 +147,6 @@ export default function OnboardingApp({ session, unaData }) {
                 )}
             </div>
 
-            {/* PROGRESS BAR (Only shows in User Mode) */}
             {!isEditing && steps.length > 0 && (
                 <div className="mb-8">
                     <div className="flex justify-between items-end mb-2">
@@ -155,6 +169,9 @@ export default function OnboardingApp({ session, unaData }) {
                 <div className="space-y-4">
                     {steps.map((step, index) => {
                         const isCompleted = completedSteps.includes(step.id);
+                        const userRole = Number(unaData?.user?.role) || 1;
+                        const requiredRoles = step.allowed_roles || [];
+                        const isLocked = requiredRoles.length > 0 && !requiredRoles.includes(userRole) && !isAdmin;
                         
                         if (isAdmin && isEditing) {
                             return (
@@ -189,6 +206,30 @@ export default function OnboardingApp({ session, unaData }) {
                                                     <input value={step.action_url_2 || ''} onChange={e => updateStep(step.id, 'action_url_2', e.target.value)} placeholder="e.g. https://..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-gray-400 focus:border-[#9df01c] outline-none transition-colors" />
                                                 </div>
                                             </div>
+                                            
+                                            <div className="mt-4 pt-4 border-t border-white/5">
+                                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Available To (Leave blank for everyone)</label>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {AVAILABLE_ROLES.map(r => {
+                                                        const isChecked = (step.allowed_roles || []).includes(r.id);
+                                                        return (
+                                                            <label key={r.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50 text-[#9df01c]' : 'bg-black border-white/10 text-gray-400 hover:border-white/30'}`}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="hidden"
+                                                                    checked={isChecked}
+                                                                    onChange={(e) => {
+                                                                        const current = step.allowed_roles || [];
+                                                                        const next = e.target.checked ? [...current, r.id] : current.filter(id => id !== r.id);
+                                                                        updateStep(step.id, 'allowed_roles', next);
+                                                                    }}
+                                                                />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">{r.name}</span>
+                                                            </label>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
 
                                         </div>
                                         <button onClick={() => handleDeleteStep(step.id)} className="text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-colors p-2 rounded-lg self-start flex-shrink-0"><Trash2 size={18}/></button>
@@ -198,28 +239,42 @@ export default function OnboardingApp({ session, unaData }) {
                         }
 
                         // User View
+                        const missingRoleNames = requiredRoles.map(id => AVAILABLE_ROLES.find(r => r.id === id)?.name).filter(Boolean).join(', ');
+
                         return (
-                            <div key={step.id} className={`p-6 rounded-[1.5rem] border transition-all duration-300 flex items-start gap-4 ${isCompleted ? 'bg-[#9df01c]/5 border-[#9df01c]/20' : 'bg-[#111] border-white/5 hover:border-white/10 shadow-lg shadow-black/50'}`}>
-                                <button onClick={() => toggleProgress(step.id)} className="mt-1 flex-shrink-0 transition-transform hover:scale-110 focus:outline-none">
-                                    {isCompleted ? <CheckCircle2 size={28} className="text-[#9df01c]" /> : <Circle size={28} className="text-gray-600 hover:text-gray-400" />}
-                                </button>
+                            <div key={step.id} className={`p-6 rounded-[1.5rem] border transition-all duration-300 flex items-start gap-4 ${isLocked ? 'opacity-50 grayscale bg-[#111] border-white/5' : isCompleted ? 'bg-[#9df01c]/5 border-[#9df01c]/20' : 'bg-[#111] border-white/5 hover:border-white/10 shadow-lg shadow-black/50'}`}>
+                                <div className="mt-1 flex-shrink-0">
+                                    {isLocked ? (
+                                        <Lock size={28} className="text-gray-500" />
+                                    ) : (
+                                        <button onClick={() => toggleProgress(step.id)} className="transition-transform hover:scale-110 focus:outline-none">
+                                            {isCompleted ? <CheckCircle2 size={28} className="text-[#9df01c]" /> : <Circle size={28} className="text-gray-600 hover:text-gray-400" />}
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className={`text-lg font-black uppercase tracking-tight mb-1 transition-colors ${isCompleted ? 'text-gray-500 line-through' : 'text-white'}`}>{step.title}</h3>
-                                    <p className={`text-sm font-medium leading-relaxed transition-colors ${isCompleted ? 'text-gray-600' : 'text-gray-400'}`}>{step.description}</p>
+                                    <h3 className={`text-lg font-black uppercase tracking-tight mb-1 transition-colors ${isCompleted && !isLocked ? 'text-gray-500 line-through' : 'text-white'}`}>{step.title}</h3>
+                                    <p className={`text-sm font-medium leading-relaxed transition-colors ${isCompleted && !isLocked ? 'text-gray-600' : 'text-gray-400'}`}>{step.description}</p>
                                     
-                                    {!isCompleted && (step.action_url || step.action_url_2) && (
-                                        <div className="flex flex-wrap gap-3 mt-4">
-                                            {step.action_url && (
-                                                <a href={step.action_url} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-[#9df01c] font-black uppercase tracking-widest text-[10px] transition-colors">
-                                                    {step.action_text || 'Complete Step'} <ArrowRight size={12} />
-                                                </a>
-                                            )}
-                                            {step.action_url_2 && (
-                                                <a href={step.action_url_2} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-white font-black uppercase tracking-widest text-[10px] transition-colors">
-                                                    {step.action_text_2 || 'Secondary Action'} <ArrowRight size={12} />
-                                                </a>
-                                            )}
-                                        </div>
+                                    {isLocked ? (
+                                        <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 mt-4 bg-white/5 border border-white/10 px-4 py-2.5 rounded-lg text-gray-400 font-black uppercase tracking-widest text-[10px] transition-colors hover:text-white hover:border-white/20">
+                                            <Lock size={12} /> Available for {missingRoleNames}
+                                        </a>
+                                    ) : (
+                                        !isCompleted && (step.action_url || step.action_url_2) && (
+                                            <div className="flex flex-wrap gap-3 mt-4">
+                                                {step.action_url && (
+                                                    <a href={step.action_url} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-[#9df01c] font-black uppercase tracking-widest text-[10px] transition-colors">
+                                                        {step.action_text || 'Complete Step'} <ArrowRight size={12} />
+                                                    </a>
+                                                )}
+                                                {step.action_url_2 && (
+                                                    <a href={step.action_url_2} className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2.5 rounded-lg text-white font-black uppercase tracking-widest text-[10px] transition-colors">
+                                                        {step.action_text_2 || 'Secondary Action'} <ArrowRight size={12} />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        )
                                     )}
                                 </div>
                             </div>
