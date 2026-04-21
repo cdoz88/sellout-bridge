@@ -170,10 +170,22 @@ async function getAuthenticatedUser(token) {
         const meRes = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/api/me`, {
             headers: { 'Authorization': token }
         });
+        
+        // FIX: Only trigger a logout (return null) if UNA explicitly says the token is dead
+        if (meRes.status === 401 || meRes.status === 403) {
+            return null; 
+        }
+
+        // FIX: If UNA is lagging or has a network glitch, THROW an error.
+        // This ensures the endpoint returns a 500 error instead of a 401,
+        // which prevents the user from being unexpectedly logged out!
+        if (!meRes.ok) {
+            throw new Error(`UNA Server Hiccup: ${meRes.status}`);
+        }
+
         const meData = await meRes.json();
         
         if (meData && meData.id) {
-            // FIX: UNA oauth2/api/me returns role:1 for everyone. We must override it with their actual ACL Level.
             try {
                 if (meData.email) {
                     const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -182,9 +194,13 @@ async function getAuthenticatedUser(token) {
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
                         body: JSON.stringify({ email: meData.email, action: 'get_role' }) 
                     });
-                    const roleData = await roleRes.json();
-                    if (roleData && roleData.success && roleData.role) {
-                        meData.role = roleData.role; 
+                    
+                    // Don't crash the session if just the role fetch lags
+                    if (roleRes.ok) {
+                        const roleData = await roleRes.json();
+                        if (roleData && roleData.success && roleData.role) {
+                            meData.role = roleData.role; 
+                        }
                     }
                 }
             } catch (err) {
@@ -193,7 +209,12 @@ async function getAuthenticatedUser(token) {
             return meData;
         }
         return null;
-    } catch (e) { return null; }
+    } catch (e) { 
+        console.error("Auth verification error:", e.message);
+        // By throwing an error here instead of returning null, the API endpoint catches it
+        // and returns a 500 Server Error instead of a 401 Unauthorized. No more random logouts!
+        throw e; 
+    }
 }
 
 async function grantCommunityAccess(email, module, contentId) {
@@ -218,10 +239,9 @@ async function revokeCommunityAccess(email, module, contentId) {
 // MY TEAM ENDPOINTS (Umbrella ACL)
 // ==========================================
 app.get('/api/team', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
         let limit = 0;
@@ -238,13 +258,13 @@ app.get('/api/team', async (req, res) => {
 });
 
 app.post('/api/team/invite', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: "Email is required" });
+
         await ensureSchema();
         const cleanEmail = email.trim().toLowerCase();
         
@@ -277,18 +297,18 @@ app.post('/api/team/invite', async (req, res) => {
 
         res.json({ success: true });
     } catch (error) { 
-        res.status(400).json({ error: error.message }); 
+        res.status(500).json({ error: error.message || "Server Error" }); 
     }
 });
 
 app.post('/api/team/revoke', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: "Email is required" });
+
         const cleanEmail = email.trim().toLowerCase();
 
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
@@ -320,9 +340,9 @@ app.post('/api/team/revoke', async (req, res) => {
 
 // Business Card
 app.get('/api/get-card', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${user.id}`;
         if (rows.length > 0) {
@@ -334,11 +354,11 @@ app.get('/api/get-card', async (req, res) => {
 });
 
 app.post('/api/save-card', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { card, slug } = req.body;
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { card, slug } = req.body;
+        
         await ensureSchema();
         if (slug) {
             const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
@@ -366,9 +386,9 @@ app.get('/api/public-card/:slug', async (req, res) => {
 
 // Bio Page
 app.get('/api/get-bio-page', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${user.id}`;
         if (rows.length > 0) {
@@ -380,11 +400,11 @@ app.get('/api/get-bio-page', async (req, res) => {
 });
 
 app.post('/api/save-bio-page', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { page, slug } = req.body;
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { page, slug } = req.body;
+        
         await ensureSchema();
         if (slug) {
             const slugCheck = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
@@ -419,6 +439,8 @@ app.get('/api/guides/data', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+
         const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
         let categories = await sql`SELECT * FROM bridge_guide_categories ORDER BY order_index ASC, id ASC`;
@@ -454,8 +476,8 @@ app.post('/api/guides/categories/bulk', async (req, res) => {
 });
 
 app.post('/api/guides/categories/delete', async (req, res) => {
-    const { id } = req.body;
     try {
+        const { id } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -467,8 +489,8 @@ app.post('/api/guides/categories/delete', async (req, res) => {
 });
 
 app.post('/api/guides', async (req, res) => {
-    const { id, category_id, title, type, content } = req.body;
     try {
+        const { id, category_id, title, type, content } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -483,8 +505,8 @@ app.post('/api/guides', async (req, res) => {
 });
 
 app.post('/api/guides/delete', async (req, res) => {
-    const { id } = req.body;
     try {
+        const { id } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -520,6 +542,8 @@ app.get('/api/assets/data', async (req, res) => {
     try {
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Unauthorized" });
+
         const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
         
         let categories = await sql`SELECT * FROM bridge_asset_categories ORDER BY order_index ASC, id ASC`;
@@ -556,8 +580,8 @@ app.post('/api/assets/categories/bulk', async (req, res) => {
 });
 
 app.post('/api/assets/categories', async (req, res) => {
-    const { id, name, is_hidden, order_index } = req.body;
     try {
+        const { id, name, is_hidden, order_index } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -580,8 +604,8 @@ app.post('/api/assets/categories', async (req, res) => {
 });
 
 app.post('/api/assets/categories/delete', async (req, res) => {
-    const { id } = req.body;
     try {
+        const { id } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -593,8 +617,8 @@ app.post('/api/assets/categories/delete', async (req, res) => {
 });
 
 app.post('/api/assets', async (req, res) => {
-    const { category_id, title, file_url } = req.body;
     try {
+        const { category_id, title, file_url } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -605,8 +629,8 @@ app.post('/api/assets', async (req, res) => {
 });
 
 app.post('/api/assets/delete', async (req, res) => {
-    const { id } = req.body;
     try {
+        const { id } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -663,8 +687,8 @@ app.post('/api/onboarding/steps/bulk', async (req, res) => {
 });
 
 app.post('/api/onboarding/steps/delete', async (req, res) => {
-    const { id } = req.body;
     try {
+        const { id } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
@@ -676,8 +700,8 @@ app.post('/api/onboarding/steps/delete', async (req, res) => {
 });
 
 app.post('/api/onboarding/progress', async (req, res) => {
-    const { step_id, completed } = req.body;
     try {
+        const { step_id, completed } = req.body;
         await ensureSchema();
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Unauthorized" });
@@ -733,15 +757,20 @@ app.post('/api/auth/callback', async (req, res) => {
 });
 
 app.get('/api/get-user', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    res.json({ user });
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        res.json({ user });
+    } catch (e) {
+        res.status(500).json({ error: "Server Error" });
+    }
 });
 
 app.get('/api/get-communities', async (req, res) => {
-    const meData = await getAuthenticatedUser(req.headers.authorization);
-    if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
     try {
+        const meData = await getAuthenticatedUser(req.headers.authorization);
+        if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid OAuth session" });
+        
         let userProfileUrl = meData.profile_link;
         userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
         if (!userProfileUrl.includes('www.')) { userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com'); }
@@ -802,9 +831,9 @@ app.get('/api/get-communities', async (req, res) => {
 });
 
 app.get('/api/get-aliases', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_email_aliases WHERE user_id = ${user.id} ORDER BY id DESC`;
         res.json({ aliases: rows });
@@ -812,12 +841,12 @@ app.get('/api/get-aliases', async (req, res) => {
 });
 
 app.post('/api/add-alias', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { originalEmail, aliasEmail } = req.body;
-    if (!originalEmail || !aliasEmail) return res.status(400).json({ error: "Missing fields" });
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { originalEmail, aliasEmail } = req.body;
+        if (!originalEmail || !aliasEmail) return res.status(400).json({ error: "Missing fields" });
+        
         await ensureSchema();
         const cleanOriginal = originalEmail.trim().toLowerCase();
         const cleanAlias = aliasEmail.trim().toLowerCase();
@@ -833,19 +862,19 @@ app.post('/api/add-alias', async (req, res) => {
 });
 
 app.post('/api/remove-alias', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { id } = req.body;
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { id } = req.body;
         await sql`DELETE FROM bridge_email_aliases WHERE id = ${id} AND user_id = ${user.id}`;
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: "Failed to remove alias" }); }
 });
 
 app.get('/api/get-manual-users', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
         
@@ -866,15 +895,15 @@ app.get('/api/get-manual-users', async (req, res) => {
 });
 
 app.post('/api/add-manual-user', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { email, communities } = req.body;
-    
-    if (!email || !communities || communities.length === 0) {
-        return res.status(400).json({ error: "Missing email or communities array" });
-    }
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { email, communities } = req.body;
+        
+        if (!email || !communities || communities.length === 0) {
+            return res.status(400).json({ error: "Missing email or communities array" });
+        }
+        
         await ensureSchema();
         const cleanEmail = email.trim().toLowerCase();
         let allSuccess = true;
@@ -912,11 +941,11 @@ app.post('/api/add-manual-user', async (req, res) => {
 });
 
 app.post('/api/remove-manual-user', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { id, email, unaModule, unaId } = req.body;
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { id, email, unaModule, unaId } = req.body;
+        
         await ensureSchema();
         await revokeCommunityAccess(email, unaModule, unaId);
         await sql`DELETE FROM bridge_manual_users WHERE id = ${id} AND user_id = ${user.id}`;
@@ -925,9 +954,9 @@ app.post('/api/remove-manual-user', async (req, res) => {
 });
 
 app.get('/api/get-settings', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const userId = parseInt(user.id);
         const rows = await sql`SELECT stripe_account_id, paypal_client_id FROM bridge_settings WHERE user_id = ${userId}`;
@@ -944,9 +973,9 @@ app.get('/api/get-settings', async (req, res) => {
 });
 
 app.get('/api/get-mappings', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         const rows = await sql`SELECT * FROM bridge_mappings WHERE user_id = ${user.id}`;
         
         const grouped = {};
@@ -968,10 +997,10 @@ app.get('/api/get-mappings', async (req, res) => {
 });
 
 app.post('/api/save-mappings', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { mappings } = req.body;
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { mappings } = req.body;
         await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
         
         if (mappings && mappings.length > 0) {
@@ -995,14 +1024,14 @@ app.post('/api/save-mappings', async (req, res) => {
 
 // --- STRIPE OAUTH & WEBHOOKS ---
 app.post('/api/stripe/oauth/callback', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const { code } = req.body;
-    if (!code) return res.status(400).json({ error: "Missing authorization code" });
-    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const { code } = req.body;
+        if (!code) return res.status(400).json({ error: "Missing authorization code" });
+        if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
+
         const response = await fetch('https://connect.stripe.com/oauth/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1029,10 +1058,10 @@ app.post('/api/stripe/oauth/callback', async (req, res) => {
 });
 
 app.post('/api/stripe/oauth/disconnect', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
         await ensureSchema();
         await sql`UPDATE bridge_settings SET stripe_account_id = NULL WHERE user_id = ${parseInt(user.id)}`;
         res.json({ success: true });
@@ -1040,14 +1069,14 @@ app.post('/api/stripe/oauth/disconnect', async (req, res) => {
 });
 
 app.post('/api/get-stripe-products', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { accountId } = req.body;
-    
-    if (!accountId) return res.status(400).json({ error: "No connected account ID provided" });
-    if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { accountId } = req.body;
+        
+        if (!accountId) return res.status(400).json({ error: "No connected account ID provided" });
+        if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe Secret Key not configured in Vercel environment variables." });
+
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const products = await stripe.products.list({ limit: 100, active: true }, { stripeAccount: accountId });
         res.json({ products: products.data.map(p => ({ id: p.id, name: p.name })) });
@@ -1056,13 +1085,13 @@ app.post('/api/get-stripe-products', async (req, res) => {
 
 // --- PAYPAL USER API KEY SAVING & FETCHING ---
 app.post('/api/save-paypal-keys', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    const { clientId, secretKey } = req.body;
-    if (!clientId || !secretKey) return res.status(400).json({ error: "Missing Client ID or Secret Key" });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const { clientId, secretKey } = req.body;
+        if (!clientId || !secretKey) return res.status(400).json({ error: "Missing Client ID or Secret Key" });
+
         const auth = Buffer.from(`${clientId}:${secretKey}`).toString('base64');
         const tokenRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
             method: 'POST',
@@ -1089,9 +1118,9 @@ app.post('/api/save-paypal-keys', async (req, res) => {
 });
 
 app.post('/api/paypal/oauth/disconnect', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         await sql`UPDATE bridge_settings SET paypal_client_id = NULL, paypal_secret_key = NULL WHERE user_id = ${parseInt(user.id)}`;
         res.json({ success: true });
@@ -1099,10 +1128,10 @@ app.post('/api/paypal/oauth/disconnect', async (req, res) => {
 });
 
 app.post('/api/get-paypal-products', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+
         await ensureSchema();
         const settings = await sql`SELECT paypal_client_id, paypal_secret_key FROM bridge_settings WHERE user_id = ${parseInt(user.id)}`;
         if (!settings.length || !settings[0].paypal_client_id || !settings[0].paypal_secret_key) {
@@ -1140,10 +1169,10 @@ app.post('/api/get-paypal-products', async (req, res) => {
 
 // CSV IMPORTS (PATREON & PAYPAL)
 app.post('/api/patreon-import', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { users, mappings } = req.body; 
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { users, mappings } = req.body; 
         await ensureSchema();
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
@@ -1199,10 +1228,10 @@ app.post('/api/patreon-import', async (req, res) => {
 });
 
 app.post('/api/paypal-import', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { users, mappings } = req.body; 
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { users, mappings } = req.body; 
         await ensureSchema();
 
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
@@ -1241,12 +1270,12 @@ app.post('/api/paypal-import', async (req, res) => {
 });
 
 app.get('/api/get-subscribers', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    
-    if (!process.env.STRIPE_SECRET_KEY) return res.json({ stats: [] });
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        if (!process.env.STRIPE_SECRET_KEY) return res.json({ stats: [] });
+
         await ensureSchema();
         
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
@@ -1298,11 +1327,11 @@ app.get('/api/get-subscribers', async (req, res) => {
 });
 
 app.post('/api/sync-subscribers', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { provider } = req.body;
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { provider } = req.body;
+
         await ensureSchema();
 
         if (provider === 'paypal') {
@@ -1377,10 +1406,10 @@ app.post('/api/sync-subscribers', async (req, res) => {
 });
 
 app.post('/api/toggle-user-access', async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-    const { email, productId, action } = req.body; 
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { email, productId, action } = req.body; 
         await ensureSchema();
         
         const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${user.id} AND original_email = ${email}`;
@@ -1559,16 +1588,16 @@ app.post('/api/paypal-webhook', async (req, res) => {
 // ==========================================
 
 app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
-    const user = await getAuthenticatedUser(req.headers.authorization);
-    if (!user) return res.status(401).json({ error: "Not authenticated" });
-
-    const { client_id, redirect_uri } = req.body;
-    
-    if (client_id !== 'wordpress_global_app') {
-        return res.status(400).json({ error: "Invalid client_id" });
-    }
-
     try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+        const { client_id, redirect_uri } = req.body;
+        
+        if (client_id !== 'wordpress_global_app') {
+            return res.status(400).json({ error: "Invalid client_id" });
+        }
+
         await ensureSchema();
         
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
@@ -1589,13 +1618,13 @@ app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
 });
 
 app.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
-    const { grant_type, client_id, code, redirect_uri } = req.body;
-
-    if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
-        return res.status(400).json({ error: "invalid_request" });
-    }
-
     try {
+        const { grant_type, client_id, code, redirect_uri } = req.body;
+
+        if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
+            return res.status(400).json({ error: "invalid_request" });
+        }
+
         await ensureSchema();
 
         const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
@@ -1637,13 +1666,13 @@ app.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 // ==========================================
 
 app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
-    const { access_token, user } = req.body; 
-    
-    if (!access_token) {
-        return res.status(200).json({ error: "Missing access token" });
-    }
-
     try {
+        const { access_token, user } = req.body; 
+        
+        if (!access_token) {
+            return res.status(200).json({ error: "Missing access token" });
+        }
+
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
@@ -1680,17 +1709,17 @@ app.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 });
 
 app.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
-    const { action } = req.params;
-    const validActions = ['create-post', 'edit-post', 'delete-post'];
-    if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
-
-    const { access_token, user, data } = req.body;
-    
-    if (!access_token) {
-        return res.status(200).json({ error: "Missing access token" });
-    }
-    
     try {
+        const { action } = req.params;
+        const validActions = ['create-post', 'edit-post', 'delete-post'];
+        if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
+
+        const { access_token, user, data } = req.body;
+        
+        if (!access_token) {
+            return res.status(200).json({ error: "Missing access token" });
+        }
+        
         const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
