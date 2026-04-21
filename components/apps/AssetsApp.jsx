@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Plus, Loader2, Trash2, Download, X, Folder } from 'lucide-react';
 
 export default function AssetsApp({ session, unaData, activeTab, setActiveTab }) {
-    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
 
     const [assets, setAssets] = useState([]);
@@ -12,10 +12,76 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadData, setUploadData] = useState({ title: '', category_id: '', file_url: '' });
+    const [downloadingId, setDownloadingId] = useState(null);
+
+    const handleDownloadAsset = async (asset) => {
+        setDownloadingId(asset.id);
+        try {
+            // Determine correct file extension
+            const urlParts = asset.file_url.split('?')[0].split('.');
+            const ext = urlParts.length > 1 ? `.${urlParts.pop()}` : '.png';
+            
+            // Format a clean filename
+            const safeName = (asset.title || 'sc_asset').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const filename = `${safeName}${ext}`;
+
+            // Try to download via our secure backend proxy to bypass browser CORS
+            const proxyUrls = [
+                `/api/proxy-image?url=${encodeURIComponent(asset.file_url)}`,
+                `https://corsproxy.io/?${encodeURIComponent(asset.file_url)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(asset.file_url)}`
+            ];
+
+            let blob = null;
+            for (const proxyUrl of proxyUrls) {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) continue;
+                    blob = await res.blob();
+                    break;
+                } catch(e) {}
+            }
+
+            if (!blob) throw new Error('All download proxies failed');
+
+            // Force browser to download the blob as a file
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+            
+        } catch (error) {
+            console.error("Secure download failed, falling back to direct open:", error);
+            // Absolute fallback: just open it in a new tab
+            const link = document.createElement('a');
+            link.href = asset.file_url;
+            link.target = '_blank';
+            link.download = asset.title || 'sc_asset';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    useEffect(() => {
+        if (session) fetchAssets();
+        const handleUpdate = () => fetchAssets();
+        window.addEventListener('assets-updated', handleUpdate);
+        return () => window.removeEventListener('assets-updated', handleUpdate);
+    }, [session]);
 
     const fetchAssets = async () => {
         try {
-            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` } });
+            const res = await fetch(`/api/assets/data?t=${Date.now()}`, { 
+                headers: { 'Authorization': `Bearer ${session}` },
+                cache: 'no-store'
+            });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
             if (data.assets) setAssets(data.assets);
@@ -26,43 +92,28 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
         }
     };
 
-    useEffect(() => {
-        if (session) fetchAssets();
-        
-        const handleUpdate = () => fetchAssets();
-        window.addEventListener('assets-updated', handleUpdate);
-        return () => window.removeEventListener('assets-updated', handleUpdate);
-    }, [session]);
-
-    const handleFileSelect = async (e) => {
+    const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
         setIsUploading(true);
         const formData = new FormData(); 
         formData.append('file', file);
-        
         try {
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.success) {
-                setUploadData(prev => ({ ...prev, file_url: result.url }));
-            } else {
-                alert("Upload failed.");
-            }
-        } catch (err) { 
-            alert("Image server unreachable."); 
-        } finally { 
-            setIsUploading(false); 
-        }
+                setUploadData({ ...uploadData, file_url: result.url });
+            } else alert("Upload failed.");
+        } catch (err) { alert("Server unreachable."); } 
+        finally { setIsUploading(false); }
     };
 
     const handleSaveAsset = async () => {
-        if (!uploadData.title || !uploadData.category_id || !uploadData.file_url) {
-            alert("Please fill out all fields and wait for the upload to finish.");
+        if (!uploadData.title || !uploadData.file_url || !uploadData.category_id) {
+            alert("Please fill out all fields and upload a file.");
             return;
         }
-        setIsUploading(true);
+
         try {
             await fetch('/api/assets', {
                 method: 'POST',
@@ -72,12 +123,13 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
             setShowUploadModal(false);
             setUploadData({ title: '', category_id: '', file_url: '' });
             fetchAssets();
-        } catch(e) {}
-        finally { setIsUploading(false); }
+        } catch(e) {
+            alert("Failed to save asset.");
+        }
     };
 
     const handleDeleteAsset = async (id) => {
-        if(!window.confirm("Are you sure you want to delete this asset globally?")) return;
+        if(!window.confirm("Delete this asset?")) return;
         try {
             await fetch('/api/assets/delete', {
                 method: 'POST',
@@ -88,87 +140,28 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
         } catch(e) {}
     };
 
-    const activeCatId = activeTab ? parseInt(activeTab.replace('cat_', '')) : null;
-    const activeCategory = categories.find(c => c.id === activeCatId);
-    const visibleAssets = assets.filter(a => a.category_id === activeCatId);
-
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
-    // LANDING PAGE (GRID OF CATEGORIES)
-    if (activeTab === 'library' || !activeCategory) {
-        return (
-            <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
-                    <div>
-                        <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
-                            SC Brand Assets
-                        </h2>
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                            Download official logos, graphics, and promotional materials.
-                        </p>
-                    </div>
-                    {isAdmin && (
-                        <div className="flex gap-3 w-full md:w-auto justify-end">
-                            <button 
-                                onClick={() => {
-                                    setUploadData({ title: '', category_id: categories.length > 0 ? categories[0].id : '', file_url: '' });
-                                    setShowUploadModal(true);
-                                }}
-                                className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                                <Plus size={14} /> <span className="hidden sm:inline">Upload Asset</span>
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {categories.length === 0 ? (
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
-                        <Folder size={48} className="text-gray-600 mb-4 opacity-50" />
-                        <p className="text-gray-400 font-bold text-sm">Library Empty</p>
-                        <p className="text-gray-500 text-[10px] uppercase tracking-widest mt-2">
-                            {isAdmin ? 'Use the sidebar to create your first Category!' : 'Assets will appear here once added by an administrator.'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {categories.map(cat => {
-                            const assetCount = assets.filter(a => a.category_id === cat.id).length;
-                            return (
-                                <button key={cat.id} onClick={() => setActiveTab(`cat_${cat.id}`)} className="bg-[#111] border border-white/5 hover:border-[#9df01c]/50 hover:bg-[#151515] p-6 rounded-3xl text-left transition-all group shadow-lg flex flex-col items-start h-full">
-                                    <div className="w-14 h-14 rounded-2xl bg-black border border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-[#9df01c]/10 transition-all">
-                                        <Folder size={28} className="text-[#9df01c]" />
-                                    </div>
-                                    <h3 className="text-xl font-black text-white mb-2 group-hover:text-[#9df01c] transition-colors">{cat.name}</h3>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-auto">{assetCount} {assetCount === 1 ? 'Asset' : 'Assets'}</p>
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
-            </div>
-        );
-    }
+    const activeCatId = activeTab && activeTab.startsWith('cat_') ? parseInt(activeTab.replace('cat_', '')) : (categories.length > 0 ? categories[0].id : null);
+    const activeCategory = categories.find(c => c.id === activeCatId);
+    const visibleAssets = assets.filter(a => a.category_id === activeCatId);
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
-                    <button onClick={() => setActiveTab('library')} className="text-gray-500 hover:text-white font-bold text-[10px] uppercase tracking-widest flex items-center gap-1.5 mb-4 transition-colors">
-                        &larr; Return to Library
-                    </button>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
-                        {activeCategory ? activeCategory.name : 'SC Brand Assets'}
+                        {activeCategory ? activeCategory.name : 'Brand Kit'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                         Download official logos, graphics, and promotional materials.
                     </p>
                 </div>
-                
-                {isAdmin && (
+                {isAdmin && categories.length > 0 && (
                     <div className="flex gap-3 w-full md:w-auto justify-end">
                         <button 
                             onClick={() => {
-                                setUploadData({ title: '', category_id: activeCatId || '', file_url: '' });
+                                setUploadData({ title: '', category_id: activeCatId, file_url: '' });
                                 setShowUploadModal(true);
                             }}
                             className="px-4 py-3 sm:px-6 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
@@ -178,7 +171,15 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
                 )}
             </div>
 
-            {visibleAssets.length === 0 ? (
+            {categories.length === 0 ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
+                    <Folder size={48} className="text-gray-600 mb-4 opacity-50" />
+                    <p className="text-gray-400 font-bold text-sm">Library Empty</p>
+                    <p className="text-gray-500 text-[10px] uppercase tracking-widest mt-2">
+                        {isAdmin ? 'Use the sidebar to create your first Folder!' : 'Assets will appear here once added by an administrator.'}
+                    </p>
+                </div>
+            ) : visibleAssets.length === 0 ? (
                 <div className="border-2 border-dashed border-white/5 rounded-[2rem] p-12 text-center min-h-[50vh] flex flex-col items-center justify-center">
                     <ImageIcon size={48} className="text-gray-600 mb-4 opacity-30" />
                     <p className="text-gray-400 font-bold text-sm">No assets in this category</p>
@@ -192,12 +193,14 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
                             </div>
                             <p className="text-sm font-bold text-white truncate mb-4 px-1">{asset.title}</p>
                             
-                            <a 
-                                href={`https://api.fytsolutions.com/api.php?action=download&file=${encodeURIComponent(asset.file_url)}&name=${encodeURIComponent(asset.title || 'sc_asset')}`}
-                                className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white"
+                            <button 
+                                onClick={() => handleDownloadAsset(asset)}
+                                disabled={downloadingId === asset.id}
+                                className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <Download size={14} /> Download
-                            </a>
+                                {downloadingId === asset.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                {downloadingId === asset.id ? 'Downloading...' : 'Download'}
+                            </button>
 
                             {isAdmin && (
                                 <button onClick={() => handleDeleteAsset(asset.id)} className="absolute top-6 right-6 bg-red-500/90 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-xl">
@@ -209,51 +212,44 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
                 </div>
             )}
 
-            {/* ADMIN UPLOAD MODAL */}
+            {/* UPLOAD MODAL */}
             {showUploadModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-sm p-8 shadow-2xl relative">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-md p-8 flex flex-col shadow-2xl relative">
                         <button onClick={() => setShowUploadModal(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X size={20}/></button>
-                        
-                        <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6">Upload Asset</h3>
+                        <h3 className="text-xl font-black uppercase italic tracking-tight text-white mb-6">Upload Asset</h3>
                         
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Asset Title</label>
-                                <input type="text" value={uploadData.title} onChange={e => setUploadData({...uploadData, title: e.target.value})} placeholder="e.g. Primary Logo (Dark)" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                <input type="text" value={uploadData.title} onChange={e => setUploadData({...uploadData, title: e.target.value})} placeholder="e.g. Primary White Logo" className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors" />
                             </div>
-
+                            
                             <div>
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Category</label>
-                                <select value={uploadData.category_id} onChange={e => setUploadData({...uploadData, category_id: parseInt(e.target.value)})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors">
-                                    <option value="" disabled>Select Category...</option>
+                                <select value={uploadData.category_id} onChange={e => setUploadData({...uploadData, category_id: parseInt(e.target.value)})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors appearance-none">
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
 
                             <div>
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">File</label>
-                                <div className="w-full aspect-video bg-black border border-dashed border-white/10 rounded-xl flex items-center justify-center mb-2 overflow-hidden relative">
-                                    {uploadData.file_url ? (
-                                        <img src={uploadData.file_url} className="max-w-full max-h-full object-contain p-2" alt="Preview" />
-                                    ) : (
-                                        <ImageIcon size={32} className="text-gray-600 opacity-50" />
-                                    )}
-                                    {isUploading && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Loader2 className="w-6 h-6 text-[#9df01c] animate-spin"/></div>}
-                                </div>
-                                <label className={`w-full py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-2 border border-white/10 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    Select File
-                                    <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
-                                </label>
+                                {uploadData.file_url ? (
+                                    <div className="bg-black p-4 rounded-xl border border-white/10 flex flex-col items-center justify-center gap-3">
+                                        <img src={uploadData.file_url} className="max-h-32 object-contain" />
+                                        <button onClick={() => setUploadData({...uploadData, file_url: ''})} className="text-[9px] text-red-500 font-bold uppercase tracking-widest">Remove File</button>
+                                    </div>
+                                ) : (
+                                    <label className={`w-full h-32 flex flex-col items-center justify-center gap-2 bg-black border-2 border-dashed border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {isUploading ? <Loader2 size={24} className="animate-spin text-[#9df01c]"/> : <ImageIcon size={24} className="text-gray-500"/>}
+                                        {isUploading ? 'Uploading...' : 'Browse Files'}
+                                        <input type="file" className="hidden" onChange={handleFileUpload} />
+                                    </label>
+                                )}
                             </div>
-                        </div>
 
-                        <button 
-                            onClick={handleSaveAsset} 
-                            disabled={isUploading || !uploadData.title || !uploadData.category_id || !uploadData.file_url}
-                            className={`w-full py-3.5 rounded-xl font-black uppercase text-[11px] tracking-widest mt-8 transition-colors ${(!uploadData.title || !uploadData.category_id || !uploadData.file_url) ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                            Publish Asset
-                        </button>
+                            <button onClick={handleSaveAsset} className="w-full mt-4 py-4 bg-[#9df01c] text-black rounded-xl font-black uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10">Save to Library</button>
+                        </div>
                     </div>
                 </div>
             )}
