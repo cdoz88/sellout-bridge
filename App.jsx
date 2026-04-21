@@ -45,8 +45,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
-  // FIX: Initialize state correctly directly from local storage if a code is present!
   const [currentApp, setCurrentApp] = useState(() => {
       try {
           if (typeof window !== 'undefined') {
@@ -79,6 +79,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
 
   const hasAttemptedLogin = useRef(false);
+  const hasUser = useRef(false);
 
   const brandColor = '#9df01c';
   const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
@@ -86,9 +87,20 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
+  // Keep ref updated to handle unauthorized robustly
+  useEffect(() => {
+      hasUser.current = !!unaData.user;
+  }, [unaData.user]);
+
   useEffect(() => {
       const handleUnauthorized = () => {
-          handleLogout();
+          // If they were actively working (have a user object), show the safety net!
+          // If they weren't logged in anyway, just kick them to the login screen.
+          if (hasUser.current) {
+              setSessionExpired(true);
+          } else {
+              handleLogout();
+          }
       };
       window.addEventListener('unauthorized', handleUnauthorized);
       return () => window.removeEventListener('unauthorized', handleUnauthorized);
@@ -216,7 +228,6 @@ export default function App() {
   };
 
   const startLogin = () => {
-    // 1. Remember their intended destination before sending them to login!
     localStorage.setItem('hub_login_redirect_app', currentApp);
     localStorage.setItem('hub_login_redirect_tab', activeTab);
 
@@ -253,7 +264,6 @@ export default function App() {
             return;
         }
 
-        // 2. Clean up storage since we already initialized the state with it in the useState hooks
         localStorage.removeItem('hub_login_redirect_app');
         localStorage.removeItem('hub_login_redirect_tab');
         
@@ -481,6 +491,15 @@ export default function App() {
       );
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <span className="font-black uppercase tracking-[0.3em] text-[10px]">Processing...</span>
+      </div>
+    );
+  }
+
   if (unaData.user && (unaData.user.role === 1 || unaData.user.role === 2)) {
       return (
           <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
@@ -542,7 +561,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0">
+    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden flex-col lg:flex-row pb-16 lg:pb-0 relative">
         {isMobileMenuOpen && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsMobileMenuOpen(false)} />
         )}
@@ -561,7 +580,7 @@ export default function App() {
             />
         </div>
 
-        <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
+        <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative z-0">
             <TopBar 
                 currentApp={currentApp} 
                 handleAppSwitch={handleAppSwitch}
@@ -596,6 +615,45 @@ export default function App() {
                 <span className="text-[9px] font-bold uppercase tracking-widest">Add Contact</span>
             </button>
         </div>
+
+        {/* SESSION EXPIRED SAFETY NET */}
+        {sessionExpired && (
+            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="bg-[#111] p-8 rounded-[2rem] border border-red-500/30 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+                    <AlertCircle size={48} className="text-red-500 mx-auto mb-4 relative z-10" />
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 relative z-10">Session Expired</h3>
+                    <p className="text-sm font-medium text-gray-400 mb-6 relative z-10 leading-relaxed">
+                        For your security, your session has timed out. To save your work without losing it, <strong>open the Hub in a new tab</strong>, log in, then come back here and click the button below.
+                    </p>
+                    <div className="space-y-3 relative z-10">
+                        <button 
+                            onClick={() => window.open(window.location.origin, '_blank')}
+                            className="w-full bg-white/5 text-white hover:bg-white/10 border border-white/10 font-bold py-4 rounded-xl text-[11px] uppercase tracking-widest transition-colors"
+                        >
+                            1. Open Hub in New Tab
+                        </button>
+                        <button 
+                            onClick={() => {
+                                const newToken = localStorage.getItem('bridge_session');
+                                if (newToken && newToken !== session) {
+                                    setSession(newToken);
+                                    setSessionExpired(false);
+                                } else {
+                                    alert("We couldn't detect a new session. Please make sure you logged in on the new tab!");
+                                }
+                            }}
+                            className="w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20"
+                        >
+                            2. I've Logged In, Resume Work
+                        </button>
+                    </div>
+                    <button onClick={() => { setSessionExpired(false); handleLogout(); }} className="mt-6 text-[9px] text-gray-500 hover:text-white font-bold uppercase tracking-widest relative z-10 transition-colors">
+                        Discard work and log out
+                    </button>
+                </div>
+            </div>
+        )}
     </div>
   );
 }
