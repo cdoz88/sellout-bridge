@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Lock } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -126,7 +126,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           const res = await fetch('/api/get-manual-users', { headers: { 'Authorization': `Bearer ${token}` } });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
-          // FIXED: Removed double-grouping logic. The backend already groups the bundles perfectly!
           if (data.users) {
               setManualUsers(data.users);
           }
@@ -306,7 +305,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               const email = cleanRow[emailIdx];
               const plan = cleanRow[planIdx];
               
-              if (email && email.includes('@') && plan) {
+              if (email && plan && (status === 'active' || status === 'completed')) {
                   parsedUsers.push({ email, plan });
                   uniquePlans.add(plan);
               }
@@ -617,6 +616,32 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   };
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
+
+  const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+  const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+
+  if (!isAdmin) {
+      return (
+          <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
+              <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
+                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                  <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
+                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Enterprise Feature</h3>
+                  <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
+                      Access Control integrations allow creators to bypass standard site commissions. Therefore, these tools are exclusively available to our Enterprise subscribers.
+                  </p>
+                  <a 
+                      href="https://www.selloutcrowds.com/plans" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10"
+                  >
+                      Learn More About Enterprise
+                  </a>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <>
@@ -1030,25 +1055,25 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           </div>
                         ) : (
                             aliases.map((alias) => (
-                                <div key={alias.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
-                                    <div className="flex-1 w-full text-center md:text-left">
-                                        <p className="text-sm font-bold text-white flex flex-col md:flex-row items-center justify-center md:justify-start gap-2">
-                                            <span className="text-gray-500 line-through">{alias.original_email}</span>
-                                            <ArrowRight size={14} className="text-[#9df01c] hidden md:block" />
-                                            <span>{alias.alias_email}</span>
-                                        </p>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleRemoveAlias(alias.id)}
-                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
-                                        title="Remove Alias"
-                                    >
-                                        <Trash2 size={16} /> <span className="md:hidden">Remove</span>
-                                    </button>
-                                </div>
-                            ))
-                        )}
-                      </div>
+                                <div key={alias.id} className="bg-black border border-white/5 p-5 rounded-[1.5rem] flex items-center justify-between group hover:border-[#9df01c]/30 transition-all">
+                                  <div className="flex items-center gap-4 flex-1">
+                                      <div className="flex-1">
+                                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1"><CreditCard size={10}/> Paying</p>
+                                          <p className="font-mono text-sm text-gray-300 truncate">{alias.original_email}</p>
+                                      </div>
+                                      <ArrowRight size={16} className="text-[#9df01c] mx-2 flex-shrink-0" />
+                                      <div className="flex-1">
+                                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1"><Users size={10}/> Accessing</p>
+                                          <p className="font-mono text-sm text-[#9df01c] truncate">{alias.alias_email}</p>
+                                      </div>
+                                  </div>
+                                  <button onClick={() => removeAlias(alias.id)} className="ml-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors">
+                                      <Trash2 size={16} />
+                                  </button>
+                              </div>
+                          ))
+                      )}
+                  </div>
                   </>
                 ) : activeTab === 'manual' ? (
                   <>
@@ -1156,11 +1181,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     
                                     {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
                                     {unaData.crowds?.map(c => {
-                                        const commId = `bx_spaces_${c.id}`;
-                                        const isChecked = mapping.communities?.includes(commId);
+                                        const combinedId = `bx_spaces_${c.id}`;
+                                        const isChecked = mapping.communities?.includes(combinedId);
                                         return (
-                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
-                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
+                                            <div key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
                                                     {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                 </div>
                                                 <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
@@ -1170,16 +1195,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                                     {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
                                     {unaData.spaces?.map(s => {
-                                        const commId = `bx_groups_${s.id}`;
-                                        const isChecked = mapping.communities?.includes(commId);
+                                        const combinedId = `bx_groups_${s.id}`;
+                                        const isChecked = mapping.communities?.includes(combinedId);
                                         return (
-                                            <div key={commId} onClick={() => toggleCommunity(mapping.id, commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
-                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
-                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                            <div key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                        {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                    </div>
+                                                    <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#38bdf8]' : 'text-gray-300'}`}>{s.title}</span>
                                                 </div>
-                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
-                                            </div>
-                                        );
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
+                                            </label>
+                                        )
                                     })}
                                     
                                     {(!unaData.crowds || unaData.crowds.length === 0) && (!unaData.spaces || unaData.spaces.length === 0) && (
@@ -1200,7 +1228,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                       <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
                         <button 
-                          onClick={saveMappingsToDatabase}
+                          onClick={handleSave}
                           disabled={isSaving}
                           className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -1307,7 +1335,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         <div className="w-auto sm:w-24 flex justify-end">
                                             {user.isRevoked ? (
                                                 <button 
-                                                    onClick={() => toggleUserAccess(user.email, 'restore')}
+                                                    onClick={() => toggleUserAccess(user.email, stat.productId, 'restore')}
                                                     disabled={processingUser === user.email}
                                                     className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
                                                     title="Restore Access">
@@ -1315,7 +1343,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                                 </button>
                                             ) : (
                                                 <button 
-                                                    onClick={() => toggleUserAccess(user.email, 'revoke')}
+                                                    onClick={() => toggleUserAccess(user.email, stat.productId, 'revoke')}
                                                     disabled={processingUser === user.email}
                                                     className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
                                                     title="Revoke Access (Survives Sync)">

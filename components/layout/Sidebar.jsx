@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -8,8 +8,8 @@ export default function Sidebar({
     const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
     const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
-    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com'];
-    const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+    const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
 
     const [categories, setCategories] = useState([]);
     const [isEditingCats, setIsEditingCats] = useState(false);
@@ -166,7 +166,6 @@ export default function Sidebar({
         window.dispatchEvent(new CustomEvent('guides-updated'));
     };
 
-    // --- FIX: Exact Custom Membership Roles Mapping ---
     const getRoleName = (roleId) => {
         if (!roleId) return 'Creator';
         switch (Number(roleId)) {
@@ -221,19 +220,19 @@ export default function Sidebar({
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
                             <div className="space-y-1">
                                 <button onClick={() => handleNavClick('stripe')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <CreditCard size={16} /> Stripe
+                                    <CreditCard size={16} /> Stripe {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('paypal')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Smartphone size={16} /> PayPal
+                                    <Smartphone size={16} /> PayPal {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon
+                                    <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <UserPlus size={16} /> Manual
+                                    <UserPlus size={16} /> Manual {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('aliases')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'aliases' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Repeat size={16} /> Email to Email
+                                    <Repeat size={16} /> Email to Email {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                             </div>
                         </div>
