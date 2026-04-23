@@ -31,7 +31,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
   const [manualSelectedComms, setManualSelectedComms] = useState([]);
-  const [isAddingManual, setIsAddingManual] = useState(false);
+  const [isManualSaving, setIsManualSaving] = useState(false);
   const [manualModalData, setManualModalData] = useState(null);
 
   const [aliases, setAliases] = useState([]);
@@ -57,7 +57,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   }, [session, activeTab]);
 
   useEffect(() => {
-      // FIX: Typo corrected to URLSearchParams
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
@@ -470,7 +469,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsAddingManual(true);
+      setIsManualSaving(true);
       setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
@@ -487,7 +486,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualSelectedComms([]);
-              fetchManualUsers(); 
+              fetchManualUsers(); // Automatically updates UI without refresh!
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -500,7 +499,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (err) {
           setError(err.message);
       } finally {
-          setIsAddingManual(false);
+          setIsManualSaving(false);
       }
   };
 
