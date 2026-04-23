@@ -57,7 +57,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   }, [session, activeTab]);
 
   useEffect(() => {
-      const urlParams = newSearchParams(window.location.search);
+      // FIX: Typo corrected to URLSearchParams
+      const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       
@@ -486,7 +487,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualSelectedComms([]);
-              fetchManualUsers(); // Automatically updates UI without refresh!
+              fetchManualUsers(); 
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -1197,14 +1198,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
                                             {(unaData?.crowds || []).map(c => {
                                                 const combinedId = `bx_spaces_${c.id}`;
-                                                const isSelected = (mapping.communities || []).includes(combinedId);
+                                                const isChecked = (mapping.communities || []).includes(combinedId);
                                                 return (
-                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                             </div>
-                                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
+                                                            <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
                                                         </div>
                                                         <span className="text-[8px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
                                                     </label>
@@ -1214,14 +1215,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
                                             {(unaData?.spaces || []).map(s => {
                                                 const combinedId = `bx_groups_${s.id}`;
-                                                const isSelected = (mapping.communities || []).includes(combinedId);
+                                                const isChecked = (mapping.communities || []).includes(combinedId);
                                                 return (
-                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
                                                             </div>
-                                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
+                                                            <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
                                                         </div>
                                                         <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
                                                     </label>
