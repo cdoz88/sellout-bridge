@@ -30,8 +30,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
-  const [manualSelectedComms, setManualSelectedComms] = useState([]);
-  const [isAddingManual, setIsAddingManual] = useState(false);
+  const [manualCommunities, setManualCommunities] = useState([]); 
+  const [isManualSaving, setIsManualSaving] = useState(false);
   const [manualModalData, setManualModalData] = useState(null);
 
   const [aliases, setAliases] = useState([]);
@@ -457,25 +457,24 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
-      setManualCommunities(prev => 
+      setManualSelectedComms(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
       );
   };
 
   const handleAddManualUser = async () => {
-      if (!manualEmail || manualCommunities.length === 0) {
+      if (!manualEmail || manualSelectedComms.length === 0) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsManualSaving(true);
+      setIsAddingManual(true);
       setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: manualEmail, communities: manualCommunities })
+              body: JSON.stringify({ email: manualEmail, communities: manualSelectedComms })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           
@@ -485,8 +484,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           
           if (res.ok && data.success) {
               setManualEmail('');
-              setManualCommunities([]);
-              fetchManualUsers(); // Automatically updates UI without refresh!
+              setManualSelectedComms([]);
+              fetchManualUsers(); 
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -499,16 +498,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (err) {
           setError(err.message);
       } finally {
-          setIsManualSaving(false);
+          setIsAddingManual(false);
       }
   };
 
-  const handleRemoveManualUser = async (user) => {
+  const handleRemoveManualUser = async (id, email, module, contentId) => {
       try {
           const res = await fetch('/api/remove-manual-user', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: user.id, email: user.email, unaModule: user.una_module, unaId: user.una_content_id })
+              body: JSON.stringify({ id, email, unaModule: module, unaId: contentId })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           fetchManualUsers();
@@ -575,7 +574,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const addMapping = () => setMappings(prev => [...prev, { id: Date.now(), provider: activeTab, productId: '', communities: [] }]);
+  const addMapping = () => setMappings(prev => [...prev, { id: `temp_${Date.now()}`, provider: activeTab, productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
       setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
@@ -767,46 +766,54 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         Grant Access To (Select Multiple)
                       </label>
                       <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
-                          {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                          {unaData.crowds?.map(c => {
-                              const commId = `bx_spaces_${c.id}`;
-                              const isChecked = manualCommunities.includes(commId);
-                              return (
-                                  <div key={commId} onClick={() => toggleManualCommunity(commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
-                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
-                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                      </div>
-                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
-                                  </div>
-                              );
-                          })}
+                          {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
+                              <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the left.</p>
+                          ) : (
+                              <>
+                                  {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                                  {unaData.crowds?.map(c => {
+                                      const combinedId = `bx_spaces_${c.id}`;
+                                      const isSelected = manualSelectedComms.includes(combinedId);
+                                      return (
+                                          <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                              <div className="flex items-center gap-3">
+                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                  </div>
+                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
+                                              </div>
+                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
+                                          </label>
+                                      );
+                                  })}
 
-                          {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                          {unaData.spaces?.map(s => {
-                              const commId = `bx_groups_${s.id}`;
-                              const isChecked = manualCommunities.includes(commId);
-                              return (
-                                  <div key={commId} onClick={() => toggleManualCommunity(commId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
-                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-white/20'}`}>
-                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                      </div>
-                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{s.title}</span>
-                                  </div>
-                              );
-                          })}
-                          
-                          {(!unaData.crowds || unaData.crowds.length === 0) && (!unaData.spaces || unaData.spaces.length === 0) && (
-                              <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
+                                  {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                                  {unaData.spaces?.map(s => {
+                                      const combinedId = `bx_groups_${s.id}`;
+                                      const isSelected = manualSelectedComms.includes(combinedId);
+                                      return (
+                                          <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                              <div className="flex items-center gap-3">
+                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                  </div>
+                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
+                                              </div>
+                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
+                                          </label>
+                                      );
+                                  })}
+                              </>
                           )}
                       </div>
                     </div>
 
                     <button 
                       onClick={handleAddManualUser}
-                      disabled={isManualSaving || !manualEmail || manualCommunities.length === 0}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualCommunities.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                      {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      {isManualSaving ? 'Granting...' : 'Grant Access'}
+                      disabled={isAddingManual || !manualEmail || manualSelectedComms.length === 0}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualSelectedComms.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      {isAddingManual ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      {isAddingManual ? 'Granting...' : 'Grant Access'}
                     </button>
                   </div>
                 </div>
@@ -1182,39 +1189,44 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To (Select Multiple)</label>
                                 <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
                                     
-                                    {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                    {unaData.crowds?.map(c => {
-                                        const combinedId = `bx_spaces_${c.id}`;
-                                        const isChecked = mapping.communities?.includes(combinedId);
-                                        return (
-                                            <div key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
-                                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                    {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                </div>
-                                                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#9df01c]' : 'text-gray-300'}`}>{c.title}</span>
-                                            </div>
-                                        );
-                                    })}
+                                    {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
+                                        <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-lg">No communities found. Click "Sync Communities" on the left.</p>
+                                    ) : (
+                                        <>
+                                            {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                                            {unaData.crowds?.map(c => {
+                                                const combinedId = `bx_spaces_${c.id}`;
+                                                const isChecked = (mapping.communities || []).includes(combinedId);
+                                                return (
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                            </div>
+                                                            <span className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
+                                                        </div>
+                                                        <span className="text-[8px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
+                                                    </label>
+                                                );
+                                            })}
 
-                                    {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                    {unaData.spaces?.map(s => {
-                                        const combinedId = `bx_groups_${s.id}`;
-                                        const isChecked = mapping.communities?.includes(combinedId);
-                                        return (
-                                            <div key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                        {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                    </div>
-                                                    <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-[#38bdf8]' : 'text-gray-300'}`}>{s.title}</span>
-                                                </div>
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
-                                            </div>
-                                        )
-                                    })}
-                                    
-                                    {(!unaData.crowds || unaData.crowds.length === 0) && (!unaData.spaces || unaData.spaces.length === 0) && (
-                                        <div className="text-xs text-gray-500 italic p-2">No communities found. Click "Sync Communities" on the left.</div>
+                                            {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                                            {unaData.spaces?.map(s => {
+                                                const combinedId = `bx_groups_${s.id}`;
+                                                const isChecked = (mapping.communities || []).includes(combinedId);
+                                                return (
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                            </div>
+                                                            <span className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
+                                                        </div>
+                                                        <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </>
                                     )}
                                 </div>
                               </div>
@@ -1259,27 +1271,35 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </button>
               </div>
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
-                {manualModalData.communities?.map((comm, i) => (
-                    <div key={i} className="border border-white/5 rounded-xl p-4 flex justify-between items-center bg-black hover:border-white/10 transition-colors">
-                        <div className="flex-1">
-                            <p className="text-sm font-bold text-white flex items-center gap-2">
-                                {getCommunityName(comm.module, comm.contentId)}
-                                <UserCheck className="w-4 h-4 text-[#9df01c]" />
-                            </p>
+                {manualModalData.communities?.map((comm, i) => {
+                    const isCrowd = comm.module === 'bx_spaces';
+                    const sourceList = isCrowd ? (unaData.crowds || []) : (unaData.spaces || []);
+                    const commData = sourceList.find(c => c.id === comm.contentId.toString() || c.id === parseInt(comm.contentId));
+                    const title = commData ? commData.title : `Unknown ID: ${comm.contentId}`;
+
+                    return (
+                        <div key={i} className="border border-white/5 rounded-xl p-4 flex justify-between items-center bg-black hover:border-white/10 transition-colors">
+                            <div className="flex-1 flex flex-col">
+                                <p className="text-sm font-bold text-white flex items-center gap-2 mb-0.5">
+                                    <span className="truncate max-w-[200px]">{title}</span>
+                                    <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />
+                                </p>
+                                <span className={`text-[8px] font-black uppercase tracking-widest w-fit ${isCrowd ? 'text-[#9df01c]' : 'text-[#38bdf8]'}`}>{isCrowd ? 'Crowd' : 'Space'}</span>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    handleRemoveManualUser(comm.id, manualModalData.email, comm.module, comm.contentId);
+                                    const updatedComms = manualModalData.communities.filter(c => c.id !== comm.id);
+                                    if (updatedComms.length === 0) setManualModalData(null);
+                                    else setManualModalData({...manualModalData, communities: updatedComms});
+                                }} 
+                                className="p-2 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors" title="Revoke Access"
+                            >
+                                <UserX className="w-4 h-4" />
+                            </button>
                         </div>
-                        <button 
-                            onClick={() => {
-                                handleRemoveManualUser({ id: comm.id, email: manualModalData.email, una_module: comm.module, una_content_id: comm.contentId });
-                                const updatedComms = manualModalData.communities.filter(c => c.id !== comm.id);
-                                if (updatedComms.length === 0) setManualModalData(null);
-                                else setManualModalData({...manualModalData, communities: updatedComms});
-                            }} 
-                            className="p-2 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors" title="Revoke Access"
-                        >
-                            <UserX className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
             </div>
           </div>
