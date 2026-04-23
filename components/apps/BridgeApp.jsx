@@ -30,8 +30,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
-  const [manualCommunities, setManualCommunities] = useState([]); 
-  const [isManualSaving, setIsManualSaving] = useState(false);
+  const [manualSelectedComms, setManualSelectedComms] = useState([]);
+  const [isAddingManual, setIsAddingManual] = useState(false);
   const [manualModalData, setManualModalData] = useState(null);
 
   const [aliases, setAliases] = useState([]);
@@ -57,7 +57,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   }, [session, activeTab]);
 
   useEffect(() => {
-      const urlParams = new URLSearchParams(window.location.search);
+      const urlParams = newSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       
@@ -457,6 +457,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
+  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualSelectedComms(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -485,7 +486,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualSelectedComms([]);
-              fetchManualUsers(); 
+              fetchManualUsers(); // Automatically updates UI without refresh!
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -771,7 +772,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           ) : (
                               <>
                                   {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                  {unaData.crowds?.map(c => {
+                                  {(unaData?.crowds || []).map(c => {
                                       const combinedId = `bx_spaces_${c.id}`;
                                       const isSelected = manualSelectedComms.includes(combinedId);
                                       return (
@@ -788,7 +789,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                   })}
 
                                   {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                  {unaData.spaces?.map(s => {
+                                  {(unaData?.spaces || []).map(s => {
                                       const combinedId = `bx_groups_${s.id}`;
                                       const isSelected = manualSelectedComms.includes(combinedId);
                                       return (
@@ -810,10 +811,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                     <button 
                       onClick={handleAddManualUser}
-                      disabled={isAddingManual || !manualEmail || manualSelectedComms.length === 0}
+                      disabled={isManualSaving || !manualEmail || manualSelectedComms.length === 0}
                       className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualSelectedComms.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                      {isAddingManual ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      {isAddingManual ? 'Granting...' : 'Grant Access'}
+                      {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      {isManualSaving ? 'Granting...' : 'Grant Access'}
                     </button>
                   </div>
                 </div>
@@ -1194,16 +1195,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                     ) : (
                                         <>
                                             {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                            {unaData.crowds?.map(c => {
+                                            {(unaData?.crowds || []).map(c => {
                                                 const combinedId = `bx_spaces_${c.id}`;
-                                                const isChecked = (mapping.communities || []).includes(combinedId);
+                                                const isSelected = (mapping.communities || []).includes(combinedId);
                                                 return (
-                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
                                                             </div>
-                                                            <span className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
+                                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
                                                         </div>
                                                         <span className="text-[8px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
                                                     </label>
@@ -1211,16 +1212,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                             })}
 
                                             {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                            {unaData.spaces?.map(s => {
+                                            {(unaData?.spaces || []).map(s => {
                                                 const combinedId = `bx_groups_${s.id}`;
-                                                const isChecked = (mapping.communities || []).includes(combinedId);
+                                                const isSelected = (mapping.communities || []).includes(combinedId);
                                                 return (
-                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
+                                                    <label key={combinedId} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
+                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
                                                             </div>
-                                                            <span className={`text-xs font-bold ${isChecked ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
+                                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
                                                         </div>
                                                         <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
                                                     </label>
@@ -1243,7 +1244,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
                       <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
                         <button 
-                          onClick={handleSave}
+                          onClick={saveMappingsToDatabase}
                           disabled={isSaving}
                           className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
