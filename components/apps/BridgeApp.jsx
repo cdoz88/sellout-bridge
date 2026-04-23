@@ -1144,7 +1144,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           </p>
                         </div>
                         <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
-                          <Plus className="w-4 h-4" /> Add Bridge
+                          <Plus className="w-4 h-4" /> Add Mapping
                         </button>
                       </div>
 
@@ -1153,7 +1153,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Bridge" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Mapping" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
                           </div>
                         ) : (
                           currentTabMappings.map((mapping) => (
