@@ -10,7 +10,9 @@ export default function Sidebar({
 
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    const canAccessManual = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+    
+    // Manual tab is unlocked for Admin, Rookie (15), All-Star (16), and H.O.F (17). Teammates (18) are locked out.
+    const canUseManual = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
     const [categories, setCategories] = useState([]);
     const [isEditingCats, setIsEditingCats] = useState(false);
@@ -230,7 +232,7 @@ export default function Sidebar({
                                     <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <UserPlus size={16} /> Manual {!canAccessManual && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                    <UserPlus size={16} /> Manual {!canUseManual && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('aliases')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'aliases' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <Repeat size={16} /> Email to Email {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}

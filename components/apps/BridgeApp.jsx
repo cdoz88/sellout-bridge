@@ -31,7 +31,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
   const [manualSelectedComms, setManualSelectedComms] = useState([]);
-  const [isAddingManual, setIsAddingManual] = useState(false);
+  const [isManualSaving, setIsManualSaving] = useState(false);
   const [manualModalData, setManualModalData] = useState(null);
 
   const [aliases, setAliases] = useState([]);
@@ -469,7 +469,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           setError("Please enter an email and select at least one community.");
           return;
       }
-      setIsAddingManual(true);
+      setIsManualSaving(true);
       setError(null);
       try {
           const res = await fetch('/api/add-manual-user', {
@@ -486,7 +486,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualSelectedComms([]);
-              fetchManualUsers(); 
+              fetchManualUsers(); // Automatically updates UI without refresh!
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -499,7 +499,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       } catch (err) {
           setError(err.message);
       } finally {
-          setIsAddingManual(false);
+          setIsManualSaving(false);
       }
   };
 
@@ -745,99 +745,78 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <UserPlus size={18} className="text-[#9df01c]" />
                     Grant Access
                   </h3>
-                  
-                  <div className="mb-6 p-4 bg-black border border-white/5 rounded-2xl text-center relative z-10">
-                      <div className="text-3xl font-black text-white">
-                          <span className="text-[#9df01c]">{manualUsers.length}</span> <span className="text-gray-600">/</span> {isAdmin ? '∞' : '0'}
+                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
+                    Add your partners or VIPs to your community for free without requiring a payment plan.
+                  </p>
+                  <div className="space-y-5 relative z-10">
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                        Email Address
+                      </label>
+                      <input 
+                        type="email" 
+                        value={manualEmail} 
+                        onChange={(e) => setManualEmail(e.target.value)} 
+                        placeholder="vip@example.com" 
+                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                        Grant Access To (Select Multiple)
+                      </label>
+                      <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
+                          {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
+                              <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the left.</p>
+                          ) : (
+                              <>
+                                  {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                                  {(unaData?.crowds || []).map(c => {
+                                      const combinedId = `bx_spaces_${c.id}`;
+                                      const isSelected = manualSelectedComms.includes(combinedId);
+                                      return (
+                                          <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                              <div className="flex items-center gap-3">
+                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                  </div>
+                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
+                                              </div>
+                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
+                                          </label>
+                                      );
+                                  })}
+
+                                  {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                                  {(unaData?.spaces || []).map(s => {
+                                      const combinedId = `bx_groups_${s.id}`;
+                                      const isSelected = manualSelectedComms.includes(combinedId);
+                                      return (
+                                          <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                              <div className="flex items-center gap-3">
+                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                                  </div>
+                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
+                                              </div>
+                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
+                                          </label>
+                                      );
+                                  })}
+                              </>
+                          )}
                       </div>
-                      <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Users Granted Access</p>
+                    </div>
+
+                    <button 
+                      onClick={handleAddManualUser}
+                      disabled={isManualSaving || !manualEmail || manualSelectedComms.length === 0}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualSelectedComms.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      {isManualSaving ? 'Granting...' : 'Grant Access'}
+                    </button>
                   </div>
-
-                  {!isAdmin ? (
-                      <div className="text-center py-4 relative z-10">
-                          <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
-                              Your current account tier does not include manual access grants.
-                          </p>
-                          <a 
-                              href="https://www.selloutcrowds.com/plans" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20"
-                          >
-                              Upgrade to unlock this feature!
-                          </a>
-                      </div>
-                  ) : (
-                      <div className="space-y-5 relative z-10">
-                        <div>
-                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                            Email Address
-                          </label>
-                          <input 
-                            type="email" 
-                            value={manualEmail} 
-                            onChange={(e) => setManualEmail(e.target.value)} 
-                            placeholder="vip@example.com" 
-                            className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                            Grant Access To (Select Multiple)
-                          </label>
-                          <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
-                              {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
-                                  <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the left.</p>
-                              ) : (
-                                  <>
-                                      {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                      {(unaData?.crowds || []).map(c => {
-                                          const combinedId = `bx_spaces_${c.id}`;
-                                          const isChecked = manualSelectedComms.includes(combinedId);
-                                          return (
-                                              <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                                  <div className="flex items-center gap-3">
-                                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                      </div>
-                                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
-                                                  </div>
-                                                  <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
-                                              </label>
-                                          );
-                                      })}
-
-                                      {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                      {(unaData?.spaces || []).map(s => {
-                                          const combinedId = `bx_groups_${s.id}`;
-                                          const isChecked = manualSelectedComms.includes(combinedId);
-                                          return (
-                                              <label key={combinedId} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                                  <div className="flex items-center gap-3">
-                                                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                          {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                      </div>
-                                                      <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
-                                                  </div>
-                                                  <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
-                                              </label>
-                                          );
-                                      })}
-                                  </>
-                              )}
-                          </div>
-                        </div>
-
-                        <button 
-                          onClick={handleAddManualUser}
-                          disabled={isManualSaving || !manualEmail || manualSelectedComms.length === 0}
-                          className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualSelectedComms.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                          {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                          {isManualSaving ? 'Granting...' : 'Grant Access'}
-                        </button>
-                      </div>
-                  )}
                 </div>
               ) : activeTab === 'patreon' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
