@@ -103,34 +103,47 @@ export default function TeammatesApp({ session, unaData }) {
                         </div>
 
                         <div className="space-y-5 relative z-10">
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                                    Invite Teammate
-                                </label>
-                                <input
-                                    type="email"
-                                    value={teamEmail}
-                                    onChange={(e) => setTeamEmail(e.target.value)}
-                                    placeholder="assistant@example.com"
-                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white"
-                                />
-                            </div>
-                            <button
-                                onClick={handleInviteTeammate}
-                                disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
-                                className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                                {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
-                                {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
-                            </button>
-                            {teamLimit > 0 && teamUsed >= teamLimit && (
-                                <p className="text-[9px] text-red-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
-                                    You have reached your seat limit. Remove a teammate or upgrade your account to add more!
-                                </p>
-                            )}
-                            {teamLimit === 0 && (
-                                <p className="text-[9px] text-gray-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
-                                    Your current account tier does not include teammate seats. Upgrade to unlock this feature!
-                                </p>
+                            {teamLimit === 0 ? (
+                                <div className="text-center py-4">
+                                    <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
+                                        Your current account tier does not include teammate seats.
+                                    </p>
+                                    <a 
+                                        href="https://www.selloutcrowds.com/plans" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20"
+                                    >
+                                        Upgrade to unlock this feature!
+                                    </a>
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
+                                            Invite Teammate
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={teamEmail}
+                                            onChange={(e) => setTeamEmail(e.target.value)}
+                                            placeholder="assistant@example.com"
+                                            className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleInviteTeammate}
+                                        disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
+                                        className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                                        {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+                                        {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
+                                    </button>
+                                    {teamLimit > 0 && teamUsed >= teamLimit && (
+                                        <p className="text-[9px] text-red-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
+                                            You have reached your seat limit. Remove a teammate or upgrade your account to add more!
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
