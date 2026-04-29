@@ -48,7 +48,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     return (
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-8 animate-in fade-in duration-300">
+        <div className="max-w-7xl mx-auto pt-16 pb-12 lg:py-12 px-4 sm:px-8 animate-in fade-in duration-300">
             <div className="mb-10">
                 <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white flex items-center gap-3">
                     <LayoutDashboard className="text-[#9df01c]" size={36} />
@@ -59,32 +59,34 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {displayApps.map((app, i) => (
                     <button 
                         key={i} 
                         onClick={() => handleAppSwitch(app.id, app.tab)} 
-                        className={`relative text-left p-6 rounded-[2rem] border transition-all duration-300 flex flex-col h-full group ${
+                        className={`relative text-left p-5 sm:p-6 rounded-[2rem] border transition-all duration-300 flex flex-col h-full group ${
                             app.canAccess 
                                 ? 'bg-[#111] border-white/5 hover:border-[#9df01c]/50 hover:bg-[#151515] shadow-lg shadow-black/50' 
                                 : 'bg-[#0a0a0a] border-white/5 opacity-70 hover:opacity-100 hover:border-white/10'
                         }`}
                     >
-                        <div className="flex items-center justify-between mb-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${
+                        <div className="flex items-center gap-4 mb-2 w-full">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all shrink-0 ${
                                 app.canAccess 
                                     ? 'bg-black border-white/10 text-[#9df01c] group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-[#9df01c]/10' 
                                     : 'bg-black border-white/5 text-gray-500'
                             }`}>
                                 <app.icon size={24} />
                             </div>
-                            {!app.canAccess && <Lock size={18} className="text-gray-500" />}
+                            
+                            <h3 className={`text-lg sm:text-xl font-black uppercase tracking-tight transition-colors ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-400'}`}>
+                                {app.name}
+                            </h3>
+                            
+                            {!app.canAccess && <Lock size={16} className="text-gray-500 ml-auto shrink-0" />}
                         </div>
                         
-                        <h3 className={`text-xl font-black uppercase tracking-tight mb-2 transition-colors ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-400'}`}>
-                            {app.name}
-                        </h3>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-6">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-5 mt-1">
                             {app.desc}
                         </p>
 
