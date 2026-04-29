@@ -243,13 +243,25 @@ export default function Sidebar({
                         <div className="mt-auto pt-8 pb-4">
                             <button 
                                 onClick={() => syncCommunities()}
-                                disabled={isSyncingCommunities}
-                                className="w-full flex items-center justify-center gap-2 bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all">
-                                <RefreshCcw className={`w-4 h-4 ${isSyncingCommunities ? 'animate-spin' : ''}`} /> 
+                                disabled={isSyncingCommunities || !isAdmin}
+                                className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
+                                    !isAdmin 
+                                        ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
+                                        : 'bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'
+                                }`}>
+                                {isSyncingCommunities ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : !isAdmin ? (
+                                    <Lock className="w-4 h-4" />
+                                ) : (
+                                    <RefreshCcw className="w-4 h-4" />
+                                )}
                                 {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
                             </button>
                             <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed">
-                                Click to refresh your Space and Crowd lists if you recently added a new one on the main site.
+                                {isAdmin 
+                                    ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
+                                    : 'Enterprise subscription required to sync communities.'}
                             </p>
                         </div>
                     </div>
