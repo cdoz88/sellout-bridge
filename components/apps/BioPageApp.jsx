@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag, Podcast, Download } from 'lucide-react';
+import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag, Podcast, Download, Lock } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -285,7 +285,12 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
     );
 };
 
-export default function BioPageApp({ session, activeTab }) {
+export default function BioPageApp({ session, activeTab, unaData }) {
+    // Permission Check: Admin (3), All-Star (16), H.O.F. (17)
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+    const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+    const canAccess = isAdmin || [16, 17].includes(Number(unaData?.user?.role));
+
     const [cardData, setCardData] = useState(DEFAULT_BIO_PAGE);
     const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -307,7 +312,10 @@ export default function BioPageApp({ session, activeTab }) {
     }, [slug]);
 
     useEffect(() => {
-        if (!session) return;
+        if (!session || !canAccess) {
+            if (!canAccess) setIsLoading(false);
+            return;
+        }
         fetch('/api/get-bio-page', { headers: { 'Authorization': `Bearer ${session}` } })
             .then(res => {
                 if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); throw new Error('401'); }
@@ -345,7 +353,7 @@ export default function BioPageApp({ session, activeTab }) {
                 setIsLoading(false);
             })
             .catch(() => setIsLoading(false));
-    }, [session]);
+    }, [session, canAccess]);
 
     const handleSave = async () => {
         if (!slug || slug.trim() === '') { alert("Please claim a custom link on the 'Custom URL' page before saving!"); return; }
@@ -539,6 +547,29 @@ export default function BioPageApp({ session, activeTab }) {
             setIsDownloadingQr(false);
         }
     };
+
+    if (!canAccess) {
+        return (
+            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
+                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                    <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
+                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
+                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
+                        The Link in Bio page allows you to create a custom landing page for your social links. This tool is exclusively available to All-Star, H.O.F. and Enterprise subscribers.
+                    </p>
+                    <a 
+                        href="https://www.selloutcrowds.com/plans" 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10"
+                    >
+                        Upgrade to Unlock
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     if (isLoading) return <div className="p-8 text-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin mx-auto mb-2"/> Loading Builder...</div>;
 
