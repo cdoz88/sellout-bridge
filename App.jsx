@@ -3,6 +3,7 @@ import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileT
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
+import DashboardApp from './components/apps/DashboardApp';
 import BridgeApp from './components/apps/BridgeApp';
 import BusinessCardApp, { PublicCardView } from './components/apps/BusinessCardApp';
 import BioPageApp, { PublicBioView } from './components/apps/BioPageApp';
@@ -55,10 +56,10 @@ export default function App() {
               if (params.get('code') && savedApp) {
                   return savedApp;
               }
-              return params.get('app') || 'business-card';
+              return params.get('app') || 'dashboard';
           }
       } catch(e) {}
-      return 'business-card';
+      return 'dashboard';
   });
   
   const [activeTab, setActiveTab] = useState(() => {
@@ -69,10 +70,10 @@ export default function App() {
               if (params.get('code') && savedTab) {
                   return savedTab;
               }
-              return params.get('tab') || 'builder';
+              return params.get('tab') || 'home';
           }
       } catch(e) {}
-      return 'builder';
+      return 'home';
   }); 
 
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
@@ -94,8 +95,6 @@ export default function App() {
 
   useEffect(() => {
       const handleUnauthorized = () => {
-          // If they were actively working (have a user object), show the safety net!
-          // If they weren't logged in anyway, just kick them to the login screen.
           if (hasUser.current) {
               setSessionExpired(true);
           } else {
@@ -218,8 +217,8 @@ export default function App() {
   const handleLogout = () => {
     setSession(null);
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
-    setCurrentApp('business-card');
-    setActiveTab('builder');
+    setCurrentApp('dashboard');
+    setActiveTab('home');
     try {
         const url = new URL(window.location);
         url.search = '';
@@ -411,7 +410,6 @@ export default function App() {
       );
   }
 
-  // --- RESTORED CLASSIC LOGIN PAGE DESIGN WITH LARGE LOGO ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
@@ -539,6 +537,8 @@ export default function App() {
 
   const renderApp = () => {
       switch (currentApp) {
+          case 'dashboard':
+              return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} />;
           case 'business-card':
               return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'address-book':

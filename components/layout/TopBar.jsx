@@ -37,6 +37,12 @@ export default function TopBar({
                         <div className="fixed inset-0 z-40" onClick={() => setIsAppSwitcherOpen(false)} />
                         <div className="absolute top-full left-0 mt-2 w-64 bg-[#111] rounded-2xl shadow-2xl border border-white/10 overflow-hidden z-50 py-2 animate-in slide-in-from-top-2 duration-200">
                             
+                            <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'dashboard' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <LayoutDashboard size={18} className={currentApp === 'dashboard' ? 'text-[#9df01c]' : ''}/> Creator Hub
+                            </button>
+
+                            <div className="h-px bg-white/5 my-1 mx-2"></div>
+                            
                             <button onClick={() => handleAppSwitch('business-card', 'builder')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'business-card' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <Contact size={18} className={currentApp === 'business-card' ? 'text-[#9df01c]' : ''}/> Business Card
                             </button>
