@@ -5,7 +5,7 @@ export default function Sidebar({
     currentApp, activeTab, setActiveTab, unaData, 
     syncCommunities, isSyncingCommunities, setIsMobileMenuOpen, session, handleAppSwitch
 }) {
-    const iconUrl = "https://beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
+    const iconUrl = "https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
     const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
