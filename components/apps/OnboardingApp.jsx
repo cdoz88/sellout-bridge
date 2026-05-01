@@ -18,6 +18,21 @@ export default function OnboardingApp({ session, unaData }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
+    // --- NEW: Load the Wave Video Script ---
+    useEffect(() => {
+        const script = document.createElement('script');
+        script.src = "https://wave.video/embed/popover-embed.js";
+        script.async = true;
+        document.body.appendChild(script);
+
+        return () => {
+            // Cleanup script if the component unmounts
+            if (document.body.contains(script)) {
+                document.body.removeChild(script);
+            }
+        };
+    }, []);
+
     const fetchOnboardingData = async () => {
         try {
             const res = await fetch(`/api/onboarding/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` }});
@@ -145,6 +160,23 @@ export default function OnboardingApp({ session, unaData }) {
                         {isSaving ? 'Saving...' : (isEditing ? 'Save Checklist' : 'Edit Checklist')}
                     </button>
                 )}
+            </div>
+
+            {/* --- NEW: HARDCODED WELCOME VIDEO --- */}
+            <div className="mb-10 w-full rounded-2xl overflow-hidden shadow-2xl border border-white/5 group bg-black transition-colors hover:border-[#9df01c]/30">
+                <div 
+                    className="wave_popover_embed" 
+                    data-id="KypZVgX4MZLAujHP" 
+                    data-width="560" 
+                    data-height="315"
+                >
+                    <img 
+                        src="https://embed.wave.video/KypZVgX4MZLAujHP/preview.jpg?width=1920&height=1080&play=true&color=%239df01c" 
+                        alt="Welcome to Sellout Crowds" 
+                        style={{ cursor: 'pointer', display: 'block', maxWidth: '100%', objectFit: 'cover' }} 
+                        data-target="target" 
+                    />
+                </div>
             </div>
 
             {!isEditing && steps.length > 0 && (
