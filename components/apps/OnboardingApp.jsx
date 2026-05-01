@@ -18,21 +18,6 @@ export default function OnboardingApp({ session, unaData }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // --- NEW: Load the Wave Video Script ---
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = "https://wave.video/embed/popover-embed.js";
-        script.async = true;
-        document.body.appendChild(script);
-
-        return () => {
-            // Cleanup script if the component unmounts
-            if (document.body.contains(script)) {
-                document.body.removeChild(script);
-            }
-        };
-    }, []);
-
     const fetchOnboardingData = async () => {
         try {
             const res = await fetch(`/api/onboarding/data?t=${Date.now()}`, { headers: { 'Authorization': `Bearer ${session}` }});
@@ -56,6 +41,23 @@ export default function OnboardingApp({ session, unaData }) {
     useEffect(() => {
         if (session) fetchOnboardingData();
     }, [session]);
+
+    // --- NEW: Load the Wave Video Script ONLY after the steps are rendered ---
+    useEffect(() => {
+        if (!isLoading && steps.length > 0) {
+            // Remove the script if it already exists to ensure it re-binds properly
+            const existingScript = document.getElementById('wave-popover-script');
+            if (existingScript) {
+                existingScript.remove();
+            }
+            
+            const script = document.createElement('script');
+            script.id = 'wave-popover-script';
+            script.src = "https://wave.video/embed/popover-embed.js";
+            script.async = true;
+            document.body.appendChild(script);
+        }
+    }, [isLoading, steps.length]);
 
     const toggleProgress = async (stepId) => {
         if (isAdmin && isEditing) return;
@@ -160,23 +162,6 @@ export default function OnboardingApp({ session, unaData }) {
                         {isSaving ? 'Saving...' : (isEditing ? 'Save Checklist' : 'Edit Checklist')}
                     </button>
                 )}
-            </div>
-
-            {/* --- NEW: HARDCODED WELCOME VIDEO --- */}
-            <div className="mb-10 w-full rounded-2xl overflow-hidden shadow-2xl border border-white/5 group bg-black transition-colors hover:border-[#9df01c]/30">
-                <div 
-                    className="wave_popover_embed" 
-                    data-id="KypZVgX4MZLAujHP" 
-                    data-width="560" 
-                    data-height="315"
-                >
-                    <img 
-                        src="https://embed.wave.video/KypZVgX4MZLAujHP/preview.jpg?width=1920&height=1080&play=true&color=%239df01c" 
-                        alt="Welcome to Sellout Crowds" 
-                        style={{ cursor: 'pointer', display: 'block', maxWidth: '100%', objectFit: 'cover' }} 
-                        data-target="target" 
-                    />
-                </div>
             </div>
 
             {!isEditing && steps.length > 0 && (
@@ -288,6 +273,27 @@ export default function OnboardingApp({ session, unaData }) {
                                     <h3 className={`text-lg font-black uppercase tracking-tight mb-1 transition-colors ${isCompleted && !isLocked ? 'text-gray-500 line-through' : 'text-white'}`}>{step.title}</h3>
                                     <p className={`text-sm font-medium leading-relaxed transition-colors ${isCompleted && !isLocked ? 'text-gray-600' : 'text-gray-400'}`}>{step.description}</p>
                                     
+                                    {/* --- INJECT VIDEO INTO FIRST STEP --- */}
+                                    {index === 0 && !isLocked && (
+                                        <div className="mt-4 mb-2 w-full max-w-lg rounded-xl overflow-hidden shadow-xl border border-white/10 group bg-black transition-colors hover:border-[#9df01c]/50">
+                                            <div 
+                                                className="wave_popover_embed" 
+                                                data-id="KypZVgX4MZLAujHP" 
+                                                data-width="560" 
+                                                data-height="315"
+                                            >
+                                                <div>
+                                                    <img 
+                                                        src="https://embed.wave.video/KypZVgX4MZLAujHP/preview.jpg?width=1920&height=1080&play=true&color=%239df01c" 
+                                                        alt="Welcome to Sellout Crowds" 
+                                                        style={{ cursor: 'pointer', display: 'block', maxWidth: '100%', objectFit: 'cover' }} 
+                                                        data-target="target" 
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {isLocked ? (
                                         <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 mt-4 bg-white/5 border border-white/10 px-4 py-2.5 rounded-lg text-gray-400 font-black uppercase tracking-widest text-[10px] transition-colors hover:text-white hover:border-white/20">
                                             <Lock size={12} /> Available for {missingRoleNames}
