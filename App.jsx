@@ -83,7 +83,7 @@ export default function App() {
   const hasUser = useRef(false);
 
   const brandColor = '#9df01c';
-  const logoUrl = "https://beasellout.com/wp-content/uploads/2025/04/Logo.png";
+  const logoUrl = "https://admin.beasellout.com/wp-content/uploads/2025/04/Logo.webp";
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
@@ -410,6 +410,7 @@ export default function App() {
       );
   }
 
+  // --- RESTORED CLASSIC LOGIN PAGE DESIGN WITH LARGE LOGO ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
