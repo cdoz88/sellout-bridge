@@ -410,7 +410,6 @@ export default function App() {
       );
   }
 
-  // --- RESTORED CLASSIC LOGIN PAGE DESIGN WITH LARGE LOGO ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
@@ -592,18 +591,16 @@ export default function App() {
             />
             
             <main className="flex-1 overflow-auto relative custom-scrollbar">
-                <div className="lg:hidden absolute top-4 left-4 z-40">
-                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-[#111] border border-white/10 rounded-xl text-white shadow-lg">
-                        <Menu size={20} />
-                    </button>
-                </div>
-
                 {renderApp()}
             </main>
         </div>
 
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-6 z-50">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 -ml-2 transition-colors flex flex-col items-center gap-1 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500 hover:text-white'}`}>
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a] border-t border-white/5 flex items-center justify-between px-4 sm:px-6 z-50">
+            <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`p-2 transition-colors flex flex-col items-center gap-1 ${currentApp === 'dashboard' ? 'text-[#9df01c]' : 'text-gray-500 hover:text-white'}`}>
+                <LayoutDashboard size={20} />
+                <span className="text-[9px] font-bold uppercase tracking-widest">Hub</span>
+            </button>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 transition-colors flex flex-col items-center gap-1 ${isMobileMenuOpen ? 'text-white' : 'text-gray-500 hover:text-white'}`}>
                 {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                 <span className="text-[9px] font-bold uppercase tracking-widest">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
             </button>
@@ -611,9 +608,9 @@ export default function App() {
                 <QrCode size={20} />
                 <span className="text-[9px] font-bold uppercase tracking-widest">QR Code</span>
             </button>
-            <button onClick={triggerMobileAddContact} className="p-2 -mr-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
+            <button onClick={triggerMobileAddContact} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
                 <UserPlus size={20} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Add Contact</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Contact</span>
             </button>
         </div>
 
