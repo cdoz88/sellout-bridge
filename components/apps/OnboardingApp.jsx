@@ -262,7 +262,7 @@ export default function OnboardingApp({ session, unaData }) {
                                     {/* --- NATIVE REACT VIDEO BUTTON --- */}
                                     {index === 0 && !isLocked && (
                                         <div 
-                                            className="mt-4 mb-2 w-full max-w-lg rounded-xl overflow-hidden shadow-xl border border-white/10 group bg-black transition-colors hover:border-[#9df01c]/50 relative cursor-pointer"
+                                            className="mt-4 mb-2 w-full max-w-[260px] rounded-xl overflow-hidden shadow-xl border border-white/10 group bg-black transition-colors hover:border-[#9df01c]/50 relative cursor-pointer"
                                             onClick={() => setShowVideoModal(true)}
                                         >
                                             <img 
@@ -308,8 +308,8 @@ export default function OnboardingApp({ session, unaData }) {
 
             {/* --- NATIVE VIDEO MODAL --- */}
             {showVideoModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowVideoModal(false)}>
-                    <div className="w-full max-w-5xl flex flex-col relative" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 lg:pl-[18rem] bg-black/90 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowVideoModal(false)}>
+                    <div className="w-full max-w-4xl flex flex-col relative" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-end mb-4">
                             <button onClick={() => setShowVideoModal(false)} className="bg-white/10 hover:bg-red-500 text-white p-2 rounded-full transition-colors backdrop-blur-md">
                                 <X size={24}/>
