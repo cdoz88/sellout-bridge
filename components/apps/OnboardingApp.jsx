@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save, Lock } from 'lucide-react';
+import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save, Lock, X } from 'lucide-react';
 
 const AVAILABLE_ROLES = [
     { id: 18, name: 'Teammate' },
@@ -17,6 +17,9 @@ export default function OnboardingApp({ session, unaData }) {
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    
+    // --- NEW: State to control the video modal ---
+    const [showVideoModal, setShowVideoModal] = useState(false);
 
     const fetchOnboardingData = async () => {
         try {
@@ -41,23 +44,6 @@ export default function OnboardingApp({ session, unaData }) {
     useEffect(() => {
         if (session) fetchOnboardingData();
     }, [session]);
-
-    // --- NEW: Load the Wave Video Script ONLY after the steps are rendered ---
-    useEffect(() => {
-        if (!isLoading && steps.length > 0) {
-            // Remove the script if it already exists to ensure it re-binds properly
-            const existingScript = document.getElementById('wave-popover-script');
-            if (existingScript) {
-                existingScript.remove();
-            }
-            
-            const script = document.createElement('script');
-            script.id = 'wave-popover-script';
-            script.src = "https://wave.video/embed/popover-embed.js";
-            script.async = true;
-            document.body.appendChild(script);
-        }
-    }, [isLoading, steps.length]);
 
     const toggleProgress = async (stepId) => {
         if (isAdmin && isEditing) return;
@@ -273,24 +259,17 @@ export default function OnboardingApp({ session, unaData }) {
                                     <h3 className={`text-lg font-black uppercase tracking-tight mb-1 transition-colors ${isCompleted && !isLocked ? 'text-gray-500 line-through' : 'text-white'}`}>{step.title}</h3>
                                     <p className={`text-sm font-medium leading-relaxed transition-colors ${isCompleted && !isLocked ? 'text-gray-600' : 'text-gray-400'}`}>{step.description}</p>
                                     
-                                    {/* --- INJECT VIDEO INTO FIRST STEP --- */}
+                                    {/* --- NATIVE REACT VIDEO BUTTON --- */}
                                     {index === 0 && !isLocked && (
-                                        <div className="mt-4 mb-2 w-full max-w-lg rounded-xl overflow-hidden shadow-xl border border-white/10 group bg-black transition-colors hover:border-[#9df01c]/50">
-                                            <div 
-                                                className="wave_popover_embed" 
-                                                data-id="KypZVgX4MZLAujHP" 
-                                                data-width="560" 
-                                                data-height="315"
-                                            >
-                                                <div>
-                                                    <img 
-                                                        src="https://embed.wave.video/KypZVgX4MZLAujHP/preview.jpg?width=1920&height=1080&play=true&color=%239df01c" 
-                                                        alt="Welcome to Sellout Crowds" 
-                                                        style={{ cursor: 'pointer', display: 'block', maxWidth: '100%', objectFit: 'cover' }} 
-                                                        data-target="target" 
-                                                    />
-                                                </div>
-                                            </div>
+                                        <div 
+                                            className="mt-4 mb-2 w-full max-w-lg rounded-xl overflow-hidden shadow-xl border border-white/10 group bg-black transition-colors hover:border-[#9df01c]/50 relative cursor-pointer"
+                                            onClick={() => setShowVideoModal(true)}
+                                        >
+                                            <img 
+                                                src="https://embed.wave.video/KypZVgX4MZLAujHP/preview.jpg?width=1920&height=1080&play=true&color=%239df01c" 
+                                                alt="Welcome to Sellout Crowds" 
+                                                className="w-full h-auto object-cover block"
+                                            />
                                         </div>
                                     )}
 
@@ -325,6 +304,30 @@ export default function OnboardingApp({ session, unaData }) {
                 <button onClick={addStep} className="w-full mt-6 py-4 rounded-xl border-2 border-dashed border-[#9df01c]/30 text-[#9df01c] hover:bg-[#9df01c]/10 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors">
                     <Plus size={16} /> Add New Step
                 </button>
+            )}
+
+            {/* --- NATIVE VIDEO MODAL --- */}
+            {showVideoModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowVideoModal(false)}>
+                    <div className="w-full max-w-5xl flex flex-col relative" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-end mb-4">
+                            <button onClick={() => setShowVideoModal(false)} className="bg-white/10 hover:bg-red-500 text-white p-2 rounded-full transition-colors backdrop-blur-md">
+                                <X size={24}/>
+                            </button>
+                        </div>
+                        <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10">
+                            <iframe 
+                                src="https://embed.wave.video/KypZVgX4MZLAujHP?autoplay=true&color=%239df01c" 
+                                width="100%" 
+                                height="100%" 
+                                frameBorder="0" 
+                                allow="autoplay; fullscreen"
+                                title="Welcome Video"
+                                className="w-full h-full"
+                            ></iframe>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
