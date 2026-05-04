@@ -128,7 +128,6 @@ async function ensureSchema() {
             try { await sql`ALTER TABLE bridge_guides ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`; } catch(e) {}
         } catch(e) {}
 
-        // NEW: ONBOARDING TABLES WITH ROLE GATING
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_onboarding_steps (id SERIAL PRIMARY KEY, title VARCHAR(255), description TEXT, action_url TEXT, order_index INTEGER DEFAULT 0)`;
             await sql`CREATE TABLE IF NOT EXISTS bridge_user_progress (user_id INTEGER, step_id INTEGER, completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, step_id))`;
@@ -137,6 +136,22 @@ async function ensureSchema() {
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_url_2 TEXT`; } catch(e) {}
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS action_text_2 VARCHAR(255)`; } catch(e) {}
             try { await sql`ALTER TABLE bridge_onboarding_steps ADD COLUMN IF NOT EXISTS allowed_roles TEXT`; } catch(e) {}
+        } catch(e) {}
+
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_address_book (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                name VARCHAR(255),
+                title VARCHAR(255),
+                company VARCHAR(255),
+                phone VARCHAR(255),
+                email VARCHAR(255),
+                website VARCHAR(255),
+                notes TEXT,
+                photo TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
         } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
@@ -171,14 +186,10 @@ async function getAuthenticatedUser(token) {
             headers: { 'Authorization': token }
         });
         
-        // FIX: Only trigger a logout (return null) if UNA explicitly says the token is dead
         if (meRes.status === 401 || meRes.status === 403) {
             return null; 
         }
 
-        // FIX: If UNA is lagging or has a network glitch, THROW an error.
-        // This ensures the endpoint returns a 500 error instead of a 401,
-        // which prevents the user from being unexpectedly logged out!
         if (!meRes.ok) {
             throw new Error(`UNA Server Hiccup: ${meRes.status}`);
         }
@@ -195,7 +206,6 @@ async function getAuthenticatedUser(token) {
                         body: JSON.stringify({ email: meData.email, action: 'get_role' }) 
                     });
                     
-                    // Don't crash the session if just the role fetch lags
                     if (roleRes.ok) {
                         const roleData = await roleRes.json();
                         if (roleData && roleData.success && roleData.role) {
@@ -211,8 +221,6 @@ async function getAuthenticatedUser(token) {
         return null;
     } catch (e) { 
         console.error("Auth verification error:", e.message);
-        // By throwing an error here instead of returning null, the API endpoint catches it
-        // and returns a 500 Server Error instead of a 401 Unauthorized. No more random logouts!
         throw e; 
     }
 }
@@ -428,6 +436,66 @@ app.get('/api/public-bio-page/:slug', async (req, res) => {
         if (rows.length > 0) res.json({ success: true, page: rows[0].page_data });
         else res.status(404).json({ error: "Page not found" });
     } catch (err) { res.status(500).json({ error: "Server error" }); }
+});
+
+// ==========================================
+// ADDRESS BOOK ENDPOINTS (Public & Private)
+// ==========================================
+
+app.post('/api/public/contact-submit', async (req, res) => {
+    try {
+        const { slug, contact } = req.body;
+        if (!slug || !contact || !contact.name) return res.status(400).json({ error: "Missing required fields" });
+        
+        await ensureSchema();
+        const cardRows = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug}`;
+        if (cardRows.length === 0) return res.status(404).json({ error: "Card not found" });
+        
+        const userId = cardRows[0].user_id;
+        await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email) 
+                  VALUES (${userId}, ${contact.name}, ${contact.title}, ${contact.company}, ${contact.phone}, ${contact.email})`;
+        
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to submit contact" });
+    }
+});
+
+app.get('/api/contacts', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+        const rows = await sql`SELECT * FROM bridge_address_book WHERE user_id = ${user.id} ORDER BY created_at DESC`;
+        res.json({ contacts: rows });
+    } catch (err) { res.status(500).json({ error: "Failed to fetch contacts" }); }
+});
+
+app.post('/api/contacts', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { id, name, title, company, phone, email, website, notes, photo } = req.body;
+        await ensureSchema();
+        
+        if (id) {
+            await sql`UPDATE bridge_address_book SET name=${name}, title=${title}, company=${company}, phone=${phone}, email=${email}, website=${website}, notes=${notes}, photo=${photo} WHERE id=${id} AND user_id=${user.id}`;
+        } else {
+            await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${user.id}, ${name}, ${title}, ${company}, ${phone}, ${email}, ${website}, ${notes}, ${photo})`;
+        }
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to save contact" }); }
+});
+
+app.post('/api/contacts/delete', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { id } = req.body;
+        await ensureSchema();
+        await sql`DELETE FROM bridge_address_book WHERE id=${id} AND user_id=${user.id}`;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to delete contact" }); }
 });
 
 // ==========================================
@@ -1592,7 +1660,7 @@ app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-        // --- NEW: Block Rookies (15), Teammates (18), and basic creators (1, 2) from using the WP integration ---
+        // Block Rookies (15), Teammates (18), and basic creators (1, 2) from using the WP integration
         const role = Number(user.role);
         if ([1, 2, 15, 18].includes(role)) {
             return res.status(403).json({ error: "Your current plan does not support WordPress integration. Please upgrade to All-Star or Enterprise." });

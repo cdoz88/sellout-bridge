@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Podcast } from 'lucide-react';
+import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Podcast, UserPlus, CheckCircle2 } from 'lucide-react';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -65,92 +65,11 @@ const SelloutIcon = ({ size=20, className="" }) => (
             <path d="m46.61,298.67v-.13c-.77.11-2,.29-2.54.24.9-.21,2.86-.23,3.49-.52.16.01.45-.02.6,0,2.1-.47,4.44-.52,6.63-.92-.95.46-3.25.26-4.34.75-.19,0,0-.03.12-.05-.98.12-2.74.26-3.97.63Z" fill="currentColor" fillRule="evenodd" />
             <path d="m47.93,302.65c-.18.08-.51.14-.71.22-.11,0,.46-.27.71-.22Z" fill="currentColor" fillRule="evenodd" />
             <path d="m289.44,296.4c.54.04,1.14-.05,1.7-.01,1.32.08,2.5.28,3.84.3,1.18,0,2.3-.03,3.53.04.91.06,1.21.04,1.82.05,1.78.05,3.23.25,4.03-.01,1.26-.1,2.84-.08,3.95-.18.17-.02.54.03.61.03,2.82-.25,4.61-.93,7.92-.99.31-.16.53-.42,1.11-.6.26-.08.83-.1,1.02-.19.71-.34.18-.9,1.46-1.09.08-.09-.14-.14-.2-.22.13-.8-.3-1.52.08-2.11-.82-.45-.58-.85-1.21-1.26-.39-.25-1.18-.53-1.69-.79-.58-.29-1.2-.54-1.69-.82.03-.24-.74-.36-.87-.58-.93-.24-1.63-.51-2.57-.75-.08-.09-.31-.16-.32-.26-1.98-.6-3.97-1.31-6.73-1.73-.25-.04-.78-.12-1.09-.14-2.06-.19-5.22-.57-6.27-.99-.37-.06-.37.02-.74-.04-.22-.19-1.29-.53-2.24-.59-.33-.02-.91.15-1.63.15-1.07-.01-2.06-.36-3.02-.37-.44,0-.92.15-1.39.16-1.21.04-3.63-.2-4.63-.33-.79-.1-1.08-.27-1.68-.28-.55,0-.97.14-.93.39-1.59.45-5.58-.23-7.99-.14-1.75-.33-3.45-.02-5.14-.13-.34-.02-.74-.1-1.09-.11-.58-.02-1.35.06-2.1.07-1.27.02-2.39-.03-3.43.01-1.6-.38-2.8-.05-4.15-.11-.51-.02-1-.15-1.57-.16-.48-.02-.95.06-1.47.03-.52-.03-1.07-.15-1.57-.16-.38-.01-.68.04-.98.02-.4-.02-.66-.11-1.09-.11-.45,0-.91.11-1.36.1-1.66-.02-3.45-.18-5.02.05-2.83-.24-5.3.06-8.65-.2-.84.05-1.45.09-2.32.02-.19.02-.19.1-.5.09-1.74-.12-3.58.13-5.37,0-.06.04-.14.07-.25.09-2.48-.2-5.62-.24-7.56-.02-1.51-.15-3.27.05-5.12.07-.87,0-1.74-.07-2.56-.03-1.6.08-3.7.02-5.25.07-.46.02-.9.11-1.35.13-.81.03-1.69-.05-2.56,0-3.35.18-7.19.18-10.12.25-.91.02-1.68.15-2.69.21-1.68.11-3.43-.02-5.11.07-.42.02-.83.1-1.22.12-1.01.06-1.98.02-3.04.06-2.61.08-5.22.32-7.68.29-3.12.35-7.69.47-11.33.66-.81.21-1.59.09-2.44.15-2.6.18-5.92.51-8.65.55-5.72.48-11.56.86-17.38,1.25-5.82.45-11.63.92-17.27,1.49-.89-.07-2.26.1-3.03.27-.17-.07-.69-.02-1.09-.02-1.4.33-3.19.3-4.98.5-.44.25-1.53.18-2.19.39-.3-.09.38-.13-.12-.15-1.13.48-5.05.62-6.8.87.12,0,.15.05,0,.07-.43-.06-.62.15-1.09.18-3.18.33-5.42.92-8.12,1.31-.35-.02-1.27-.1-1.57.07.49-.02,1.11-.09,1.09.07-.82.02-1.89.2-2.42.37-1.01.11-1.53.07-2.42.27-.22.02.23.14-.24.18-1.42.05-2.12.25-3.39.3-.35.19-1.83.38-2.3.35-.41.11.47.08.12.15-1.14.16-2.2.34-3.27.35-.25.1-.42.21-.85.28-.29.04.07-.15-.36-.06-.4.13.33.12.24.24-.57.11-.45.18-.72.3-.81,0-1.34.23-2.06.36-.74.13-1.58.16-2.3.29-.62.1-.87.24-1.57.32-.57.06-1.06,0-1.69.08-.33.06.24.09-.24.16-2.21.29-4.42.57-6.04.96,2.48-.53,4.34-.47,6.52-.95.35.11.98-.2,1.33-.04.14-.1-.38-.1.12-.14.61-.09,1.09-.12,1.81-.24.23.11.73.12.48.31-2.19.22-5.13.77-7.73,1.07-.79.1-1.62.06-2.05.31,1.16-.19,2.12-.08,3.14-.16,1.32-.11,2.7-.46,3.99-.55.36-.02.52.02.84-.02.26-.03.68-.17.97-.19.31-.03.34.04.6,0,.55-.07.96-.22,1.57-.28,1.02-.1,2.03-.08,3.14-.24.21.04.13.19-.12.24-1.32.14-1.55.17-2.9.31.15,0,.25.02.24.07-.42.03-.57,0-.85.11,1-.11.94.15.61.3-2.5.21-5.55.64-7.61.76-.22.09-.35.2-.72.26-2.3.34-4.89.55-7.36.9,2.84-.12,5.78-.59,9.05-1,.13.02.04.12.36.06,1.39-.24,3.02-.38,4.1-.52.5.09.98.18,1.45.28,3.43-.47,6-.17,9.29-.46,0,.1.25.1.36.16-.26.1-.42.23-.72.32-.54.06-1.09.16-1.57.14-2.75.54-6.7.77-10.13,1.28-.4.2-.06.29.24.4,1.67-.08,3.16-.46,4.94-.44.67.32.03.65-1.32.81-2.25.27-6.13.63-7.59.73-6.57.94-13.12,1.59-19.84,2.6,3.76-.37,7.19-1.02,10.57-1.24-.02-.07.1-.11.36-.14,3.31-.32,6.98-.77,9.87-1.18,1.24.11,3.56-.41,4.82-.3-.27.4-1.26.67-2.53.89,1.3-.16,2.52-.16,3.61-.25.9-.07,2.43-.34,2.89-.31.11,0-.09.1.12.09-.37.03.65-.09.72-.1.48-.09.39-.11.96-.16.74-.06.73-.06,1.2-.01,2.56-.18,5.04-.53,7.59-.69.27-.02.8-.07.84-.07.24,0,.04.08.36.07.18,0,.09-.08.36-.1,1-.06,2.14-.14,3.13-.24,2.49-.27,5.45-.41,7.48-.59.45-.01-.13.15.48.09,3.51-.21,7.22-.45,10.97-.73.28-.01.07.15.48.09.52-.02.38-.17.85-.19.29.02.56.05.72.12,4.31-.18,8.73-.63,13.16-1,4.13-.36,8.28-.6,12.2-.84,3.09-.2,6.05-.51,8.82-.57,1.85-.16,3.59-.29,5.29-.39,1.7-.08,3.38-.16,5.11-.24,2.51-.12,5.27-.16,7.38-.33.36-.03.79-.12,1.22-.14.64-.03,1.29.05,1.93.03,1.73-.07,3.49-.28,5.21-.35,1.93-.07,3.79-.08,5.68-.12,1.07-.02,2.09-.15,3.15-.19.7-.02,1.44.04,2.17.02,2.04-.06,4.12-.26,6.06-.28,2.59-.02,5.24.02,7.86-.16,2.9.06,6.42.04,9.19-.04,2.25.24,4.59-.05,7.13,0,.27,0,.45.05.72.06,1.92.08,3.96.02,5.9-.03,1.94-.02,3.79-.04,5.35.07,1.17-.15,2.17.04,3.26.1,1.17.06,2.26-.04,3.39-.03.37,0,.71.07,1.08.09,1.14.04,2.26-.05,3.52-.06,1.88,0,3.88.3,6.03.15,1.66.12,4.12.39,6.03.3,3.21.36,6.47.19,9.77.42,1.11.08,2.12.29,3.25.17,1.16.22,2.55.16,3.97.24,1.4.07,2.86.22,4.32.36,2.08.19,4.68.21,6.22.66.67.78,2.11-.21,3.76.04.87.2.74.4,1.1.69.78.16,1.52.14,2.29.13.89.13,1.51.5,2.7.58Zm-211.93-2.69s-.03-.06-.12-.05c.24-.18.84-.01.12.05Zm-.24.09c-1,.12-2.4.41-3.14.37-.2.02.19.17-.12.24-.44-.04-.95-.04-1.69.03-.08-.26,1.41-.25,1.45-.5.57-.04.85-.05,1.09-.2,1.17-.03,1.41-.22,2.3-.22-.22.18.17.1.12.28Z" fill="currentColor" fillRule="evenodd" />
-            <path d="m148.83,143.24c-9.14-8.94-14.98-21.48-17.42-34.23-2.71-12.63-3.99-25.75-3.66-38.65-1.16-30.21,23.88-54.66,54.06-53.06,22.34-1.51,46.43,14.47,52.05,39.42,1.57,7.33,1.33,14.78,1.23,22.28-1.11,21.91-4.06,46.24-19.83,62.79,3.23-5.34,5.74-11.05,7.47-17.01,4.63-17.88,4.25-36.6,2.76-54.91-.23-2.78-.55-5.83-1.29-8.51-4.26-19.24-23.49-33.41-43.08-31.71-18.12-1.21-35.99,10.94-41.4,28.36-1.43,3.93-1.93,8.62-2.32,12.81-.63,6.25-.82,12.37-.86,18.6.04,18.58,1.52,37.98,12.3,53.83h0Z" fill="currentColor" />
-            <path d="m100.25,272.48L2.2,43.53c-2.95-6.9-2.94-14.8.04-21.68,2.98-6.89,8.73-12.31,15.78-14.88l14.49-5.29c13.79-5.03,29.02,1.64,34.68,15.17l43.74,100.47c.82,1.89,1.25,3.93,1.25,5.99l-8.6,12.94L52.51,22.98c-2.37-5.67-8.76-8.47-14.54-6.36l-14.49,5.29c-3,1.09-5.36,3.31-6.62,6.25-1.27,2.93-1.27,6.16-.02,9.1l82.74,198.35c.79,1.9,1.19,3.95,1.15,6.01l-.48,30.86Z" fill="currentColor" />
-            <path d="m262.6,272.48l98.05-228.95c2.95-6.9,2.94-14.8-.04-21.68-2.98-6.89-8.73-12.31-15.78-14.88l-14.49-5.29c-13.79-5.03-29.02,1.64-34.68,15.17l-43.74,100.47c-.82,1.89-1.25,3.93-1.25,5.99l8.6,12.94,51.07-113.26c2.37-5.67,8.76-8.47,14.54-6.36l14.49,5.29c3,1.09,5.36,3.31,6.62,6.25,1.27,2.93,1.27,6.16.02,9.1l-82.74,198.35c-.79,1.9-1.19,3.95-1.15,6.01l.48,30.86Z" fill="currentColor" />
-            <path d="m155.38,190.44h-18.92v15.88c0,4.32,3.15,6.49,9.46,6.49,8.25,0,15.13,2.2,20.64,6.6,5.87,4.68,8.81,10.87,8.81,18.56v20.76c0,3.81-1.47,7.06-4.4,9.76-2.9,2.66-6.35,3.99-10.35,3.99h-29.39c-4.01,0-7.46-1.33-10.35-3.99-2.94-2.7-4.4-5.95-4.4-9.76v-20.29h19.99v15.41h18.92v-15.88c0-4.32-3.15-6.48-9.46-6.48-8.25,0-15.13-2.2-20.64-6.6-5.87-4.68-8.81-10.87-8.81-18.56v-20.76c0-3.81,1.47-7.06,4.4-9.76,2.89-2.66,6.35-3.99,10.35-3.99h29.39c4.01,0,7.46,1.33,10.35,3.99,2.93,2.7,4.4,5.95,4.4,9.76v20.23h-19.99v-15.35Z" fill="currentColor" />
-            <path d="m226.39,190.44h-18.92v63.42h18.92v-15.41h19.99v20.29c0,3.81-1.47,7.06-4.4,9.76-2.9,2.66-6.35,3.99-10.35,3.99h-29.39c-4.01,0-7.46-1.33-10.35-3.99-2.94-2.7-4.4-5.95-4.4-9.76v-73.18c0-3.81,1.47-7.06,4.4-9.76,2.89-2.66,6.35-3.99,10.35-3.99h29.39c4.01,0,7.46,1.33,10.35,3.99,2.93,2.7,4.4,5.95,4.4,9.76v20.23h-19.99v-15.35Z" fill="#ffffff" />
         </g>
     </svg>
 );
 
-const DEFAULT_LINKS = [
-    { id: 'phone', type: 'phone', title: 'Phone Number', defaultSubtitle: 'Call or Text', url: '' },
-    { id: 'email', type: 'email', title: 'Email Address', defaultSubtitle: 'Email me', url: '' },
-    { id: 'website', type: 'website', title: 'Official Website', defaultSubtitle: 'Visit my site', url: '' },
-    { id: 'shop', type: 'shop', title: 'Official Shop', defaultSubtitle: 'Browse my store', url: '' },
-    { id: 'podcast', type: 'podcast', title: 'Podcast', defaultSubtitle: 'Listen to my podcast', url: '' },
-    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', defaultSubtitle: 'Join my community', url: '' },
-    { id: 'instagram', type: 'instagram', title: 'Instagram', defaultSubtitle: 'Follow me', url: '' },
-    { id: 'tiktok', type: 'tiktok', title: 'TikTok', defaultSubtitle: 'Watch my videos', url: '' },
-    { id: 'youtube', type: 'youtube', title: 'YouTube', defaultSubtitle: 'Subscribe to my channel', url: '' },
-    { id: 'facebook', type: 'facebook', title: 'Facebook', defaultSubtitle: 'Connect on Facebook', url: '' },
-    { id: 'twitter', type: 'twitter', title: 'X', defaultSubtitle: 'Follow for updates', url: '' },
-    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', defaultSubtitle: 'Professional network', url: '' },
-    { id: 'whatsapp', type: 'whatsapp', title: 'WhatsApp', defaultSubtitle: 'Chat with me', url: '' },
-    { id: 'bluesky', type: 'bluesky', title: 'Bluesky', defaultSubtitle: 'Follow me', url: '' },
-    { id: 'twitch', type: 'twitch', title: 'Twitch', defaultSubtitle: 'Watch my stream', url: '' }
-];
-
-const DEFAULT_CARD = {
-    name: "Your Name",
-    title: "Your Title",
-    company: "Your Company",
-    links: DEFAULT_LINKS, 
-    avatarUrl: "",
-    logoUrl: "", 
-    logoSize: 56, 
-    logoOffsetX: 0, 
-    themePreset: "default", 
-    theme: "#9df01c",
-    textColor: "#000000",
-    iconColor: "#9df01c",
-    cardBgColor: "#111111", 
-    cardBgType: "dark",
-    qrLogoEnabled: false, 
-    qrLogoUrl: "", 
-    qrLogoBg: "#ffffff"
-};
-
-const PRESETS = [
-    { id: 'default', name: 'SC Dark', bg: '#111111', accent: '#9df01c', data: { cardBgColor: '#111111', cardBgType: 'dark', theme: '#9df01c', textColor: '#000000', iconColor: '#9df01c' } },
-    { id: 'midnight', name: 'Midnight', bg: '#020617', accent: '#38bdf8', data: { cardBgColor: '#020617', cardBgType: 'dark', theme: '#38bdf8', textColor: '#020617', iconColor: '#38bdf8' } },
-    { id: 'forest', name: 'Forest', bg: '#064e3b', accent: '#34d399', data: { cardBgColor: '#064e3b', cardBgType: 'dark', theme: '#34d399', textColor: '#064e3b', iconColor: '#34d399' } },
-    { id: 'rose', name: 'Rose', bg: '#4c0519', accent: '#fb7185', data: { cardBgColor: '#4c0519', cardBgType: 'dark', theme: '#fb7185', textColor: '#4c0519', iconColor: '#fb7185' } },
-    { id: 'clean', name: 'Clean Light', bg: '#f9fafb', accent: '#000000', data: { cardBgColor: '#f9fafb', cardBgType: 'light', theme: '#000000', textColor: '#ffffff', iconColor: '#000000' } },
-    { id: 'custom', name: 'Custom', bg: 'linear-gradient(45deg, #333, #111)', accent: 'transparent' }
-];
-
-const getIconForType = (type) => {
-    switch(type) {
-        case 'phone': return Phone;
-        case 'email': return Mail;
-        case 'website': return Globe;
-        case 'shop': return ShoppingBag;
-        case 'podcast': return Podcast;
-        case 'sellout': return SelloutIcon;
-        case 'instagram': return Instagram;
-        case 'tiktok': return TiktokIcon;
-        case 'youtube': return Youtube;
-        case 'facebook': return Facebook;
-        case 'twitter': return XIcon;
-        case 'linkedin': return Linkedin;
-        case 'whatsapp': return WhatsappIcon;
-        case 'bluesky': return BlueskyIcon;
-        case 'twitch': return TwitchIcon;
-        case 'custom': return Link2; 
-        default: return Link2;
-    }
-};
-
-const getSubtitle = (link) => {
-    if (link.type === 'phone' || link.type === 'email') return link.url;
-    if (link.type === 'custom') return link.url.replace(/^https?:\/\//, '');
-    if (link.type === 'website' || link.type === 'shop' || link.type === 'podcast') return link.url.replace(/^https?:\/\//, '');
-    return link.defaultSubtitle;
-};
-
-export const PublicCardView = ({ data, isFullScreen = false }) => {
+export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
     const cardBgColor = data.cardBgColor || (isLight ? '#ffffff' : '#111111');
@@ -159,6 +78,12 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
     const [notes, setNotes] = useState('');
     const [showPhoneAction, setShowPhoneAction] = useState(false);
     const [activePhoneString, setActivePhoneString] = useState(''); 
+
+    // --- NEW: SHARE CONTACT STATE ---
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareData, setShareData] = useState({ name: '', company: '', title: '', phone: '', email: '' });
+    const [isSharing, setIsSharing] = useState(false);
+    const [shareSuccess, setShareSuccess] = useState(false);
 
     const activeLinks = data.links || [];
     const emailLink = activeLinks.find(l => l.type === 'email' && l.url.trim());
@@ -207,6 +132,35 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const handleShareSubmit = async () => {
+        if (!shareData.name) { alert("Name is required"); return; }
+        if (!slug) { alert("You must save a custom URL for this card before it can receive contacts."); return; }
+        
+        setIsSharing(true);
+        try {
+            const res = await fetch('/api/public/contact-submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slug, contact: shareData })
+            });
+            
+            if (res.ok) {
+                setShareSuccess(true);
+                setTimeout(() => {
+                    setShowShareModal(false);
+                    setShareSuccess(false);
+                    setShareData({ name: '', company: '', title: '', phone: '', email: '' });
+                }, 3000);
+            } else {
+                alert("Failed to send contact info. Please try again.");
+            }
+        } catch (e) {
+            alert("Network error. Please try again.");
+        } finally {
+            setIsSharing(false);
+        }
     };
 
     const containerClasses = isFullScreen 
@@ -290,16 +244,32 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                     })}
                 </div>
 
-                <div className="mt-8 flex gap-3">
-                    <button onClick={() => setShowNotesModal(true)} className={`flex-1 py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}>
-                        <FileText size={16} /> Notes
+                <div className="mt-8 flex flex-col gap-3">
+                    <button 
+                        onClick={() => setShowShareModal(true)} 
+                        className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" 
+                        style={{ backgroundColor: data.theme, color: data.textColor }}
+                    >
+                        <UserPlus size={16} /> Share Your Contact Info
                     </button>
-                    <button onClick={handleSaveContact} className="flex-[2] py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
-                        <Download size={16} /> Save Contact
-                    </button>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => setShowNotesModal(true)} 
+                            className={`flex-1 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}
+                        >
+                            <FileText size={16} /> Notes
+                        </button>
+                        <button 
+                            onClick={handleSaveContact} 
+                            className={`flex-1 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${isLight ? 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50' : 'bg-[#111] border border-white/10 text-gray-300 hover:bg-white/5'}`}
+                        >
+                            <Download size={16} /> Save Contact
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            {/* Existing Phone Actions Modal */}
             {showPhoneAction && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPhoneAction(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
@@ -320,6 +290,7 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                 </div>
             )}
 
+            {/* Existing Notes Modal */}
             {showNotesModal && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNotesModal(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
@@ -329,6 +300,41 @@ export const PublicCardView = ({ data, isFullScreen = false }) => {
                         <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Jot down details to remember this person. These save directly to your phone contacts.</p>
                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows="4" placeholder="E.g., Met at the conference..." className={`w-full p-4 rounded-2xl text-sm outline-none border transition-colors mb-6 ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}></textarea>
                         <button onClick={handleSaveNotes} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]" style={{ backgroundColor: data.theme, color: data.textColor }}>Save Notes</button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- NEW SHARE CONTACT MODAL --- */}
+            {showShareModal && (
+                <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowShareModal(false)}>
+                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowShareModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
+                        
+                        {shareSuccess ? (
+                            <div className="text-center py-8">
+                                <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
+                                <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Sent Successfully!</h3>
+                                <p className={`text-xs font-medium ${buttonSubtitleClass}`}>Your contact information has been shared with {data.name}.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><UserPlus size={24} /></div>
+                                <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Share Your Info</h3>
+                                <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Send your contact details directly to {data.name}'s address book.</p>
+                                
+                                <div className="space-y-3 mb-6">
+                                    <input value={shareData.name} onChange={e => setShareData({...shareData, name: e.target.value})} type="text" placeholder="Full Name *" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <input value={shareData.company} onChange={e => setShareData({...shareData, company: e.target.value})} type="text" placeholder="Company" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <input value={shareData.title} onChange={e => setShareData({...shareData, title: e.target.value})} type="text" placeholder="Position / Title" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <input value={shareData.phone} onChange={e => setShareData({...shareData, phone: e.target.value})} type="tel" placeholder="Phone Number" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <input value={shareData.email} onChange={e => setShareData({...shareData, email: e.target.value})} type="email" placeholder="Email Address" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                </div>
+                                
+                                <button onClick={handleShareSubmit} disabled={isSharing} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                                    {isSharing ? <Loader2 size={16} className="animate-spin" /> : 'Send Contact Info'}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -796,7 +802,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 <MonitorSmartphone size={14} /> Live Preview
                             </div>
                             <div className={`p-4 sm:p-8 rounded-[3rem] border shadow-2xl transition-colors pointer-events-none ${cardData.cardBgType === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-[#050505] border-white/10'}`} style={{ backgroundColor: cardData.cardBgColor || (cardData.cardBgType === 'light' ? '#f9fafb' : '#050505') }}>
-                               <PublicCardView data={cardData} />
+                               <PublicCardView data={cardData} slug={slug} />
                             </div>
                         </div>
                     </div>

@@ -10,7 +10,8 @@ export default function AddressBookApp({ session, unaData }) {
     const [contacts, setContacts] = useState([]);
     const [contactView, setContactView] = useState('list'); 
     const [editingContact, setEditingContact] = useState(null);
-    const [editingContactIndex, setEditingContactIndex] = useState(-1);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ contactPic: false });
 
     // --- NEW: LISTEN FOR MOBILE BOTTOM NAV TRIGGER ---
@@ -20,10 +21,23 @@ export default function AddressBookApp({ session, unaData }) {
         return () => window.removeEventListener('open-add-contact', handleAddContactEvent);
     }, []);
 
+    const fetchContacts = async () => {
+        if (!session || !canAccess) return;
+        try {
+            const res = await fetch('/api/contacts', { headers: { 'Authorization': `Bearer ${session}` } });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+            const data = await res.json();
+            if (data.contacts) setContacts(data.contacts);
+        } catch (err) {
+            console.error("Failed to load contacts", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const savedContacts = localStorage.getItem('sc_address_book');
-        if (savedContacts) setContacts(JSON.parse(savedContacts));
-    }, []);
+        fetchContacts();
+    }, [session, canAccess]);
 
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -70,7 +84,7 @@ export default function AddressBookApp({ session, unaData }) {
          if (contact.title) parts.push(`TITLE:${escapeVCardValue(contact.title)}`);
          if (contact.phone) parts.push(`TEL;TYPE=WORK,VOICE:${contact.phone}`);
          if (contact.email) parts.push(`EMAIL:${contact.email}`);
-         if (contact.website) parts.push(`URL:https://${contact.website.replace(/^https?:\/\//,'')}`);
+         if (contact.website) parts.push(`URL:https://${(contact.website || '').replace(/^https?:\/\//,'')}`);
          if (contact.notes) parts.push(`NOTE:${escapeVCardValue(contact.notes)}`);
          parts.push('END:VCARD');
          const blob = new Blob([parts.join('\n')], { type: 'text/vcard' });
@@ -80,31 +94,47 @@ export default function AddressBookApp({ session, unaData }) {
 
     const openNewContactForm = () => { 
         setEditingContact({ name: '', title: '', company: '', phone: '', email: '', website: '', notes: '', photo: '' }); 
-        setEditingContactIndex(-1); 
         setContactView('form'); 
     };
     
-    const openEditContactForm = (contact, index) => { 
+    const openEditContactForm = (contact) => { 
         setEditingContact({ ...contact }); 
-        setEditingContactIndex(index); 
         setContactView('form'); 
     };
     
-    const saveAddressBookContact = () => {
+    const saveAddressBookContact = async () => {
         if (!editingContact.name) { alert("Name is required"); return; }
-        let newContacts = [...contacts];
-        if (editingContactIndex >= 0) newContacts[editingContactIndex] = editingContact; 
-        else newContacts.push({ ...editingContact, id: Date.now() });
-        setContacts(newContacts); 
-        localStorage.setItem('sc_address_book', JSON.stringify(newContacts)); 
-        setContactView('list');
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/contacts', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(editingContact)
+            });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+            await fetchContacts();
+            setContactView('list');
+        } catch(e) {
+            alert("Failed to save contact");
+        } finally {
+            setIsSaving(false);
+        }
     };
     
-    const deleteAddressBookContact = (index) => {
+    const deleteAddressBookContact = async (id, e) => {
+        e.stopPropagation();
         if (window.confirm("Are you sure you want to delete this contact?")) {
-            let newContacts = [...contacts]; newContacts.splice(index, 1);
-            setContacts(newContacts); 
-            localStorage.setItem('sc_address_book', JSON.stringify(newContacts));
+            try {
+                const res = await fetch('/api/contacts/delete', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+                fetchContacts();
+            } catch(err) {
+                alert("Failed to delete contact");
+            }
         }
     };
 
@@ -130,6 +160,8 @@ export default function AddressBookApp({ session, unaData }) {
             </div>
         );
     }
+
+    if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
@@ -163,8 +195,8 @@ export default function AddressBookApp({ session, unaData }) {
                         
                         {contacts.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {contacts.map((contact, i) => (
-                                    <div key={contact.id || i} className="bg-black p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors group flex items-center gap-4">
+                                {contacts.map((contact) => (
+                                    <div key={contact.id} className="bg-black p-4 rounded-2xl border border-white/5 hover:border-white/10 transition-colors group flex items-center gap-4">
                                         {contact.photo ? (
                                             <img src={contact.photo} className="w-12 h-12 rounded-full object-cover border border-white/10 bg-[#111] flex-shrink-0" alt="Contact" />
                                         ) : (
@@ -173,16 +205,16 @@ export default function AddressBookApp({ session, unaData }) {
                                             </div>
                                         )}
                                         
-                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditContactForm(contact, i)}>
+                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEditContactForm(contact)}>
                                             <p className="text-sm font-bold text-white truncate group-hover:text-[#9df01c] transition-colors">{contact.name}</p>
                                             <p className="text-[10px] text-gray-500 uppercase tracking-widest truncate mt-0.5">{contact.company || contact.title || 'No company listed'}</p>
                                         </div>
 
                                         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleDownloadContactVCard(contact)} className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Download vCard">
+                                            <button onClick={(e) => { e.stopPropagation(); handleDownloadContactVCard(contact); }} className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Download vCard">
                                                 <Download size={14}/>
                                             </button>
-                                            <button onClick={() => deleteAddressBookContact(i)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Contact">
+                                            <button onClick={(e) => deleteAddressBookContact(contact.id, e)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete Contact">
                                                 <Trash2 size={14}/>
                                             </button>
                                         </div>
@@ -205,7 +237,7 @@ export default function AddressBookApp({ session, unaData }) {
                         
                         <h3 className="text-lg font-black uppercase tracking-tighter mb-8 text-white flex items-center gap-2">
                             <ChevronLeft size={18} className="cursor-pointer hover:text-[#9df01c] transition-colors" onClick={() => setContactView('list')}/>
-                            {editingContactIndex >= 0 ? 'Edit Contact' : 'New Contact'}
+                            {editingContact.id ? 'Edit Contact' : 'New Contact'}
                         </h3>
                         
                         <div className="flex items-center gap-6 mb-8">
@@ -253,8 +285,9 @@ export default function AddressBookApp({ session, unaData }) {
                         </div>
 
                         <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                            <button onClick={saveAddressBookContact} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
-                                <Save className="w-4 h-4"/> Save Contact
+                            <button disabled={isSaving} onClick={saveAddressBookContact} className="flex items-center justify-center w-full sm:w-auto gap-2 bg-[#9df01c] text-black hover:bg-[#8ce015] font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all">
+                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} 
+                                {isSaving ? 'Saving...' : 'Save Contact'}
                             </button>
                         </div>
                     </div>

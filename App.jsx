@@ -30,6 +30,7 @@ export default function App() {
   const [publicCardData, setPublicCardData] = useState(null);
   const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicPageType, setPublicPageType] = useState(null); 
+  const [publicSlug, setPublicSlug] = useState(null); 
   const [publicBioError, setPublicBioError] = useState(false);
 
   const [isOAuthFlow, setIsOAuthFlow] = useState(false);
@@ -153,6 +154,7 @@ export default function App() {
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
                   setPublicPageType('bio');
+                  setPublicSlug(pathSlug);
                   setIsLoading(true);
                   fetch(`/api/public-bio-page/${pathSlug}`)
                       .then(res => res.json())
@@ -171,6 +173,7 @@ export default function App() {
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
                   setPublicPageType('card');
+                  setPublicSlug(pathSlug);
                   setIsLoading(true);
                   fetch(`/api/public-card/${pathSlug}`)
                       .then(res => res.json())
@@ -401,7 +404,7 @@ export default function App() {
               {publicPageType === 'bio' ? (
                   <PublicBioView data={publicCardData} isFullScreen={true} />
               ) : (
-                  <PublicCardView data={publicCardData} isFullScreen={true} />
+                  <PublicCardView data={publicCardData} isFullScreen={true} slug={publicSlug} />
               )}
               <a href="https://selloutcrowds.com" className={`mt-12 text-[10px] font-bold uppercase tracking-widest transition-colors ${isLight ? 'text-gray-400 hover:text-black' : 'text-gray-500 hover:text-white'}`}>
                   Powered by Sellout Crowds
@@ -437,7 +440,6 @@ export default function App() {
   }
 
   if (isOAuthFlow && session && unaData.user) {
-      // --- NEW: Block Rookies (15), Teammates (18), and basic creators (1, 2) from using the WP integration ---
       const role = Number(unaData.user.role);
       if ([1, 2, 15, 18].includes(role)) {
           return (
