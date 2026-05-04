@@ -452,8 +452,8 @@ app.post('/api/public/contact-submit', async (req, res) => {
         if (cardRows.length === 0) return res.status(404).json({ error: "Card not found" });
         
         const userId = cardRows[0].user_id;
-        await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email) 
-                  VALUES (${userId}, ${contact.name}, ${contact.title}, ${contact.company}, ${contact.phone}, ${contact.email})`;
+        await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) 
+                  VALUES (${userId}, ${contact.name}, ${contact.title || ''}, ${contact.company || ''}, ${contact.phone || ''}, ${contact.email || ''}, ${contact.website || ''}, ${contact.notes || ''}, ${contact.photo || ''})`;
         
         res.json({ success: true });
     } catch (error) {
