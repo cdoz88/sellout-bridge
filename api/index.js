@@ -1592,6 +1592,12 @@ app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
 
+        // --- NEW: Block Rookies (15), Teammates (18), and basic creators (1, 2) from using the WP integration ---
+        const role = Number(user.role);
+        if ([1, 2, 15, 18].includes(role)) {
+            return res.status(403).json({ error: "Your current plan does not support WordPress integration. Please upgrade to All-Star or Enterprise." });
+        }
+
         const { client_id, redirect_uri } = req.body;
         
         if (client_id !== 'wordpress_global_app') {
