@@ -69,6 +69,82 @@ const SelloutIcon = ({ size=20, className="" }) => (
     </svg>
 );
 
+const DEFAULT_LINKS = [
+    { id: 'phone', type: 'phone', title: 'Phone Number', defaultSubtitle: 'Call or Text', url: '' },
+    { id: 'email', type: 'email', title: 'Email Address', defaultSubtitle: 'Email me', url: '' },
+    { id: 'website', type: 'website', title: 'Official Website', defaultSubtitle: 'Visit my site', url: '' },
+    { id: 'shop', type: 'shop', title: 'Official Shop', defaultSubtitle: 'Browse my store', url: '' },
+    { id: 'podcast', type: 'podcast', title: 'Podcast', defaultSubtitle: 'Listen to my podcast', url: '' },
+    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', defaultSubtitle: 'Join my community', url: '' },
+    { id: 'instagram', type: 'instagram', title: 'Instagram', defaultSubtitle: 'Follow me', url: '' },
+    { id: 'tiktok', type: 'tiktok', title: 'TikTok', defaultSubtitle: 'Watch my videos', url: '' },
+    { id: 'youtube', type: 'youtube', title: 'YouTube', defaultSubtitle: 'Subscribe to my channel', url: '' },
+    { id: 'facebook', type: 'facebook', title: 'Facebook', defaultSubtitle: 'Connect on Facebook', url: '' },
+    { id: 'twitter', type: 'twitter', title: 'X', defaultSubtitle: 'Follow for updates', url: '' },
+    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', defaultSubtitle: 'Professional network', url: '' },
+    { id: 'whatsapp', type: 'whatsapp', title: 'WhatsApp', defaultSubtitle: 'Chat with me', url: '' },
+    { id: 'bluesky', type: 'bluesky', title: 'Bluesky', defaultSubtitle: 'Follow me', url: '' },
+    { id: 'twitch', type: 'twitch', title: 'Twitch', defaultSubtitle: 'Watch my stream', url: '' }
+];
+
+const DEFAULT_CARD = {
+    name: "Your Name",
+    title: "Your Title",
+    company: "Your Company",
+    links: DEFAULT_LINKS, 
+    avatarUrl: "",
+    logoUrl: "", 
+    logoSize: 56, 
+    logoOffsetX: 0, 
+    themePreset: "default", 
+    theme: "#9df01c",
+    textColor: "#000000",
+    iconColor: "#9df01c",
+    cardBgColor: "#111111", 
+    cardBgType: "dark",
+    qrLogoEnabled: false, 
+    qrLogoUrl: "", 
+    qrLogoBg: "#ffffff"
+};
+
+const PRESETS = [
+    { id: 'default', name: 'SC Dark', bg: '#111111', accent: '#9df01c', data: { cardBgColor: '#111111', cardBgType: 'dark', theme: '#9df01c', textColor: '#000000', iconColor: '#9df01c' } },
+    { id: 'midnight', name: 'Midnight', bg: '#020617', accent: '#38bdf8', data: { cardBgColor: '#020617', cardBgType: 'dark', theme: '#38bdf8', textColor: '#020617', iconColor: '#38bdf8' } },
+    { id: 'forest', name: 'Forest', bg: '#064e3b', accent: '#34d399', data: { cardBgColor: '#064e3b', cardBgType: 'dark', theme: '#34d399', textColor: '#064e3b', iconColor: '#34d399' } },
+    { id: 'rose', name: 'Rose', bg: '#4c0519', accent: '#fb7185', data: { cardBgColor: '#4c0519', cardBgType: 'dark', theme: '#fb7185', textColor: '#4c0519', iconColor: '#fb7185' } },
+    { id: 'clean', name: 'Clean Light', bg: '#f9fafb', accent: '#000000', data: { cardBgColor: '#f9fafb', cardBgType: 'light', theme: '#000000', textColor: '#ffffff', iconColor: '#000000' } },
+    { id: 'custom', name: 'Custom', bg: 'linear-gradient(45deg, #333, #111)', accent: 'transparent' }
+];
+
+const getIconForType = (type) => {
+    switch(type) {
+        case 'phone': return Phone;
+        case 'email': return Mail;
+        case 'website': return Globe;
+        case 'shop': return ShoppingBag;
+        case 'podcast': return Podcast;
+        case 'sellout': return SelloutIcon;
+        case 'instagram': return Instagram;
+        case 'tiktok': return TiktokIcon;
+        case 'youtube': return Youtube;
+        case 'facebook': return Facebook;
+        case 'twitter': return XIcon;
+        case 'linkedin': return Linkedin;
+        case 'whatsapp': return WhatsappIcon;
+        case 'bluesky': return BlueskyIcon;
+        case 'twitch': return TwitchIcon;
+        case 'custom': return Link2; 
+        default: return Link2;
+    }
+};
+
+const getSubtitle = (link) => {
+    if (link.type === 'phone' || link.type === 'email') return link.url;
+    if (link.type === 'custom') return link.url.replace(/^https?:\/\//, '');
+    if (link.type === 'website' || link.type === 'shop' || link.type === 'podcast') return link.url.replace(/^https?:\/\//, '');
+    return link.defaultSubtitle;
+};
+
 export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
     const bgType = data.cardBgType || data.cardMode || 'dark';
     const isLight = bgType === 'light';
