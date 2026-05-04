@@ -157,8 +157,9 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
 
     // --- NEW: SHARE CONTACT STATE ---
     const [showShareModal, setShowShareModal] = useState(false);
-    const [shareData, setShareData] = useState({ name: '', company: '', title: '', phone: '', email: '' });
+    const [shareData, setShareData] = useState({ name: '', company: '', title: '', phone: '', email: '', website: '', notes: '', photo: '' });
     const [isSharing, setIsSharing] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [shareSuccess, setShareSuccess] = useState(false);
 
     const activeLinks = data.links || [];
@@ -177,6 +178,21 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
             localStorage.setItem(`sc_notes_${btoa(primaryId)}`, notes);
         }
         setShowNotesModal(false);
+    };
+
+    const handlePublicImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsUploadingPhoto(true);
+        const formData = new FormData(); formData.append('file', file);
+        try {
+            const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.success) {
+                setShareData(prev => ({ ...prev, photo: result.url }));
+            } else alert("Upload failed.");
+        } catch (err) { alert("Image server unreachable."); } 
+        finally { setIsUploadingPhoto(false); }
     };
     
     const handleSaveContact = () => {
@@ -227,7 +243,7 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
                 setTimeout(() => {
                     setShowShareModal(false);
                     setShareSuccess(false);
-                    setShareData({ name: '', company: '', title: '', phone: '', email: '' });
+                    setShareData({ name: '', company: '', title: '', phone: '', email: '', website: '', notes: '', photo: '' });
                 }, 3000);
             } else {
                 alert("Failed to send contact info. Please try again.");
@@ -383,8 +399,8 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
             {/* --- NEW SHARE CONTACT MODAL --- */}
             {showShareModal && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowShareModal(false)}>
-                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowShareModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
+                    <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative flex flex-col max-h-[90vh] ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowShareModal(false)} className={`absolute top-4 right-4 p-2 rounded-full transition-colors z-10 ${isLight ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'bg-white/10 hover:bg-white/20 text-gray-400'}`}><X size={16}/></button>
                         
                         {shareSuccess ? (
                             <div className="text-center py-8">
@@ -394,19 +410,33 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
                             </div>
                         ) : (
                             <>
-                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><UserPlus size={24} /></div>
-                                <h3 className={`text-xl font-black uppercase tracking-tight mb-2 ${textNameClass}`}>Share Your Info</h3>
-                                <p className={`text-xs font-medium mb-6 ${buttonSubtitleClass}`}>Send your contact details directly to {data.name}'s address book.</p>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 flex-shrink-0 ${isLight ? 'bg-gray-100' : 'bg-white/5'}`} style={{ color: data.theme }}><UserPlus size={24} /></div>
+                                <h3 className={`text-xl font-black uppercase tracking-tight mb-2 flex-shrink-0 ${textNameClass}`}>Share Your Info</h3>
+                                <p className={`text-xs font-medium mb-4 flex-shrink-0 ${buttonSubtitleClass}`}>Send your contact details directly to {data.name}'s address book.</p>
                                 
-                                <div className="space-y-3 mb-6">
+                                <div className="space-y-3 mb-4 overflow-y-auto custom-scrollbar pr-2 flex-1 min-h-0">
+                                    <div className="flex items-center gap-4 mb-2">
+                                        {shareData.photo ? (
+                                            <img src={shareData.photo} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-white/10 bg-[#0a0a0a]" />
+                                        ) : (
+                                            <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><Camera size={20} className="text-gray-500" /></div>
+                                        )}
+                                        <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-2 border border-white/10 ${isUploadingPhoto ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            {isUploadingPhoto ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                            {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={handlePublicImageUpload} />
+                                        </label>
+                                    </div>
                                     <input value={shareData.name} onChange={e => setShareData({...shareData, name: e.target.value})} type="text" placeholder="Full Name *" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
                                     <input value={shareData.company} onChange={e => setShareData({...shareData, company: e.target.value})} type="text" placeholder="Company" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
                                     <input value={shareData.title} onChange={e => setShareData({...shareData, title: e.target.value})} type="text" placeholder="Position / Title" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
                                     <input value={shareData.phone} onChange={e => setShareData({...shareData, phone: e.target.value})} type="tel" placeholder="Phone Number" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
                                     <input value={shareData.email} onChange={e => setShareData({...shareData, email: e.target.value})} type="email" placeholder="Email Address" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <input value={shareData.website} onChange={e => setShareData({...shareData, website: e.target.value})} type="url" placeholder="Website URL" className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`} />
+                                    <textarea value={shareData.notes} onChange={e => setShareData({...shareData, notes: e.target.value})} rows="3" placeholder="Additional Notes..." className={`w-full p-3 rounded-xl text-sm outline-none border transition-colors resize-none ${isLight ? 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400' : 'bg-[#0a0a0a] border-white/10 text-white focus:border-white/30'}`}></textarea>
                                 </div>
                                 
-                                <button onClick={handleShareSubmit} disabled={isSharing} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
+                                <button onClick={handleShareSubmit} disabled={isSharing} className="w-full py-4 flex-shrink-0 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2" style={{ backgroundColor: data.theme, color: data.textColor }}>
                                     {isSharing ? <Loader2 size={16} className="animate-spin" /> : 'Send Contact Info'}
                                 </button>
                             </>
