@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2, ListChecks } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2, ListChecks, Lock } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
