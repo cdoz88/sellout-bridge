@@ -61,7 +61,7 @@ router.post('/api/add-manual-user', async (req, res) => {
         if (!email || !communities || communities.length === 0) return res.status(400).json({ error: "Missing info" });
         
         await ensureSchema();
-        try { await ensureExpansionsSubscription(user, 0); } catch (e) { return res.status(400).json({ error: "Failed billing." }); }
+        try { await ensureExpansionsSubscription(user); } catch (e) { return res.status(400).json({ error: "Failed billing." }); }
 
         const cleanEmail = email.trim().toLowerCase();
         let allSuccess = true;
@@ -127,7 +127,7 @@ router.post('/api/save-mappings', async (req, res) => {
         const { mappings } = req.body;
         await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
         
-        try { await ensureExpansionsSubscription(user, 0); } catch (e) { return res.status(400).json({ error: "Failed billing init" }); }
+        try { await ensureExpansionsSubscription(user); } catch (e) { return res.status(400).json({ error: "Failed billing init" }); }
         
         if (mappings && mappings.length > 0) {
             for (const map of mappings) {
@@ -251,7 +251,7 @@ router.post('/api/patreon-import', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { users, mappings } = req.body; 
         
-        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
+        try { await ensureExpansionsSubscription(user); } catch(e) {}
 
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
@@ -301,7 +301,7 @@ router.post('/api/paypal-import', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { users, mappings } = req.body; 
         
-        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
+        try { await ensureExpansionsSubscription(user); } catch(e) {}
 
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
@@ -383,7 +383,7 @@ router.post('/api/sync-subscribers', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
+        try { await ensureExpansionsSubscription(user); } catch(e) {}
         if (req.body.provider === 'paypal') return res.status(400).json({ error: "PayPal does not support automatic bulk syncing." });
         if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: "Platform Stripe key not configured." });
 

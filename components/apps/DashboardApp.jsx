@@ -100,9 +100,12 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                         <div className="w-full sm:w-auto">
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Teammates</p>
                             <div className="flex items-end gap-2">
-                                <span className="text-2xl font-black text-white">{billingEstimate.teamCount}</span>
+                                <span className="text-2xl font-black text-white">{billingEstimate.billableTeamCount}</span>
                                 <span className="text-xs font-bold text-gray-400 mb-1.5">@ $2.00</span>
                             </div>
+                            {billingEstimate.freeSeats > 0 && (
+                                <p className="text-[9px] text-[#9df01c] font-bold uppercase tracking-widest mt-1">+{billingEstimate.freeSeats} Free Included</p>
+                            )}
                         </div>
                         <div className="hidden sm:block w-px h-10 bg-white/10"></div>
                         <div className="w-full sm:w-auto">
@@ -116,7 +119,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                         <div className="w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-white/5">
                             <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-1">Monthly Total</p>
                             <div className="flex items-end gap-1">
-                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.teamCount * 2) + (billingEstimate.bridgedCount * 0.5)).toFixed(2)}</span>
+                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.billableTeamCount * 2) + (billingEstimate.bridgedCount * 0.5)).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

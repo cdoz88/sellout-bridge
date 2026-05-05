@@ -16,7 +16,7 @@ export const METERED_PRICE_ID = 'price_1TTjNp6y5pIVcSscCLCUffP8';
 
 export const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
-export async function ensureExpansionsSubscription(user, teammateCountIncrement = 0) {
+export async function ensureExpansionsSubscription(user, exactTeammateQuantity = null) {
     if (!process.env.STRIPE_SECRET_KEY) throw new Error("Platform Stripe key not set");
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     
@@ -42,22 +42,21 @@ export async function ensureExpansionsSubscription(user, teammateCountIncrement 
         expSub = await stripe.subscriptions.create({
             customer: platformCustomerId,
             items: [
-                { price: TEAMMATE_PRICE_ID, quantity: Math.max(0, teammateCountIncrement) },
+                { price: TEAMMATE_PRICE_ID, quantity: exactTeammateQuantity !== null ? exactTeammateQuantity : 0 },
                 { price: METERED_PRICE_ID }
             ],
             payment_behavior: 'allow_incomplete' 
         });
     } else {
-        if (teammateCountIncrement !== 0) {
+        if (exactTeammateQuantity !== null) {
             const teammateItem = expSub.items.data.find(i => i.price.id === TEAMMATE_PRICE_ID);
             if (teammateItem) {
-                const newQty = Math.max(0, teammateItem.quantity + teammateCountIncrement);
-                await stripe.subscriptionItems.update(teammateItem.id, { quantity: newQty });
+                await stripe.subscriptionItems.update(teammateItem.id, { quantity: exactTeammateQuantity });
             } else {
                 await stripe.subscriptionItems.create({
                     subscription: expSub.id,
                     price: TEAMMATE_PRICE_ID,
-                    quantity: Math.max(0, teammateCountIncrement)
+                    quantity: exactTeammateQuantity
                 });
             }
         }

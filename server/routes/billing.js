@@ -41,7 +41,6 @@ router.get('/api/cron/sync-meters', async (req, res) => {
             const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${s.user_id} AND status = 'bridged'`;
             const pCount = parseInt(pRows[0].count) || 0;
             
-            // FIX: Count distinct emails so 1 user in 6 communities only counts as 1 user
             const mRows = await sql`SELECT count(DISTINCT email) FROM bridge_manual_users WHERE user_id = ${s.user_id} AND status = 'bridged' AND is_free_teammate = FALSE`;
             const mCount = parseInt(mRows[0].count) || 0;
             
@@ -71,6 +70,12 @@ router.get('/api/billing-estimate', async (req, res) => {
         const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
         const teamCount = parseInt(tRows[0].count) || 0;
 
+        let freeSeats = 0;
+        if (Number(user.role) === 17) freeSeats = 6;
+        else if (Number(user.role) === 16) freeSeats = 3;
+
+        const billableTeamCount = Math.max(0, teamCount - freeSeats);
+
         let activeStripeCount = 0;
         if (stripeAccountId && process.env.STRIPE_SECRET_KEY) {
             const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -95,11 +100,15 @@ router.get('/api/billing-estimate', async (req, res) => {
         const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${user.id} AND status = 'bridged'`;
         const pCount = parseInt(pRows[0].count) || 0;
         
-        // FIX: Count distinct emails so 1 user in 6 communities only counts as 1 user
         const mRows = await sql`SELECT count(DISTINCT email) FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged' AND is_free_teammate = FALSE`;
         const mCount = parseInt(mRows[0].count) || 0;
 
-        res.json({ teamCount, bridgedCount: activeStripeCount + ppCount + pCount + mCount });
+        res.json({ 
+            teamCount, 
+            freeSeats,
+            billableTeamCount, 
+            bridgedCount: activeStripeCount + ppCount + pCount + mCount 
+        });
     } catch (error) { res.status(500).json({ error: "Failed to fetch estimate" }); }
 });
 

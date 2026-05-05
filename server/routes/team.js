@@ -25,8 +25,22 @@ router.post('/api/team/invite', async (req, res) => {
         await ensureSchema();
         const cleanEmail = email.trim().toLowerCase();
         
-        try { await ensureExpansionsSubscription(user, 1); } 
-        catch (e) { return res.status(400).json({ error: e.message || "Failed to initialize subscription add-ons." }); }
+        // 1. BILLING CALCULATION
+        const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+        const currentSeats = parseInt(tRows[0].count) || 0;
+        const newTotalSeats = currentSeats + 1;
+        
+        let freeSeats = 0;
+        if (Number(user.role) === 17) freeSeats = 6;
+        else if (Number(user.role) === 16) freeSeats = 3;
+
+        const billableSeats = Math.max(0, newTotalSeats - freeSeats);
+
+        try { 
+            await ensureExpansionsSubscription(user, billableSeats); 
+        } catch (e) { 
+            return res.status(400).json({ error: e.message || "Failed to initialize subscription add-ons." }); 
+        }
 
         const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
             method: 'POST', 
@@ -70,7 +84,18 @@ router.post('/api/team/revoke', async (req, res) => {
         if (!email) return res.status(400).json({ error: "Email is required" });
 
         const cleanEmail = email.trim().toLowerCase();
-        try { await ensureExpansionsSubscription(user, -1); } catch (e) { console.error(e); }
+
+        const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+        const currentSeats = parseInt(tRows[0].count) || 0;
+        const newTotalSeats = Math.max(0, currentSeats - 1);
+
+        let freeSeats = 0;
+        if (Number(user.role) === 17) freeSeats = 6;
+        else if (Number(user.role) === 16) freeSeats = 3;
+
+        const billableSeats = Math.max(0, newTotalSeats - freeSeats);
+
+        try { await ensureExpansionsSubscription(user, billableSeats); } catch (e) { console.error(e); }
 
         await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
             method: 'POST', 
