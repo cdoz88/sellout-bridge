@@ -307,7 +307,7 @@ app.post('/api/team/invite', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        const { email } = req.body;
+        const { email, communities } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required" });
 
         await ensureSchema();
@@ -337,6 +337,25 @@ app.post('/api/team/invite', async (req, res) => {
         // 3. Log Seat in DB
         await sql`INSERT INTO bridge_team_seats (owner_id, teammate_email) VALUES (${user.id}, ${cleanEmail}) ON CONFLICT (owner_id, teammate_email) DO NOTHING`;
 
+        // 4. MAP COMMUNITIES: If they selected free communities during invite
+        if (communities && Array.isArray(communities) && communities.length > 0) {
+            for (const comm of communities) {
+                const lastUnderscore = comm.lastIndexOf('_');
+                const module = comm.substring(0, lastUnderscore);
+                const id = comm.substring(lastUnderscore + 1);
+
+                const mapResult = await grantCommunityAccess(cleanEmail, module, id);
+                const newStatus = mapResult.success ? 'bridged' : 'pending';
+                
+                await sql`
+                    INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status, is_free_teammate)
+                    VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus}, TRUE)
+                    ON CONFLICT (user_id, email, una_module, una_content_id) 
+                    DO UPDATE SET status = EXCLUDED.status, is_free_teammate = TRUE
+                `;
+            }
+        }
+
         res.json({ success: true });
     } catch (error) { 
         res.status(500).json({ error: error.message || "Server Error" }); 
@@ -358,7 +377,6 @@ app.post('/api/team/revoke', async (req, res) => {
             await ensureExpansionsSubscription(user, -1);
         } catch (e) {
             console.error("Failed to decrement teammate count in Stripe", e);
-            // We proceed with the revocation even if Stripe decrement fails to not lock the user state.
         }
 
         // 2. Revoke Teammate Role in Una
@@ -425,10 +443,16 @@ app.post('/api/team/manual-map', async (req, res) => {
 });
 
 // ==========================================
-// METERED CRON JOB: DAILY SNAPSHOT
+// METERED CRON JOB: DAILY SNAPSHOT (VERCEL NATIVE)
 // ==========================================
-app.post('/api/cron/sync-meters', async (req, res) => {
+app.get('/api/cron/sync-meters', async (req, res) => {
     try {
+        // Vercel Security Check: Only allow requests with the secret cron token
+        const authHeader = req.headers.authorization;
+        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+            return res.status(401).json({ error: 'Unauthorized. Invalid CRON_SECRET.' });
+        }
+
         if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe Key Missing");
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
@@ -1161,14 +1185,15 @@ app.get('/api/get-settings', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         const userId = parseInt(user.id);
-        const rows = await sql`SELECT stripe_account_id, paypal_client_id FROM bridge_settings WHERE user_id = ${userId}`;
+        const rows = await sql`SELECT stripe_account_id, paypal_client_id, platform_customer_id FROM bridge_settings WHERE user_id = ${userId}`;
         
         const settings = rows[0] || {};
         res.json({ 
             settings: {
                 stripe_account_id: settings.stripe_account_id,
                 paypal_client_id: settings.paypal_client_id,
-                paypal_is_connected: !!settings.paypal_client_id
+                paypal_is_connected: !!settings.paypal_client_id,
+                platform_customer_id: settings.platform_customer_id
             } 
         });
     } catch (error) { res.status(500).json({ error: "Failed to fetch settings." }); }
