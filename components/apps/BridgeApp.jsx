@@ -50,6 +50,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const [isLoadingOAuth, setIsLoadingOAuth] = useState(false);
 
+  // --- CALCULATE ESTIMATED BILLING ---
+  const totalStripeBridged = audienceStats.reduce((sum, stat) => sum + (stat.bridgedCount || 0), 0);
+  const stripeEstimatedCost = (totalStripeBridged * 0.50).toFixed(2);
+  
+  // Note: We don't currently have a live PayPal stats fetcher, so this defaults to 0 for now.
+  const totalPaypalBridged = 0; 
+  const paypalEstimatedCost = (totalPaypalBridged * 0.50).toFixed(2);
+
   useEffect(() => {
     if (session) {
       fetchDatabaseMappings(session);
@@ -60,7 +68,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   }, [session, activeTab]);
 
   // --- Auto Opt-In Check ---
-  // If they already have mappings, manual users, or payment keys, they have clearly opted in before.
   useEffect(() => {
       if (stripeAccountId || paypalAccountId || mappings.length > 0 || manualUsers.length > 0) {
           setHasOptedIn(true);
@@ -83,7 +90,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           .then(data => {
               if (data.success) {
                   setStripeAccountId(data.accountId);
-                  setHasOptedIn(true); // Auto opt-in on connect
+                  setHasOptedIn(true);
                   fetchProviderProducts(data.accountId, null, session, 'stripe');
               } else {
                   setError(data.error || "Failed to connect Stripe.");
@@ -228,7 +235,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (data.success) {
               setPaypalAccountId(`App ID: ...${data.accountId.slice(-6)}`);
               setKeySuccess(true);
-              setHasOptedIn(true); // Auto opt-in on connect
+              setHasOptedIn(true);
               setTimeout(() => setKeySuccess(false), 3000);
               fetchProviderProducts(null, null, session, 'paypal');
           } else {
@@ -372,7 +379,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (!res.ok || data.error) throw new Error(data.error || "Server rejected the save.");
       
       setSaveSuccess(true);
-      setHasOptedIn(true); // Auto opt-in on save
+      setHasOptedIn(true); 
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
@@ -637,11 +644,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
 
-  // --- NEW PERMISSIONS LOGIC ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
   
-  // Entire Bridge is unlocked for premium tiers: Rookie(15), All-Star(16), H.O.F.(17)
   const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
   if (!canAccess) {
@@ -667,7 +672,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       );
   }
 
-  // --- EXPANSIONS OPT-IN SCREEN ---
   if (!hasOptedIn) {
       return (
           <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
@@ -799,7 +803,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Grant Access
                   </h3>
 
-                  {/* --- NEW: BILLING NOTICE FOR MANUAL TAB --- */}
                   <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 p-4 rounded-xl flex gap-3 items-start mb-6">
                       <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
                       <div>
@@ -985,6 +988,33 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* --- NEW: USAGE ESTIMATE BOX --- */}
+              {['stripe', 'paypal'].includes(activeTab) && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
+                          <CreditCard size={64} />
+                      </div>
+                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
+                          <Zap size={16} className="text-[#9df01c]"/> Estimated Usage
+                      </h3>
+                      
+                      <div className="space-y-3 relative z-10">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Users</span>
+                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per User</span>
+                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1">
+                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
+                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
+                          </div>
+                      </div>
+                  </div>
               )}
 
               {activeTab === 'paypal' && (
