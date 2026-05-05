@@ -456,26 +456,49 @@ app.get('/api/cron/sync-meters', async (req, res) => {
         if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe Key Missing");
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         
-        // Find every creator who has initialized the Expansions Subscription
-        const settings = await sql`SELECT user_id, platform_customer_id FROM bridge_settings WHERE platform_customer_id IS NOT NULL`;
+        // Fetch all creators with billing set up + their Stripe connection ID
+        const settings = await sql`SELECT user_id, platform_customer_id, stripe_account_id FROM bridge_settings WHERE platform_customer_id IS NOT NULL`;
         let eventsSent = 0;
 
         for (const s of settings) {
-            // Count 1: Standard bridged Stripe/PayPal customers
-            const cRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${s.user_id} AND bridge_status = 'bridged'`;
-            const cCount = parseInt(cRows[0].count) || 0;
+            // Count 1: LIVE Stripe Users
+            let activeStripeCount = 0;
+            if (s.stripe_account_id) {
+                const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${s.user_id} AND provider = 'stripe'`;
+                const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
+                
+                const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers WHERE creator_id = ${s.user_id} AND stripe_customer_id NOT LIKE 'pp_csv_%'`;
+                const statusMap = {};
+                customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
+
+                try {
+                    for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] }, { stripeAccount: s.stripe_account_id })) {
+                        const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+                        const email = sub.customer?.email;
+                        if (mappedProductIds.has(productId) && statusMap[email] === 'bridged') {
+                            activeStripeCount++;
+                        }
+                    }
+                } catch(e) {
+                    console.error(`Live Stripe fetch failed for cron user ${s.user_id}:`, e.message);
+                }
+            }
+
+            // Count 2: Standard bridged PayPal customers (from DB, prefixed with pp_csv_)
+            const ppRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${s.user_id} AND bridge_status = 'bridged' AND stripe_customer_id LIKE 'pp_csv_%'`;
+            const ppCount = parseInt(ppRows[0].count) || 0;
             
-            // Count 2: Standard bridged Patreon customers
+            // Count 3: Standard bridged Patreon customers
             const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${s.user_id} AND status = 'bridged'`;
             const pCount = parseInt(pRows[0].count) || 0;
             
-            // Count 3: Standard Manual Users (Excludes Teammates!)
+            // Count 4: Standard Manual Users (Excludes Teammates!)
             const mRows = await sql`SELECT count(*) FROM bridge_manual_users WHERE user_id = ${s.user_id} AND status = 'bridged' AND is_free_teammate = FALSE`;
             const mCount = parseInt(mRows[0].count) || 0;
             
-            const totalBillableUsers = cCount + pCount + mCount;
+            const totalBillableUsers = activeStripeCount + ppCount + pCount + mCount;
             
-            // Send the usage snapshot to Stripe
+            // Send the true usage snapshot to Stripe
             try {
                 await stripe.billing.meterEvents.create({
                     event_name: 'bridged_users_snapshot',
@@ -505,13 +528,40 @@ app.get('/api/billing-estimate', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
+        const sRows = await sql`SELECT stripe_account_id FROM bridge_settings WHERE user_id = ${user.id}`;
+        const stripeAccountId = sRows.length > 0 ? sRows[0].stripe_account_id : null;
+
         // 1. Get total paid teammate seats
         const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
         const teamCount = parseInt(tRows[0].count) || 0;
 
-        // 2. Get active bridged users across all channels
-        const cRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${user.id} AND bridge_status = 'bridged'`;
-        const cCount = parseInt(cRows[0].count) || 0;
+        // 2. Count LIVE Stripe Users
+        let activeStripeCount = 0;
+        if (stripeAccountId && process.env.STRIPE_SECRET_KEY) {
+            const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+            const mappingRows = await sql`SELECT stripe_product_id FROM bridge_mappings WHERE user_id = ${user.id} AND provider = 'stripe'`;
+            const mappedProductIds = new Set(mappingRows.map(r => r.stripe_product_id));
+            
+            const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers WHERE creator_id = ${user.id} AND stripe_customer_id NOT LIKE 'pp_csv_%'`;
+            const statusMap = {};
+            customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
+
+            try {
+                for await (const sub of stripe.subscriptions.list({ status: 'active', expand: ['data.customer'] }, { stripeAccount: stripeAccountId })) {
+                    const productId = sub.plan?.product || sub.items?.data[0]?.price?.product;
+                    const email = sub.customer?.email;
+                    if (mappedProductIds.has(productId) && statusMap[email] === 'bridged') {
+                        activeStripeCount++;
+                    }
+                }
+            } catch(e) {
+                console.error("Live Stripe fetch failed for estimate:", e);
+            }
+        }
+
+        // 3. Count other active bridged users
+        const ppRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${user.id} AND bridge_status = 'bridged' AND stripe_customer_id LIKE 'pp_csv_%'`;
+        const ppCount = parseInt(ppRows[0].count) || 0;
         
         const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${user.id} AND status = 'bridged'`;
         const pCount = parseInt(pRows[0].count) || 0;
@@ -521,13 +571,14 @@ app.get('/api/billing-estimate', async (req, res) => {
 
         res.json({ 
             teamCount, 
-            bridgedCount: cCount + pCount + mCount 
+            bridgedCount: activeStripeCount + ppCount + pCount + mCount 
         });
     } catch (error) {
         console.error("Billing Estimate Error:", error);
         res.status(500).json({ error: "Failed to fetch estimate" });
     }
 });
+
 
 // ==========================================
 // BUSINESS CARD & BIO PAGE ENDPOINTS
