@@ -478,7 +478,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- NEW: Helper to get clean product names for dropdowns ---
   const getProductName = (provider, productId) => {
       if (!provider || !productId) return 'Unknown Product';
       const products = providerProducts[provider] || [];
@@ -631,6 +630,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+  
   const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
   if (!canAccess) {
@@ -813,7 +813,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       />
                     </div>
 
-                    {/* --- NEW MANUAL MAPPING SELECTOR --- */}
                     <div>
                       <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Grant Access Level
@@ -831,7 +830,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           ))}
                       </select>
                       {mappings.filter(m => m.productId && m.communities.length > 0).length === 0 && (
-                          <p className="text-[9px] text-red-500 mt-2 font-medium">You must create at least one rule in the "Access Rules" tab first.</p>
+                          <p className="text-[9px] text-red-500 mt-2 font-medium">You must create at least one rule in the "Bridges" tab first.</p>
                       )}
                     </div>
 
@@ -957,23 +956,23 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              {/* ESTIMATED USAGE BOX */}
+              {/* ESTIMATED BILLING BOX */}
               {['stripe', 'paypal'].includes(activeTab) && (
                   <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
                           <CreditCard size={64} />
                       </div>
                       <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
-                          <Zap size={16} className="text-[#9df01c]"/> Estimated Usage
+                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
                       </h3>
                       
                       <div className="space-y-3 relative z-10">
                           <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Users</span>
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
                               <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
                           </div>
                           <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per User</span>
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
                               <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
                           </div>
                           <div className="flex justify-between items-center pt-1">
@@ -1027,7 +1026,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                         ? 'Process your uploaded Patreon CSV to automatically grant access to new patrons and revoke access for canceled ones.'
                         : activeTab === 'paypal'
                         ? 'Upload your active PayPal subscriptions CSV to bridge historic users. The Webhook will handle new signups!'
-                        : 'Pull in your existing Stripe subscribers and automatically grant them access.'}
+                        : 'Import your existing Stripe subscribers and automatically grant them access to your community.'}
                     </p>
                     
                     {['patreon', 'paypal'].includes(activeTab) && (
@@ -1052,7 +1051,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                             ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
                           {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Users'}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Subscribers'}
                         </button>
                     )}
 
@@ -1351,7 +1350,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           <div className="flex-1 border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center items-center">
                             <CreditCard className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
                             <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Bridged Subscriptions</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium max-w-[250px] mx-auto">Click "Sync Existing Users" on the left, or create a Rule in the Access Rules tab.</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium max-w-[250px] mx-auto">Click "Sync Existing Subscribers" on the left, or create a Rule in the Bridges tab.</p>
                           </div>
                       )}
                   </div>
@@ -1365,7 +1364,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </div>
                       <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">Automated Billing Sync</h3>
                       <p className="text-xs text-gray-500 font-medium max-w-sm leading-relaxed mb-8">
-                          To grant users access, upload your CSV file on the left. Then head over to the <strong>Access Rules</strong> tab to dictate which communities they unlock!
+                          To grant users access, upload your CSV file on the left. Then head over to the <strong>Bridges</strong> tab to dictate which communities they unlock!
                       </p>
                       <button onClick={() => {
                           const event = new URL(window.location);
@@ -1376,7 +1375,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           // Instead, let's just trigger a reload to that tab:
                           window.location.reload();
                       }} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] hover:underline">
-                          Go to Access Rules &rarr;
+                          Go to Bridges &rarr;
                       </button>
                   </div>
               )}

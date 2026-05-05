@@ -219,6 +219,12 @@ export default function Sidebar({
 
                 {currentApp === 'bridge' && (
                     <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                        <div className="space-y-1 mb-6">
+                            <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Zap size={16} /> Bridges {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                            </button>
+                        </div>
+                        
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
                             <div className="space-y-1">
@@ -230,12 +236,6 @@ export default function Sidebar({
                                 </button>
                                 <button onClick={() => handleNavClick('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
-                                </button>
-                                
-                                <div className="h-px bg-white/5 my-2 mx-2"></div>
-                                
-                                <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Zap size={16} /> Access Rules {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <UserPlus size={16} /> Manual {!canUseManual && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
