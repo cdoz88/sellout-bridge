@@ -752,7 +752,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Create Email Alias
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
+                    Link a subscriber's payment email to their preferred account email on Sellout Crowds. This will create an Email Alias so that both emails are connected and act as a single identity for the user. There is no additional cost for this as the user has already been accounted for in another Bridge tool.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>

@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap } from 'lucide-react';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const [onboardingSteps, setOnboardingSteps] = useState([]);
     const [completedSteps, setCompletedSteps] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    const [billingEstimate, setBillingEstimate] = useState(null);
+    const [isBillingLoading, setIsBillingLoading] = useState(true);
+
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+    
+    // Creators must have premium roles to access the bridge and teammates
+    const hasBillingAccess = isAdmin || [15, 16, 17].includes(role);
 
     useEffect(() => {
         if (!session) return;
@@ -22,15 +28,31 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
             .catch(() => setIsLoading(false));
     }, [session]);
 
+    // Fetch the live estimated billing
+    useEffect(() => {
+        if (!session || !hasBillingAccess) {
+            setIsBillingLoading(false);
+            return;
+        }
+        fetch('/api/billing-estimate', { headers: { 'Authorization': `Bearer ${session}` }, cache: 'no-store' })
+            .then(res => res.json())
+            .then(data => {
+                if (data && typeof data.teamCount !== 'undefined') {
+                    setBillingEstimate(data);
+                }
+                setIsBillingLoading(false);
+            })
+            .catch(() => setIsBillingLoading(false));
+    }, [session, hasBillingAccess]);
+
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
-    // Reordered and renamed array to match the TopBar dropdown
     const apps = [
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
         { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: isAdmin || [16, 17].includes(role) },
         { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: isAdmin || [15, 16, 17].includes(role) },
-        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: isAdmin || [16, 17].includes(role) },
+        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasBillingAccess },
+        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
     ];
@@ -57,6 +79,49 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                     Welcome back, {unaData?.user?.name || 'Creator'}. Select a tool below to get started.
                 </p>
             </div>
+
+            {/* --- LIVE USAGE ESTIMATE BANNER --- */}
+            {hasBillingAccess && !isBillingLoading && billingEstimate && (
+                <div className="mb-10 bg-[#111] border border-white/5 rounded-[2rem] p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-xl relative overflow-hidden group hover:border-[#9df01c]/30 transition-colors cursor-default">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 text-[#9df01c] pointer-events-none transition-transform group-hover:scale-110">
+                        <CreditCard size={120} className="-mt-4 -mr-4" />
+                    </div>
+                    
+                    <div className="relative z-10">
+                        <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2 mb-1">
+                            <Zap size={18} className="text-[#9df01c]"/> Est. Add-On Usage
+                        </h3>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                            Billed automatically via your Sellout Crowds invoice
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap lg:flex-nowrap items-start sm:items-center gap-6 sm:gap-12 relative z-10 w-full lg:w-auto">
+                        <div className="w-full sm:w-auto">
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Teammates</p>
+                            <div className="flex items-end gap-2">
+                                <span className="text-2xl font-black text-white">{billingEstimate.teamCount}</span>
+                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ $2.00</span>
+                            </div>
+                        </div>
+                        <div className="hidden sm:block w-px h-10 bg-white/10"></div>
+                        <div className="w-full sm:w-auto">
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Bridged Users</p>
+                            <div className="flex items-end gap-2">
+                                <span className="text-2xl font-black text-white">{billingEstimate.bridgedCount}</span>
+                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ $0.50</span>
+                            </div>
+                        </div>
+                        <div className="hidden sm:block w-px h-10 bg-white/10"></div>
+                        <div className="w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-white/5">
+                            <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-1">Monthly Total</p>
+                            <div className="flex items-end gap-1">
+                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.teamCount * 2) + (billingEstimate.bridgedCount * 0.5)).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {displayApps.map((app, i) => (

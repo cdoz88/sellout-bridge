@@ -496,6 +496,38 @@ app.get('/api/cron/sync-meters', async (req, res) => {
     }
 });
 
+// ==========================================
+// FRONTEND BILLING ESTIMATE ENDPOINT
+// ==========================================
+app.get('/api/billing-estimate', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+        
+        // 1. Get total paid teammate seats
+        const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+        const teamCount = parseInt(tRows[0].count) || 0;
+
+        // 2. Get active bridged users across all channels
+        const cRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${user.id} AND bridge_status = 'bridged'`;
+        const cCount = parseInt(cRows[0].count) || 0;
+        
+        const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${user.id} AND status = 'bridged'`;
+        const pCount = parseInt(pRows[0].count) || 0;
+        
+        const mRows = await sql`SELECT count(*) FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged' AND is_free_teammate = FALSE`;
+        const mCount = parseInt(mRows[0].count) || 0;
+
+        res.json({ 
+            teamCount, 
+            bridgedCount: cCount + pCount + mCount 
+        });
+    } catch (error) {
+        console.error("Billing Estimate Error:", error);
+        res.status(500).json({ error: "Failed to fetch estimate" });
+    }
+});
 
 // ==========================================
 // BUSINESS CARD & BIO PAGE ENDPOINTS
