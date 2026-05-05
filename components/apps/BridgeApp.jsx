@@ -748,7 +748,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Create Email Alias
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
+                    Link a subscriber's payment email to their preferred account email on Sellout Crowds. This will create an Email Alias so that both emails are connected and act as a single identity for the user.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
@@ -804,7 +804,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
                       <div>
                           <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
-                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab instead.</p>
+                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab.</p>
                       </div>
                   </div>
 

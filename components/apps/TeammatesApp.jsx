@@ -264,15 +264,15 @@ export default function TeammatesApp({ session, unaData }) {
                             </div>
                             <div className="flex gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Pencil size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish posts, moderate comments, and manage content.</p></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish articled, videos, and podcasts.</p></div>
                             </div>
                             <div className="flex gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Share2 size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card.</p></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card within the Creator Hub.</p></div>
                             </div>
                             <div className="flex gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4><p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge.</p></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4><p className="text-xs text-gray-500">You can manually grant them access to your paid community at no extra charge.</p></div>
                             </div>
                         </div>
                     </div>
@@ -344,7 +344,7 @@ export default function TeammatesApp({ session, unaData }) {
                                 <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c] flex-shrink-0"><Key size={24}/></div>
                                 <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 flex-shrink-0">Grant Free Access</h3>
                                 <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
-                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee!
+                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your team, they bypass the paywall of your community and the metered $0.50/user bridging fee!
                                 </p>
                                 
                                 <div className="mb-6 flex-1 min-h-0">
@@ -352,7 +352,7 @@ export default function TeammatesApp({ session, unaData }) {
                                 </div>
                                 
                                 <button onClick={handleSaveMapping} disabled={isMapping} className="w-full py-4 flex-shrink-0 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                                    {isMapping ? <Loader2 size={16} className="animate-spin" /> : 'Grant Secure Access'}
+                                    {isMapping ? <Loader2 size={16} className="animate-spin" /> : 'Grant Teammate Access'}
                                 </button>
                             </>
                         )}
