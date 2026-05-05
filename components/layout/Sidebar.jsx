@@ -246,7 +246,8 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-8 pb-4">
+                        {/* --- INCREASED BOTTOM PADDING HERE --- */}
+                        <div className="mt-auto pt-8 pb-8">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}

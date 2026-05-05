@@ -956,35 +956,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              {/* ESTIMATED BILLING BOX */}
-              {['stripe', 'paypal'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
-                          <CreditCard size={64} />
-                      </div>
-                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
-                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
-                      </h3>
-                      
-                      <div className="space-y-3 relative z-10">
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
-                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
-                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1">
-                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
-                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
-                          </div>
-                      </div>
-                  </div>
-              )}
-
               {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
+                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 text-left">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -1010,7 +983,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6 text-left">
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden text-left">
                     <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
                       {activeTab === 'patreon' ? (
                          <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
@@ -1051,7 +1024,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                             ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
                           {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Subscribers'}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Change Existing Subscribers'}
                         </button>
                     )}
 
@@ -1066,6 +1039,33 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           {syncSubsResult?.success ? syncSubsResult.text : 'Run Smart Import'}
                         </button>
                     )}
+                  </div>
+              )}
+
+              {/* ESTIMATED BILLING BOX */}
+              {['stripe', 'paypal'].includes(activeTab) && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
+                          <CreditCard size={64} />
+                      </div>
+                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
+                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
+                      </h3>
+                      
+                      <div className="space-y-3 relative z-10">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
+                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
+                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1">
+                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
+                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
+                          </div>
+                      </div>
                   </div>
               )}
 
