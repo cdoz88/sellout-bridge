@@ -8,9 +8,9 @@ export default function TopBar({
         switch(currentApp) {
             case 'business-card': return { name: 'Business Card', icon: <Contact size={20} className="text-[#9df01c]" /> };
             case 'address-book': return { name: 'Address Book', icon: <Users size={20} className="text-[#9df01c]" /> };
-            case 'bridge': return { name: 'Access Control', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
+            case 'linktree': return { name: 'Link in Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
+            case 'bridge': return { name: 'Subscription Bridge', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
             case 'teammates': return { name: 'Teammates', icon: <Users size={20} className="text-[#9df01c]" /> };
-            case 'linktree': return { name: 'Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
             case 'onboarding': return { name: 'Getting Started', icon: <ListChecks size={20} className="text-[#9df01c]" /> };
@@ -51,16 +51,16 @@ export default function TopBar({
                                 <Users size={18} className={currentApp === 'address-book' ? 'text-[#9df01c]' : ''}/> Address Book
                             </button>
 
+                            <button onClick={() => handleAppSwitch('linktree', 'links')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'linktree' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Link in Bio Page
+                            </button>
+
                             <button onClick={() => handleAppSwitch('bridge', 'stripe')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Access Control
+                                <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
                             </button>
 
                             <button onClick={() => handleAppSwitch('teammates', 'manage')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <Users size={18} className={currentApp === 'teammates' ? 'text-[#9df01c]' : ''}/> Teammates
-                            </button>
-                            
-                            <button onClick={() => handleAppSwitch('linktree', 'links')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'linktree' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Bio Page
                             </button>
                             
                             <button onClick={() => handleAppSwitch('assets', 'cat_1')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'assets' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>

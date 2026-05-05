@@ -24,25 +24,24 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
 
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
-    // Applying identical permissions from the grid
+    // Reordered and renamed array to match the TopBar dropdown
     const apps = [
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
         { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'bridge', tab: 'stripe', name: 'Access Control', icon: CreditCard, desc: 'Manage automated community access.', canAccess: isAdmin || [15, 16, 17].includes(role) },
-        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: isAdmin || [16, 17].includes(role) },
         { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'assets', tab: 'cat_1', name: 'Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
+        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: isAdmin || [15, 16, 17].includes(role) },
+        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: isAdmin || [16, 17].includes(role) },
+        { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
     ];
 
     const onboardingApp = { id: 'onboarding', tab: 'checklist', name: 'Getting Started', icon: ListChecks, desc: 'Complete your setup checklist.', canAccess: true };
 
-    // Dynamic placement for Onboarding App
     let displayApps = [];
     if (progressPercent < 100 && onboardingSteps.length > 0) {
-        displayApps = [onboardingApp, ...apps]; // Move to Front
+        displayApps = [onboardingApp, ...apps]; 
     } else {
-        displayApps = [...apps, onboardingApp]; // Move to Back
+        displayApps = [...apps, onboardingApp]; 
     }
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;

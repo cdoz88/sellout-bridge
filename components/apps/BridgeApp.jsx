@@ -42,8 +42,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   // --- NEW: Expansions Opt-In State ---
   const [hasOptedIn, setHasOptedIn] = useState(false);
 
-  const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
-  const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
+  const stripeIcon = "https://admin.beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
+  const paypalIcon = "https://admin.beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
   const STRIPE_CLIENT_ID = 'ca_UAUckMTFQOG8rW8CajO6ZOB2mTzVXo42';
@@ -748,7 +748,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     Create Email Alias
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Link a subscriber's payment email to their preferred account email on Sellout Crowds. This will create an Email Alias so that both emails are connected and act as a single identity for the user.
+                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
@@ -804,7 +804,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
                       <div>
                           <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
-                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab.</p>
+                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab instead.</p>
                       </div>
                   </div>
 
