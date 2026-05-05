@@ -41,7 +41,8 @@ router.get('/api/cron/sync-meters', async (req, res) => {
             const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${s.user_id} AND status = 'bridged'`;
             const pCount = parseInt(pRows[0].count) || 0;
             
-            const mRows = await sql`SELECT count(*) FROM bridge_manual_users WHERE user_id = ${s.user_id} AND status = 'bridged' AND is_free_teammate = FALSE`;
+            // FIX: Count distinct emails so 1 user in 6 communities only counts as 1 user
+            const mRows = await sql`SELECT count(DISTINCT email) FROM bridge_manual_users WHERE user_id = ${s.user_id} AND status = 'bridged' AND is_free_teammate = FALSE`;
             const mCount = parseInt(mRows[0].count) || 0;
             
             const totalBillableUsers = activeStripeCount + ppCount + pCount + mCount;
@@ -94,7 +95,8 @@ router.get('/api/billing-estimate', async (req, res) => {
         const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${user.id} AND status = 'bridged'`;
         const pCount = parseInt(pRows[0].count) || 0;
         
-        const mRows = await sql`SELECT count(*) FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged' AND is_free_teammate = FALSE`;
+        // FIX: Count distinct emails so 1 user in 6 communities only counts as 1 user
+        const mRows = await sql`SELECT count(DISTINCT email) FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged' AND is_free_teammate = FALSE`;
         const mCount = parseInt(mRows[0].count) || 0;
 
         res.json({ teamCount, bridgedCount: activeStripeCount + ppCount + pCount + mCount });
