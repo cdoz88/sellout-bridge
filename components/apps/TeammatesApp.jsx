@@ -1,70 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Loader2, Trash2, AlertCircle } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2 } from 'lucide-react';
 
 export default function TeammatesApp({ session, unaData }) {
-    const [teamLimit, setTeamLimit] = useState(0);
-    const [teamUsed, setTeamUsed] = useState(0);
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+    const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+    const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+
     const [teammates, setTeammates] = useState([]);
-    const [teamEmail, setTeamEmail] = useState('');
-    const [isTeamSaving, setIsTeamSaving] = useState(false);
-    const [error, setError] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [newEmail, setNewEmail] = useState('');
+    const [isInviting, setIsInviting] = useState(false);
+    const [inviteError, setInviteError] = useState(null);
 
-    useEffect(() => {
-        if (session) {
-            fetchTeamData();
-        }
-    }, [session]);
+    const [showMapModal, setShowMapModal] = useState(false);
+    const [selectedTeammate, setSelectedTeammate] = useState(null);
+    const [selectedCommunities, setSelectedCommunities] = useState([]);
+    const [isMapping, setIsMapping] = useState(false);
+    const [mapSuccess, setMapSuccess] = useState(false);
 
-    const fetchTeamData = async () => {
+    const fetchTeammates = async () => {
+        if (!session || !canAccess) return;
         try {
             const res = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
-            if (data) {
-                setTeamLimit(data.limit);
-                setTeamUsed(data.used);
-                setTeammates(data.teammates || []);
+            if (data.teammates) {
+                setTeammates(data.teammates);
             }
         } catch (err) {
-            setError("Failed to load team data.");
+            console.error("Failed to load teammates");
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const handleInviteTeammate = async () => {
-        if (!teamEmail) {
-            setError("Please enter an email address.");
+    useEffect(() => {
+        fetchTeammates();
+    }, [session, canAccess]);
+
+    const handleInvite = async () => {
+        if (!newEmail || !newEmail.includes('@')) {
+            setInviteError("Please enter a valid email address.");
             return;
         }
-        setIsTeamSaving(true);
-        setError(null);
+        setIsInviting(true);
+        setInviteError(null);
         try {
             const res = await fetch('/api/team/invite', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: teamEmail })
+                body: JSON.stringify({ email: newEmail })
             });
-
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-
-            const textRaw = await res.text();
-            let data = {};
-            try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) {}
-
-            if (res.ok && data.success) {
-                setTeamEmail('');
-                fetchTeamData();
+            const data = await res.json();
+            if (data.error) {
+                setInviteError(data.error);
             } else {
-                throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
+                setNewEmail('');
+                setShowInviteModal(false);
+                fetchTeammates();
             }
         } catch (err) {
-            setError(err.message);
+            setInviteError("Network error. Please try again.");
         } finally {
-            setIsTeamSaving(false);
+            setIsInviting(false);
         }
     };
 
-    const handleRevokeTeammate = async (email) => {
-        if (!window.confirm(`Are you sure you want to revoke teammate access for ${email}?`)) return;
+    const handleRevoke = async (email) => {
+        if (!window.confirm(`Are you sure you want to revoke teammate access for ${email}? This will lower your monthly billing by $2.00.`)) return;
         try {
             const res = await fetch('/api/team/revoke', {
                 method: 'POST',
@@ -72,128 +78,247 @@ export default function TeammatesApp({ session, unaData }) {
                 body: JSON.stringify({ email })
             });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-            fetchTeamData();
+            fetchTeammates();
         } catch (err) {
-            console.error("Failed to revoke teammate.");
+            alert("Failed to revoke teammate.");
         }
     };
 
-    return (
-        <div className="max-w-7xl mx-auto py-12 px-8 text-left">
-            {error && (
-                <div className="mb-8 p-5 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                    <p className="text-xs font-medium">{error}</p>
+    const openMapModal = (teammate) => {
+        setSelectedTeammate(teammate);
+        setSelectedCommunities([]);
+        setMapSuccess(false);
+        setShowMapModal(true);
+    };
+
+    const handleSaveMapping = async () => {
+        if (selectedCommunities.length === 0) {
+            alert("Please select at least one community.");
+            return;
+        }
+        setIsMapping(true);
+        try {
+            const res = await fetch('/api/team/manual-map', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: selectedTeammate.teammate_email, communities: selectedCommunities })
+            });
+            if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+            const data = await res.json();
+            if (data.success) {
+                setMapSuccess(true);
+                setTimeout(() => setShowMapModal(false), 2000);
+            } else {
+                alert(data.error || data.notice || "Failed to grant access.");
+            }
+        } catch (err) {
+            alert("Server error.");
+        } finally {
+            setIsMapping(false);
+        }
+    };
+
+    const toggleCommunitySelection = (id) => {
+        setSelectedCommunities(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
+    };
+
+    if (!canAccess) {
+        return (
+            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
+                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                    <Users size={56} className="text-gray-500 mb-6 relative z-10" />
+                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Team Management</h3>
+                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
+                        Upgrade your account to add staff, co-hosts, and moderators to your brand. Teammates can post on your behalf and access tools without you sharing your password.
+                    </p>
+                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
+                        Upgrade to Unlock
+                    </a>
                 </div>
-            )}
+            </div>
+        );
+    }
+
+    if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
+
+    const allCommunities = [
+        ...(unaData.spaces || []).map(s => ({ ...s, fullId: `spaces_${s.id}`, type: 'Space' })),
+        ...(unaData.crowds || []).map(c => ({ ...c, fullId: `groups_${c.id}`, type: 'Crowd' }))
+    ];
+
+    return (
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
+                <div>
+                    <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
+                        My Team
+                    </h2>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
+                        Manage your staff, co-hosts, and moderators.
+                    </p>
+                </div>
+                <div className="flex gap-3 w-full md:w-auto justify-end">
+                    <button onClick={() => setShowInviteModal(true)} className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                        <UserPlus size={14} /> Add Teammate
+                    </button>
+                </div>
+            </div>
 
             <div className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                        <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
-                            <Users size={18} className="text-[#9df01c]" />
-                            My Team
+                <div className="lg:col-span-8">
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 min-h-[50vh]">
+                        <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2 mb-6">
+                            <Briefcase size={18} className="text-[#9df01c]"/> Active Roster
                         </h3>
 
-                        <div className="mb-6 p-4 bg-black border border-white/5 rounded-2xl text-center">
-                            <div className="text-3xl font-black text-white">
-                                <span className="text-[#9df01c]">{teamUsed}</span> <span className="text-gray-600">/</span> {teamLimit === 999 ? '∞' : teamLimit}
-                            </div>
-                            <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mt-1">Seats Used</p>
-                        </div>
-
-                        <div className="space-y-5 relative z-10">
-                            {teamLimit === 0 ? (
-                                <div className="text-center py-4">
-                                    <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6">
-                                        Your current account tier does not include teammate seats.
-                                    </p>
-                                    <a 
-                                        href="https://www.selloutcrowds.com/plans" 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center justify-center w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20"
-                                    >
-                                        Upgrade to unlock this feature!
-                                    </a>
-                                </div>
-                            ) : (
-                                <>
-                                    <div>
-                                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                                            Invite Teammate
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={teamEmail}
-                                            onChange={(e) => setTeamEmail(e.target.value)}
-                                            placeholder="assistant@example.com"
-                                            className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white"
-                                        />
+                        {teammates.length > 0 ? (
+                            <div className="space-y-3">
+                                {teammates.map((member) => (
+                                    <div key={member.id} className="bg-black p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-white/10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                                <Shield size={16} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-white truncate">{member.teammate_email}</p>
+                                                <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-bold mt-1">Authorized Staff</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                                            <button onClick={() => openMapModal(member)} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-white/5">
+                                                <Key size={12}/> Grant Access
+                                            </button>
+                                            <button onClick={() => handleRevoke(member.teammate_email)} className="flex-1 sm:flex-none px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-red-500/20">
+                                                <Trash2 size={12}/> Revoke
+                                            </button>
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={handleInviteTeammate}
-                                        disabled={isTeamSaving || !teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)}
-                                        className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!teamEmail || (teamLimit > 0 && teamUsed >= teamLimit)) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                                        {isTeamSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
-                                        {isTeamSaving ? 'Inviting...' : 'Assign Seat'}
-                                    </button>
-                                    {teamLimit > 0 && teamUsed >= teamLimit && (
-                                        <p className="text-[9px] text-red-500 mt-3 text-center px-2 font-bold leading-relaxed italic">
-                                            You have reached your seat limit. Remove a teammate or upgrade your account to add more!
-                                        </p>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
+                                <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                                <p className="text-sm font-medium">You haven't added any teammates yet.</p>
+                                <p className="text-[10px] mt-2">Click "Add Teammate" to invite someone to your roster.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="lg:col-span-8">
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-                            <div>
-                                <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                                    <Users className="w-6 h-6 text-[#9df01c]" />
-                                    Active Teammates
-                                </h3>
-                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                                    Manage dashboard access for your assistants and partners.
-                                </p>
+                <div className="lg:col-span-4">
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
+                        <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Teammate Benefits</h3>
+                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
+                            When you upgrade a regular user to a Teammate, they unlock premium tools to help manage your brand.
+                        </p>
+                        <div className="space-y-5">
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><BadgeCheck size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Brand Badge</h4><p className="text-xs text-gray-500">They receive an official staff badge next to their name in your communities.</p></div>
                             </div>
-                        </div>
-
-                        <div className="space-y-4 flex-1">
-                            {teammates.length === 0 ? (
-                                <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center mt-8">
-                                    <Users className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Teammates Yet</p>
-                                    <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to the left to grant platform access to a teammate.</p>
-                                </div>
-                            ) : (
-                                teammates.map((mate) => (
-                                    <div key={mate.id} className="bg-black border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group">
-                                        <div className="flex-1 w-full text-center md:text-left">
-                                            <p className="text-sm font-bold text-white flex items-center justify-center md:justify-start gap-2">
-                                                <span>{mate.teammate_email}</span>
-                                                <span className="text-[8px] bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20 px-1.5 py-0.5 rounded uppercase tracking-widest font-black">Active</span>
-                                            </p>
-                                            <p className="text-[9px] text-gray-600 font-medium mt-1">Added {new Date(mate.created_at).toLocaleDateString()}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => handleRevokeTeammate(mate.teammate_email)}
-                                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-full md:w-auto justify-center"
-                                            title="Revoke Teammate Access"
-                                        >
-                                            <Trash2 size={16} /> <span className="md:hidden">Revoke Access</span>
-                                        </button>
-                                    </div>
-                                ))
-                            )}
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Pencil size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish posts, moderate comments, and manage content.</p></div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Share2 size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card.</p></div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4><p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge.</p></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* INVITE MODAL */}
+            {showInviteModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative">
+                        <button onClick={() => setShowInviteModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><X size={20}/></button>
+                        
+                        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c]"><UserPlus size={24}/></div>
+                        <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2">Add Teammate</h3>
+                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
+                            Enter the email address of an existing Sellout Crowds user to instantly upgrade their account to Teammate status.
+                        </p>
+                        
+                        <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 p-4 rounded-xl flex gap-3 items-start mb-6">
+                            <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
+                                <p className="text-xs text-gray-300">Adding a teammate will add a recurring <strong>$2.00/month</strong> charge to your Sellout Crowds platform invoice.</p>
+                            </div>
+                        </div>
+
+                        {inviteError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold mb-4">{inviteError}</div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">User's Email Address</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                    <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="colleague@example.com" className="w-full bg-black border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none transition-colors" />
+                                </div>
+                            </div>
+                            <button onClick={handleInvite} disabled={isInviting} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                                {isInviting ? <Loader2 size={16} className="animate-spin" /> : 'Confirm & Charge $2.00'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MANUAL MAP MODAL */}
+            {showMapModal && selectedTeammate && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative flex flex-col max-h-[90vh]">
+                        <button onClick={() => setShowMapModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors z-10"><X size={20}/></button>
+                        
+                        {mapSuccess ? (
+                            <div className="text-center py-8">
+                                <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
+                                <h3 className="text-xl font-black uppercase tracking-tight mb-2 text-white">Access Granted!</h3>
+                                <p className="text-xs font-medium text-gray-400">Your teammate has been securely added to the selected communities.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c] flex-shrink-0"><Key size={24}/></div>
+                                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 flex-shrink-0">Grant Free Access</h3>
+                                <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
+                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee!
+                                </p>
+                                
+                                <div className="space-y-2 mb-6 overflow-y-auto custom-scrollbar pr-2 flex-1 min-h-0">
+                                    {allCommunities.length > 0 ? (
+                                        allCommunities.map(comm => (
+                                            <label key={comm.fullId} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${selectedCommunities.includes(comm.fullId) ? 'bg-[#9df01c]/10 border-[#9df01c]/50 text-[#9df01c]' : 'bg-black border-white/5 hover:border-white/20 text-gray-300'}`}>
+                                                <input type="checkbox" className="hidden" checked={selectedCommunities.includes(comm.fullId)} onChange={() => toggleCommunitySelection(comm.fullId)} />
+                                                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${selectedCommunities.includes(comm.fullId) ? 'bg-[#9df01c] text-black' : 'border border-gray-600 bg-transparent'}`}>
+                                                    {selectedCommunities.includes(comm.fullId) && <CheckCircle2 size={12} />}
+                                                </div>
+                                                <span className="text-sm font-bold truncate">{comm.title}</span>
+                                                <span className="ml-auto text-[9px] uppercase tracking-widest opacity-50">{comm.type}</span>
+                                            </label>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-gray-500 italic">No communities found to map.</p>
+                                    )}
+                                </div>
+                                
+                                <button onClick={handleSaveMapping} disabled={isMapping} className="w-full py-4 flex-shrink-0 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                                    {isMapping ? <Loader2 size={16} className="animate-spin" /> : 'Grant Secure Access'}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

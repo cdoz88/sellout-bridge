@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Lock } from 'lucide-react';
+import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Lock, Layers, CreditCard } from 'lucide-react';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -39,6 +39,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [aliasTarget, setAliasTarget] = useState('');
   const [isAliasSaving, setIsAliasSaving] = useState(false);
 
+  // --- NEW: Expansions Opt-In State ---
+  const [hasOptedIn, setHasOptedIn] = useState(false);
+
   const stripeIcon = "https://beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
   const paypalIcon = "https://beasellout.com/wp-content/uploads/2026/03/paypal-icon.webp";
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
@@ -56,6 +59,14 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   }, [session, activeTab]);
 
+  // --- Auto Opt-In Check ---
+  // If they already have mappings, manual users, or payment keys, they have clearly opted in before.
+  useEffect(() => {
+      if (stripeAccountId || paypalAccountId || mappings.length > 0 || manualUsers.length > 0) {
+          setHasOptedIn(true);
+      }
+  }, [stripeAccountId, paypalAccountId, mappings, manualUsers]);
+
   useEffect(() => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -72,6 +83,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           .then(data => {
               if (data.success) {
                   setStripeAccountId(data.accountId);
+                  setHasOptedIn(true); // Auto opt-in on connect
                   fetchProviderProducts(data.accountId, null, session, 'stripe');
               } else {
                   setError(data.error || "Failed to connect Stripe.");
@@ -96,6 +108,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
       const data = await res.json();
       if (data.settings) {
+        if (data.settings.platform_customer_id) {
+            setHasOptedIn(true);
+        }
         if (data.settings.stripe_account_id) {
             setStripeAccountId(data.settings.stripe_account_id);
             fetchProviderProducts(data.settings.stripe_account_id, null, token, 'stripe');
@@ -213,6 +228,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (data.success) {
               setPaypalAccountId(`App ID: ...${data.accountId.slice(-6)}`);
               setKeySuccess(true);
+              setHasOptedIn(true); // Auto opt-in on connect
               setTimeout(() => setKeySuccess(false), 3000);
               fetchProviderProducts(null, null, session, 'paypal');
           } else {
@@ -351,12 +367,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
         body: JSON.stringify({ mappings })
       });
       if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
-      if (!res.ok) throw new Error("Server rejected the save.");
+      
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Server rejected the save.");
+      
       setSaveSuccess(true);
+      setHasOptedIn(true); // Auto opt-in on save
       setTimeout(() => setSaveSuccess(false), 3000);
       if (activeTab === 'stripe') fetchAudienceStats(); 
     } catch (err) {
-      setError("Failed to save mappings.");
+      setError(err.message || "Failed to save mappings.");
     } finally {
       setIsSaving(false);
     }
@@ -457,7 +477,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  // --- MANUAL MULTI-SELECT FUNCTIONS ---
   const toggleManualCommunity = (commId) => {
       setManualSelectedComms(prev => 
           prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
@@ -486,7 +505,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           if (res.ok && data.success) {
               setManualEmail('');
               setManualSelectedComms([]);
-              fetchManualUsers(); // Automatically updates UI without refresh!
+              setHasOptedIn(true); // Auto opt-in on manual map
+              fetchManualUsers(); 
               
               if (data.notice) {
                   setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
@@ -617,21 +637,22 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const currentTabMappings = mappings.filter(m => m.provider === activeTab);
 
+  // --- NEW PERMISSIONS LOGIC ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-  const canAccessManual = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+  
+  // Entire Bridge is unlocked for premium tiers: Rookie(15), All-Star(16), H.O.F.(17)
+  const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
-  const isBlocked = !isAdmin && !(activeTab === 'manual' && canAccessManual);
-
-  if (isBlocked) {
+  if (!canAccess) {
       return (
           <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
               <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
                   <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
                   <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
-                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Enterprise Feature</h3>
+                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                   <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                      Access Control integrations allow creators to bypass standard site commissions. Therefore, these tools are exclusively available to our Enterprise subscribers.
+                      The Subscription Bridge allows creators to bypass standard site commissions by connecting their external billing accounts. This tool is available to our premium subscribers.
                   </p>
                   <a 
                       href="https://www.selloutcrowds.com/plans" 
@@ -639,8 +660,40 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       rel="noopener noreferrer"
                       className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10"
                   >
-                      Learn More About Enterprise
+                      Learn More About Premium Plans
                   </a>
+              </div>
+          </div>
+      );
+  }
+
+  // --- EXPANSIONS OPT-IN SCREEN ---
+  if (!hasOptedIn) {
+      return (
+          <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
+              <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full text-left">
+                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                  <div className="w-16 h-16 bg-[#9df01c]/10 rounded-2xl flex items-center justify-center text-[#9df01c] mb-6 relative z-10 mx-auto">
+                      <Layers size={32} />
+                  </div>
+                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10 text-center">Enable Subscription Bridge</h3>
+                  <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed text-center">
+                      Tired of forcing your audience to migrate to a new payment processor? The Subscription Bridge lets you keep your existing billing software while we handle the community.
+                  </p>
+                  
+                  <div className="bg-black border border-white/5 rounded-2xl p-6 mb-8 w-full max-w-md mx-auto relative z-10 shadow-lg">
+                      <h4 className="text-white font-bold mb-4 flex items-center gap-2"><CreditCard size={18} className="text-[#9df01c]"/> Pay-As-You-Grow Pricing</h4>
+                      <ul className="space-y-3 text-sm text-gray-400 font-medium">
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Sync users from Stripe, PayPal, or Patreon.</li>
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Automatically grant and revoke community access.</li>
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Billed automatically at <strong>$0.50/month per bridged user</strong> via your Sellout Crowds invoice.</li>
+                      </ul>
+                  </div>
+
+                  <button onClick={() => setHasOptedIn(true)} className="bg-[#9df01c] mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
+                      I Understand, Enable Bridge
+                  </button>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4 text-center relative z-10">You will not be billed until you successfully map a user.</p>
               </div>
           </div>
       );
@@ -658,7 +711,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
           <p className="text-sm text-gray-500 font-medium max-w-xs">
-              Access Control requires mapping configurations and CSV uploads that are best handled on a desktop computer.
+              Subscription Bridge requires mapping configurations and CSV uploads that are best handled on a desktop computer.
           </p>
       </div>
 
@@ -745,9 +798,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     <UserPlus size={18} className="text-[#9df01c]" />
                     Grant Access
                   </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Add your partners or VIPs to your community for free without requiring a payment plan.
-                  </p>
+
+                  {/* --- NEW: BILLING NOTICE FOR MANUAL TAB --- */}
+                  <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 p-4 rounded-xl flex gap-3 items-start mb-6">
+                      <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
+                      <div>
+                          <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
+                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab instead.</p>
+                      </div>
+                  </div>
+
                   <div className="space-y-5 relative z-10">
                     <div>
                       <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
@@ -1078,7 +1138,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                           <p className="font-mono text-sm text-[#9df01c] truncate">{alias.alias_email}</p>
                                       </div>
                                   </div>
-                                  <button onClick={() => removeAlias(alias.id)} className="ml-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors">
+                                  <button onClick={() => handleRemoveAlias(alias.id)} className="ml-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors">
                                       <Trash2 size={16} />
                                   </button>
                               </div>
@@ -1359,7 +1419,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                         <div className="w-auto sm:w-24 flex justify-end">
                                             {user.isRevoked ? (
                                                 <button 
-                                                    onClick={() => toggleUserAccess(user.email, stat.productId, 'restore')}
+                                                    onClick={() => toggleUserAccess(user.email, modalData.productId, 'restore')}
                                                     disabled={processingUser === user.email}
                                                     className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
                                                     title="Restore Access">
@@ -1367,7 +1427,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                                 </button>
                                             ) : (
                                                 <button 
-                                                    onClick={() => toggleUserAccess(user.email, stat.productId, 'revoke')}
+                                                    onClick={() => toggleUserAccess(user.email, modalData.productId, 'revoke')}
                                                     disabled={processingUser === user.email}
                                                     className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
                                                     title="Revoke Access (Survives Sync)">

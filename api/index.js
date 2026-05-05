@@ -1,6 +1,6 @@
 /**
  * api/index.js - THE BACKEND ENGINE
- * FULLY RESTORED: BUNDLES, MODULE ROUTING, DIAGNOSTICS, MANUAL MULTI-SELECT, AND ONBOARDING
+ * FULLY RESTORED: BUNDLES, MODULE ROUTING, DIAGNOSTICS, ONBOARDING, AND ENTERPRISE EXPANSIONS BILLING
  */
 
 import express from 'express';
@@ -18,6 +18,10 @@ const UNA_CLIENT_SECRET = "uhntfpaswm7zdiranbnkqekbcgdpy9ni";
 const FSAN_ENDPOINT = `${UNA_BASE_URL}/m/fsan/wordpress/get-fields`;
 const FSAN_TOKEN = "j7PGMBb4nZylvLGVV0cgd7ZOvpCBJkDO"; 
 
+// --- STRIPE EXPANSIONS PRICING IDS ---
+const TEAMMATE_PRICE_ID = 'price_1TTjNp6y5pIVcSscS0gENUM5';
+const METERED_PRICE_ID = 'price_1TTjNp6y5pIVcSscCLCUffP8';
+
 const sql = neon(process.env.DATABASE_URL);
 
 // DEFINING ADMIN EMAILS GLOBALLY
@@ -26,36 +30,93 @@ const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
 
-// --- HELPER FUNCTIONS ---
+// --- EXPANSIONS BILLING ENGINE ---
 
-function createMultipartPayload(params) {
-    const boundary = '----SelloutCrowdsBoundary' + Math.random().toString(36).substring(2);
-    let body = '';
+async function ensureExpansionsSubscription(user, teammateCountIncrement = 0) {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error("Platform Stripe key not set");
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     
-    const appendField = (key, value) => {
-        body += `--${boundary}\r\n`;
-        body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
-        body += `${value}\r\n`;
-    };
-
-    for (const [key, value] of Object.entries(params)) {
-        if (typeof value === 'object' && value !== null) {
-            for (const [subKey, subValue] of Object.entries(value)) {
-                appendField(`${key}[${subKey}]`, subValue);
-            }
-        } else if (value !== undefined && value !== null) {
-            appendField(key, value);
+    let platformCustomerId = null;
+    
+    // Check DB for existing customer ID map
+    const settings = await sql`SELECT platform_customer_id FROM bridge_settings WHERE user_id = ${user.id}`;
+    if (settings.length > 0 && settings[0].platform_customer_id) {
+        platformCustomerId = settings[0].platform_customer_id;
+    } else {
+        // Find existing Una customer by email
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+        if (customers.data.length > 0) {
+            platformCustomerId = customers.data[0].id;
+            await sql`UPDATE bridge_settings SET platform_customer_id = ${platformCustomerId} WHERE user_id = ${user.id}`;
+        } else {
+            throw new Error("No primary billing account found. Please ensure you have an active Una subscription first.");
         }
     }
-    body += `--${boundary}--\r\n`;
-    return { body, boundary };
+
+    // Check for active expansions subscription
+    const subs = await stripe.subscriptions.list({ customer: platformCustomerId, status: 'active' });
+    let expSub = subs.data.find(s => s.items.data.some(i => i.price.id === TEAMMATE_PRICE_ID || i.price.id === METERED_PRICE_ID));
+
+    if (!expSub) {
+        // Create the background subscription for the add-ons
+        expSub = await stripe.subscriptions.create({
+            customer: platformCustomerId,
+            items: [
+                { price: TEAMMATE_PRICE_ID, quantity: Math.max(0, teammateCountIncrement) },
+                { price: METERED_PRICE_ID }
+            ],
+            payment_behavior: 'allow_incomplete' 
+        });
+    } else {
+        // Update teammate quantity if increment is provided
+        if (teammateCountIncrement !== 0) {
+            const teammateItem = expSub.items.data.find(i => i.price.id === TEAMMATE_PRICE_ID);
+            if (teammateItem) {
+                const newQty = Math.max(0, teammateItem.quantity + teammateCountIncrement);
+                await stripe.subscriptionItems.update(teammateItem.id, { quantity: newQty });
+            } else {
+                await stripe.subscriptionItems.create({
+                    subscription: expSub.id,
+                    price: TEAMMATE_PRICE_ID,
+                    quantity: Math.max(0, teammateCountIncrement)
+                });
+            }
+        }
+    }
+    return { customerId: platformCustomerId, subscription: expSub };
 }
+
+// --- HELPER FUNCTIONS ---
 
 async function ensureSchema() {
     try {
-        await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`;
+        await sql`CREATE TABLE IF NOT EXISTS bridge_customers (stripe_customer_id VARCHAR(255) PRIMARY KEY, email VARCHAR(255), bridge_status VARCHAR(50) DEFAULT 'pending')`;
+        try { await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS creator_id INTEGER`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_customers ADD COLUMN IF NOT EXISTS bridge_status VARCHAR(50) DEFAULT 'pending'`; } catch(e){}
+
         await sql`CREATE TABLE IF NOT EXISTS bridge_patreon_users (email VARCHAR(255) PRIMARY KEY, tier VARCHAR(255), status VARCHAR(50))`;
-        
+        try { await sql`ALTER TABLE bridge_patreon_users ADD COLUMN IF NOT EXISTS creator_id INTEGER`; } catch(e){}
+
+        await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
+            id SERIAL PRIMARY KEY, 
+            user_id INTEGER, 
+            email VARCHAR(255), 
+            una_module VARCHAR(50), 
+            una_content_id INTEGER, 
+            status VARCHAR(50) DEFAULT 'bridged', 
+            UNIQUE(user_id, email, una_module, una_content_id)
+        )`; 
+        try { await sql`ALTER TABLE bridge_manual_users ADD COLUMN IF NOT EXISTS is_free_teammate BOOLEAN DEFAULT FALSE`; } catch(e){}
+
+        await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
+            user_id INTEGER PRIMARY KEY,
+            stripe_account_id TEXT,
+            paypal_client_id TEXT,
+            paypal_secret_key TEXT
+        )`;
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS creator_email VARCHAR(255)`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS platform_customer_id VARCHAR(255)`; } catch(e){}
+
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 
@@ -79,18 +140,6 @@ async function ensureSchema() {
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         
-        try { 
-            await sql`CREATE TABLE IF NOT EXISTS bridge_manual_users (
-                id SERIAL PRIMARY KEY, 
-                user_id INTEGER, 
-                email VARCHAR(255), 
-                una_module VARCHAR(50), 
-                una_content_id INTEGER, 
-                status VARCHAR(50) DEFAULT 'bridged', 
-                UNIQUE(user_id, email, una_module, una_content_id)
-            )`; 
-        } catch(e) {}
-
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_email_aliases (
                 id SERIAL PRIMARY KEY,
@@ -154,16 +203,6 @@ async function ensureSchema() {
             )`;
         } catch(e) {}
 
-        await sql`CREATE TABLE IF NOT EXISTS bridge_settings (
-            user_id INTEGER PRIMARY KEY,
-            stripe_account_id TEXT,
-            paypal_client_id TEXT,
-            paypal_secret_key TEXT
-        )`;
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS stripe_account_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`; } catch(e){}
-        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS paypal_secret_key TEXT`; } catch(e){}
-
         await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (
             id SERIAL PRIMARY KEY,
             user_id INTEGER,
@@ -212,6 +251,8 @@ async function getAuthenticatedUser(token) {
                             meData.role = roleData.role; 
                         }
                     }
+                    // Cache email
+                    await sql`INSERT INTO bridge_settings (user_id, creator_email) VALUES (${meData.id}, ${meData.email}) ON CONFLICT (user_id) DO UPDATE SET creator_email = EXCLUDED.creator_email`;
                 }
             } catch (err) {
                 console.error("Failed to fetch custom role", err);
@@ -244,7 +285,7 @@ async function revokeCommunityAccess(email, module, contentId) {
 }
 
 // ==========================================
-// MY TEAM ENDPOINTS (Umbrella ACL)
+// MY TEAM ENDPOINTS 
 // ==========================================
 app.get('/api/team', async (req, res) => {
     try {
@@ -252,14 +293,10 @@ app.get('/api/team', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
-        let limit = 0;
-        if (user.role === 17) limit = 6; 
-        else if (user.role === 16) limit = 3; 
-        else if (user.role === 3) limit = 999; 
-
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
         
-        res.json({ limit, used: rows.length, teammates: rows });
+        // Return 999 limit as they now pay per seat
+        res.json({ limit: 999, used: rows.length, teammates: rows });
     } catch (error) { 
         res.status(500).json({ error: "Failed to fetch team data" }); 
     }
@@ -276,14 +313,14 @@ app.post('/api/team/invite', async (req, res) => {
         await ensureSchema();
         const cleanEmail = email.trim().toLowerCase();
         
-        let limit = 0;
-        if (user.role === 17) limit = 6;
-        else if (user.role === 16) limit = 3;
-        else if (user.role === 3) limit = 999;
+        // 1. BILLING: Automatically add 1 Teammate Quantity to Stripe
+        try {
+            await ensureExpansionsSubscription(user, 1);
+        } catch (e) {
+            return res.status(400).json({ error: e.message || "Failed to initialize subscription add-ons. Please check your billing method." });
+        }
 
-        const existing = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id}`;
-        if (existing.length >= limit) return res.status(400).json({ error: "Seat limit reached. Upgrade your account on Sellout Crowds to add more teammates." });
-
+        // 2. Grant Teammate Role in Una
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
         const response = await fetch(url, { 
             method: 'POST', 
@@ -293,14 +330,11 @@ app.post('/api/team/invite', async (req, res) => {
         
         const responseText = await response.text();
         let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
-        }
+        try { result = JSON.parse(responseText); } catch (e) { throw new Error(`Server returned invalid response.`); }
 
         if (!result.success) throw new Error(result.error || "Failed to upgrade user.");
 
+        // 3. Log Seat in DB
         await sql`INSERT INTO bridge_team_seats (owner_id, teammate_email) VALUES (${user.id}, ${cleanEmail}) ON CONFLICT (owner_id, teammate_email) DO NOTHING`;
 
         res.json({ success: true });
@@ -319,6 +353,15 @@ app.post('/api/team/revoke', async (req, res) => {
 
         const cleanEmail = email.trim().toLowerCase();
 
+        // 1. BILLING: Automatically remove 1 Teammate Quantity from Stripe
+        try {
+            await ensureExpansionsSubscription(user, -1);
+        } catch (e) {
+            console.error("Failed to decrement teammate count in Stripe", e);
+            // We proceed with the revocation even if Stripe decrement fails to not lock the user state.
+        }
+
+        // 2. Revoke Teammate Role in Una
         const url = `${UNA_BASE_URL}/bridge-connector.php`;
         const response = await fetch(url, { 
             method: 'POST', 
@@ -326,21 +369,109 @@ app.post('/api/team/revoke', async (req, res) => {
             body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 18 }) 
         });
 
-        const responseText = await response.text();
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
-        }
-
+        // 3. Remove Seat from DB
         await sql`DELETE FROM bridge_team_seats WHERE owner_id = ${user.id} AND teammate_email = ${cleanEmail}`;
+
+        // 4. Also remove any free manual mappings granted to this teammate
+        await sql`DELETE FROM bridge_manual_users WHERE user_id = ${user.id} AND email = ${cleanEmail} AND is_free_teammate = TRUE`;
 
         res.json({ success: true });
     } catch (error) { 
         res.status(500).json({ error: error.message || "Failed to revoke teammate" }); 
     }
 });
+
+app.post('/api/team/manual-map', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { email, communities } = req.body;
+        
+        if (!email || !communities || communities.length === 0) return res.status(400).json({ error: "Missing email or communities array" });
+        
+        await ensureSchema();
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Verify this email is actually an active teammate
+        const seatCheck = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} AND teammate_email = ${cleanEmail}`;
+        if (seatCheck.length === 0) return res.status(403).json({ error: "You can only manually map users who occupy a paid teammate seat." });
+
+        let allSuccess = true;
+        let lastError = "";
+
+        for (const comm of communities) {
+            const lastUnderscore = comm.lastIndexOf('_');
+            const module = comm.substring(0, lastUnderscore);
+            const id = comm.substring(lastUnderscore + 1);
+
+            const result = await grantCommunityAccess(cleanEmail, module, id);
+            const newStatus = result.success ? 'bridged' : 'pending';
+            
+            if (!result.success) {
+                allSuccess = false; lastError = result.error || "Failed to grant access.";
+            }
+
+            // Notice: is_free_teammate is set to TRUE so the Metered Cron Job ignores them!
+            await sql`
+                INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status, is_free_teammate)
+                VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus}, TRUE)
+                ON CONFLICT (user_id, email, una_module, una_content_id) 
+                DO UPDATE SET status = EXCLUDED.status, is_free_teammate = TRUE
+            `;
+        }
+
+        res.json({ success: true, notice: !allSuccess ? lastError : null });
+    } catch (error) { res.status(500).json({ error: "Failed to map teammate" }); }
+});
+
+// ==========================================
+// METERED CRON JOB: DAILY SNAPSHOT
+// ==========================================
+app.post('/api/cron/sync-meters', async (req, res) => {
+    try {
+        if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe Key Missing");
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        
+        // Find every creator who has initialized the Expansions Subscription
+        const settings = await sql`SELECT user_id, platform_customer_id FROM bridge_settings WHERE platform_customer_id IS NOT NULL`;
+        let eventsSent = 0;
+
+        for (const s of settings) {
+            // Count 1: Standard bridged Stripe/PayPal customers
+            const cRows = await sql`SELECT count(*) FROM bridge_customers WHERE creator_id = ${s.user_id} AND bridge_status = 'bridged'`;
+            const cCount = parseInt(cRows[0].count) || 0;
+            
+            // Count 2: Standard bridged Patreon customers
+            const pRows = await sql`SELECT count(*) FROM bridge_patreon_users WHERE creator_id = ${s.user_id} AND status = 'bridged'`;
+            const pCount = parseInt(pRows[0].count) || 0;
+            
+            // Count 3: Standard Manual Users (Excludes Teammates!)
+            const mRows = await sql`SELECT count(*) FROM bridge_manual_users WHERE user_id = ${s.user_id} AND status = 'bridged' AND is_free_teammate = FALSE`;
+            const mCount = parseInt(mRows[0].count) || 0;
+            
+            const totalBillableUsers = cCount + pCount + mCount;
+            
+            // Send the usage snapshot to Stripe
+            try {
+                await stripe.billing.meterEvents.create({
+                    event_name: 'bridged_users_snapshot',
+                    payload: {
+                        value: totalBillableUsers.toString(),
+                        stripe_customer_id: s.platform_customer_id,
+                    },
+                });
+                eventsSent++;
+            } catch(err) {
+                console.error(`Failed to send meter event for Creator ID ${s.user_id}:`, err.message);
+            }
+        }
+        res.json({ success: true, eventsSent });
+    } catch (error) {
+        console.error("Cron Job Error:", error);
+        res.status(500).json({ error: "Cron Failed" });
+    }
+});
+
 
 // ==========================================
 // BUSINESS CARD & BIO PAGE ENDPOINTS
@@ -439,7 +570,7 @@ app.get('/api/public-bio-page/:slug', async (req, res) => {
 });
 
 // ==========================================
-// ADDRESS BOOK ENDPOINTS (Public & Private)
+// ADDRESS BOOK ENDPOINTS
 // ==========================================
 
 app.post('/api/public/contact-submit', async (req, res) => {
@@ -854,7 +985,6 @@ app.get('/api/get-communities', async (req, res) => {
         try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
-        // --- FETCH OWNED COMMUNITIES ---
         let ownedSpaces = [];
         let ownedGroups = [];
         try {
@@ -886,7 +1016,6 @@ app.get('/api/get-communities', async (req, res) => {
                 const trueId = Math.abs(item.key).toString();
                 const numId = parseInt(trueId, 10);
                 
-                // Only include the community if the user actually owns it
                 if (currentCategory === 'CROWD' && ownedSpaces.includes(numId)) {
                     crowds.push({ id: trueId, title: item.value });
                 } else if (currentCategory === 'SPACE' && ownedGroups.includes(numId)) {
@@ -944,7 +1073,7 @@ app.get('/api/get-manual-users', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
-        const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} ORDER BY id DESC`;
+        const rows = await sql`SELECT * FROM bridge_manual_users WHERE user_id = ${user.id} AND is_free_teammate = FALSE ORDER BY id DESC`;
         
         const grouped = {};
         rows.forEach(row => {
@@ -973,6 +1102,14 @@ app.post('/api/add-manual-user', async (req, res) => {
         }
         
         await ensureSchema();
+        
+        // BILLING: Make sure they have the Expansions Subscription initialized
+        try {
+            await ensureExpansionsSubscription(user, 0);
+        } catch (e) {
+            return res.status(400).json({ error: "Failed to initialize Expansions subscription. Please check your billing method." });
+        }
+
         const cleanEmail = email.trim().toLowerCase();
         let allSuccess = true;
         let lastError = "";
@@ -991,17 +1128,14 @@ app.post('/api/add-manual-user', async (req, res) => {
             }
 
             await sql`
-                INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status)
-                VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus})
+                INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status, is_free_teammate)
+                VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus}, FALSE)
                 ON CONFLICT (user_id, email, una_module, una_content_id) 
-                DO UPDATE SET status = EXCLUDED.status
+                DO UPDATE SET status = EXCLUDED.status, is_free_teammate = FALSE
             `;
         }
 
-        res.json({ 
-            success: true, 
-            notice: !allSuccess ? lastError : null 
-        });
+        res.json({ success: true, notice: !allSuccess ? lastError : null });
 
     } catch (error) { 
         res.status(500).json({ error: "Failed to add manual user" }); 
@@ -1070,6 +1204,13 @@ app.post('/api/save-mappings', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { mappings } = req.body;
         await sql`DELETE FROM bridge_mappings WHERE user_id = ${user.id}`;
+        
+        // BILLING: Make sure they have the Expansions Subscription initialized
+        try {
+            await ensureExpansionsSubscription(user, 0);
+        } catch (e) {
+            return res.status(400).json({ error: "Failed to initialize Expansions subscription. Please check your billing method." });
+        }
         
         if (mappings && mappings.length > 0) {
             for (const map of mappings) {
@@ -1242,6 +1383,9 @@ app.post('/api/patreon-import', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { users, mappings } = req.body; 
         await ensureSchema();
+        
+        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
+
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
         aliasRows.forEach(r => aliasesMap[r.original_email] = r.alias_email);
@@ -1287,7 +1431,7 @@ app.post('/api/patreon-import', async (req, res) => {
             }
             
             const newStatus = allSuccess ? 'bridged' : 'pending';
-            await sql`INSERT INTO bridge_patreon_users (email, tier, status) VALUES (${email}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status`;
+            await sql`INSERT INTO bridge_patreon_users (email, creator_id, tier, status) VALUES (${email}, ${user.id}, ${tier}, ${newStatus}) ON CONFLICT (email) DO UPDATE SET tier = EXCLUDED.tier, status = EXCLUDED.status, creator_id = EXCLUDED.creator_id`;
             if (allSuccess) importCount++;
             await new Promise(resolve => setTimeout(resolve, 250)); 
         }
@@ -1301,6 +1445,8 @@ app.post('/api/paypal-import', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { users, mappings } = req.body; 
         await ensureSchema();
+        
+        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
 
         const aliasRows = await sql`SELECT original_email, alias_email FROM bridge_email_aliases WHERE user_id = ${user.id}`;
         const aliasesMap = {};
@@ -1327,7 +1473,7 @@ app.post('/api/paypal-import', async (req, res) => {
                 const newStatus = allSuccess ? 'bridged' : 'pending';
                 const dummyStripeId = `pp_csv_${crypto.randomBytes(8).toString('hex')}`;
                 
-                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${dummyStripeId}, ${u.email}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO NOTHING`;
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${dummyStripeId}, ${user.id}, ${u.email}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO NOTHING`;
                 
                 if (allSuccess) importCount++;
                 await new Promise(resolve => setTimeout(resolve, 250)); 
@@ -1363,7 +1509,7 @@ app.get('/api/get-subscribers', async (req, res) => {
         const productMap = {};
         products.data.forEach(p => productMap[p.id] = p.name);
         
-        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers WHERE creator_id = ${user.id}`;
         const statusMap = {};
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status || 'pending');
 
@@ -1401,6 +1547,8 @@ app.post('/api/sync-subscribers', async (req, res) => {
         const { provider } = req.body;
 
         await ensureSchema();
+        
+        try { await ensureExpansionsSubscription(user, 0); } catch(e) {}
 
         if (provider === 'paypal') {
             return res.status(400).json({ error: "PayPal does not support automatic bulk subscription syncing. Please use the CSV importer instead." });
@@ -1426,7 +1574,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
             mappingsMap[row.stripe_product_id].push({ module: row.una_module, id: row.una_content_id });
         });
         
-        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers`;
+        const customersDb = await sql`SELECT email, bridge_status FROM bridge_customers WHERE creator_id = ${user.id}`;
         const statusMap = {};
         customersDb.forEach(c => statusMap[c.email] = c.bridge_status);
 
@@ -1461,7 +1609,7 @@ app.post('/api/sync-subscribers', async (req, res) => {
                 }
                 
                 const newStatus = allSuccess ? 'bridged' : 'pending';
-                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${sub.customer.id}, ${customerEmail}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${sub.customer.id}, ${user.id}, ${customerEmail}, ${newStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status, creator_id = EXCLUDED.creator_id`;
                 
                 if (allSuccess) {
                     syncCount++;
@@ -1514,11 +1662,12 @@ app.post('/api/stripe-webhook', async (req, res) => {
             const customerId = session.customer; 
             const stripeProductId = session.metadata?.product_id;
             let bridgeStatus = 'pending';
+            let userId = null;
             
             if (stripeProductId && customerEmail) {
                 const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${stripeProductId} AND provider = 'stripe'`;
                 if (rows.length > 0) {
-                    const userId = rows[0].user_id;
+                    userId = rows[0].user_id;
                     const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
                     const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
                     
@@ -1530,8 +1679,8 @@ app.post('/api/stripe-webhook', async (req, res) => {
                     bridgeStatus = allSuccess ? 'bridged' : 'pending';
                 }
             }
-            if (customerId && customerEmail) {
-                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${customerId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+            if (customerId && customerEmail && userId) {
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${customerId}, ${userId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status, creator_id = EXCLUDED.creator_id`;
             }
         } 
         else if (event.type === 'customer.subscription.deleted') {
@@ -1606,10 +1755,11 @@ app.post('/api/paypal-webhook', async (req, res) => {
             const customerId = sub.id; 
             const planId = sub.plan_id;
             let bridgeStatus = 'pending';
+            let userId = null;
             if (planId && customerEmail) {
                 const rows = await sql`SELECT user_id, una_module, una_content_id FROM bridge_mappings WHERE stripe_product_id = ${planId} AND provider = 'paypal'`;
                 if (rows.length > 0) {
-                    const userId = rows[0].user_id;
+                    userId = rows[0].user_id;
                     const aliasRows = await sql`SELECT alias_email FROM bridge_email_aliases WHERE user_id = ${userId} AND original_email = ${customerEmail}`;
                     const targetEmail = aliasRows.length > 0 ? aliasRows[0].alias_email : customerEmail;
                     
@@ -1621,8 +1771,8 @@ app.post('/api/paypal-webhook', async (req, res) => {
                     bridgeStatus = allSuccess ? 'bridged' : 'pending';
                 }
             }
-            if (customerId && customerEmail) {
-                await sql`INSERT INTO bridge_customers (stripe_customer_id, email, bridge_status) VALUES (${customerId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status`;
+            if (customerId && customerEmail && userId) {
+                await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${customerId}, ${userId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status, creator_id = EXCLUDED.creator_id`;
             }
         } 
         else if (['BILLING.SUBSCRIPTION.CANCELLED', 'BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.EXPIRED'].includes(event.event_type)) {
@@ -1660,7 +1810,6 @@ app.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-        // Block Rookies (15), Teammates (18), and basic creators (1, 2) from using the WP integration
         const role = Number(user.role);
         if ([1, 2, 15, 18].includes(role)) {
             return res.status(403).json({ error: "Your current plan does not support WordPress integration. Please upgrade to All-Star or Enterprise." });

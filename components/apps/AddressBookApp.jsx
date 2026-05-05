@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Camera, Save, Loader2, Download, Upload, X, Trash2, Plus, Users, ChevronLeft, Lock } from 'lucide-react';
 
 export default function AddressBookApp({ session, unaData }) {
-    // Permission Check: Admin (3), All-Star (16), H.O.F. (17)
+    // Permission Check: Admin (3), Rookie (15), All-Star (16), H.O.F. (17)
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    const canAccess = isAdmin || [16, 17].includes(Number(unaData?.user?.role));
+    
+    // Unlocked for all premium creator tiers, locked for Free (1,2) and Teammates (18)
+    const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
     const [contacts, setContacts] = useState([]);
     const [contactView, setContactView] = useState('list'); 
@@ -14,7 +16,6 @@ export default function AddressBookApp({ session, unaData }) {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploading, setIsUploading] = useState({ contactPic: false });
 
-    // --- NEW: LISTEN FOR MOBILE BOTTOM NAV TRIGGER ---
     useEffect(() => {
         const handleAddContactEvent = () => openNewContactForm();
         window.addEventListener('open-add-contact', handleAddContactEvent);
@@ -146,7 +147,7 @@ export default function AddressBookApp({ session, unaData }) {
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Address Book allows you to manage and export your saved contacts. This tool is exclusively available to All-Star, H.O.F. and Enterprise subscribers.
+                        The Address Book allows you to securely manage and export your CRM contacts. This tool is available to all premium creator plans.
                     </p>
                     <a 
                         href="https://www.selloutcrowds.com/plans" 
