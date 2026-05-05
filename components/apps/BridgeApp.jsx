@@ -30,7 +30,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const [manualUsers, setManualUsers] = useState([]);
   const [manualEmail, setManualEmail] = useState('');
-  const [manualSelectedComms, setManualSelectedComms] = useState([]);
+  const [manualSelectedMappingId, setManualSelectedMappingId] = useState('');
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [manualModalData, setManualModalData] = useState(null);
 
@@ -39,7 +39,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const [aliasTarget, setAliasTarget] = useState('');
   const [isAliasSaving, setIsAliasSaving] = useState(false);
 
-  // --- NEW: Expansions Opt-In State ---
   const [hasOptedIn, setHasOptedIn] = useState(false);
 
   const stripeIcon = "https://admin.beasellout.com/wp-content/uploads/2026/03/Stripe-logo.webp";
@@ -47,14 +46,10 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
   const STRIPE_CLIENT_ID = 'ca_UAUckMTFQOG8rW8CajO6ZOB2mTzVXo42';
-
   const [isLoadingOAuth, setIsLoadingOAuth] = useState(false);
 
-  // --- CALCULATE ESTIMATED BILLING ---
   const totalStripeBridged = audienceStats.reduce((sum, stat) => sum + (stat.bridgedCount || 0), 0);
   const stripeEstimatedCost = (totalStripeBridged * 0.50).toFixed(2);
-  
-  // Note: We don't currently have a live PayPal stats fetcher, so this defaults to 0 for now.
   const totalPaypalBridged = 0; 
   const paypalEstimatedCost = (totalPaypalBridged * 0.50).toFixed(2);
 
@@ -67,7 +62,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     }
   }, [session, activeTab]);
 
-  // --- Auto Opt-In Check ---
   useEffect(() => {
       if (stripeAccountId || paypalAccountId || mappings.length > 0 || manualUsers.length > 0) {
           setHasOptedIn(true);
@@ -90,7 +84,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           .then(data => {
               if (data.success) {
                   setStripeAccountId(data.accountId);
-                  setHasOptedIn(true);
+                  setHasOptedIn(true); 
                   fetchProviderProducts(data.accountId, null, session, 'stripe');
               } else {
                   setError(data.error || "Failed to connect Stripe.");
@@ -166,7 +160,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
 
   const fetchProviderProducts = async (clientId, secretKey, overrideToken, provider = activeTab) => {
     const activeToken = overrideToken || session;
-    if (!activeToken || ['manual', 'aliases', 'patreon', 'team'].includes(provider)) return;
+    if (!activeToken || ['manual', 'aliases', 'patreon', 'team', 'mappings'].includes(provider)) return;
 
     const isNewKeys = clientId && clientId !== '••••••••••••••••';
     if (isNewKeys) {
@@ -484,15 +478,19 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const toggleManualCommunity = (commId) => {
-      setManualSelectedComms(prev => 
-          prev.includes(commId) ? prev.filter(c => c !== commId) : [...prev, commId]
-      );
+  // --- NEW: Helper to get clean product names for dropdowns ---
+  const getProductName = (provider, productId) => {
+      if (!provider || !productId) return 'Unknown Product';
+      const products = providerProducts[provider] || [];
+      const product = products.find(p => String(p.id) === String(productId) || p.name === productId);
+      return product ? product.name : productId;
   };
 
   const handleAddManualUser = async () => {
-      if (!manualEmail || manualSelectedComms.length === 0) {
-          setError("Please enter an email and select at least one community.");
+      const selectedMapping = mappings.find(m => m.id === manualSelectedMappingId);
+      
+      if (!manualEmail || !selectedMapping || selectedMapping.communities.length === 0) {
+          setError("Please enter an email address and select a valid Access Rule.");
           return;
       }
       setIsManualSaving(true);
@@ -501,7 +499,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           const res = await fetch('/api/add-manual-user', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: manualEmail, communities: manualSelectedComms })
+              body: JSON.stringify({ email: manualEmail, communities: selectedMapping.communities })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           
@@ -511,8 +509,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           
           if (res.ok && data.success) {
               setManualEmail('');
-              setManualSelectedComms([]);
-              setHasOptedIn(true); // Auto opt-in on manual map
+              setManualSelectedMappingId('');
+              setHasOptedIn(true);
               fetchManualUsers(); 
               
               if (data.notice) {
@@ -591,18 +589,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       }
   };
 
-  const getCommunityName = (mod, id) => {
-      if (id === undefined || id === null) {
-          return 'Unknown Community';
-      }
-      if (mod === 'bx_groups') {
-          return unaData.spaces?.find(s => s.id === id.toString())?.title || `Space #${id}`;
-      } else {
-          return unaData.crowds?.find(c => c.id === id.toString())?.title || `Crowd #${id}`;
-      }
-  };
-
-  const addMapping = () => setMappings(prev => [...prev, { id: `temp_${Date.now()}`, provider: activeTab, productId: '', communities: [] }]);
+  const addMapping = () => setMappings(prev => [...prev, { id: `temp_${Date.now()}`, provider: '', productId: '', communities: [] }]);
   
   const updateMapping = (id, field, value) => {
       setMappings(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
@@ -642,11 +629,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     setTimeout(() => setWebhookCopied(false), 2000);
   };
 
-  const currentTabMappings = mappings.filter(m => m.provider === activeTab);
-
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-  
   const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
   if (!canAccess) {
@@ -745,14 +729,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           <div className="grid lg:grid-cols-12 gap-8">
             <div className="lg:col-span-4 space-y-6">
               
-              {activeTab === 'aliases' ? (
+              {/* === LEFT COLUMN CONTENT BASED ON TAB === */}
+
+              {activeTab === 'aliases' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <Repeat size={18} className="text-[#9df01c]" />
                     Create Email Alias
                   </h3>
                   <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Link a subscriber's payment email to their preferred account email on Sellout Crowds. This will create an Email Alias so that both emails are connected and act as a single identity for the user. There is no additional cost for this as the user has already been accounted for in another Bridge tool.
+                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
                   </p>
                   <div className="space-y-5 relative z-10">
                     <div>
@@ -796,7 +782,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     </p>
                   </div>
                 </div>
-              ) : activeTab === 'manual' ? (
+              )}
+              
+              {activeTab === 'manual' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <UserPlus size={18} className="text-[#9df01c]" />
@@ -825,63 +813,40 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       />
                     </div>
 
+                    {/* --- NEW MANUAL MAPPING SELECTOR --- */}
                     <div>
                       <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                        Grant Access To (Select Multiple)
+                        Grant Access Level
                       </label>
-                      <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
-                          {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
-                              <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the left.</p>
-                          ) : (
-                              <>
-                                  {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                  {(unaData?.crowds || []).map(c => {
-                                      const combinedId = `bx_spaces_${c.id}`;
-                                      const isSelected = manualSelectedComms.includes(combinedId);
-                                      return (
-                                          <label key={combinedId} onClick={() => toggleManualCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                              <div className="flex items-center gap-3">
-                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
-                                                  </div>
-                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
-                                              </div>
-                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
-                                          </label>
-                                      );
-                                  })}
-
-                                  {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                  {(unaData?.spaces || []).map(s => {
-                                      const combinedId = `bx_groups_${s.id}`;
-                                      const isSelected = manualSelectedComms.includes(combinedId);
-                                      return (
-                                          <label key={combinedId} onClick={() => toggleManualCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                              <div className="flex items-center gap-3">
-                                                  <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                      {isSelected && <CheckCircle2 size={12} className="text-black" />}
-                                                  </div>
-                                                  <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
-                                              </div>
-                                              <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
-                                          </label>
-                                      );
-                                  })}
-                              </>
-                          )}
-                      </div>
+                      <select 
+                          value={manualSelectedMappingId} 
+                          onChange={(e) => setManualSelectedMappingId(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors"
+                      >
+                          <option value="" disabled>Select an existing Access Rule...</option>
+                          {mappings.filter(m => m.productId && m.communities.length > 0).map(m => (
+                              <option key={m.id} value={m.id}>
+                                  {getProductName(m.provider, m.productId)} ({m.communities.length} Communities)
+                              </option>
+                          ))}
+                      </select>
+                      {mappings.filter(m => m.productId && m.communities.length > 0).length === 0 && (
+                          <p className="text-[9px] text-red-500 mt-2 font-medium">You must create at least one rule in the "Access Rules" tab first.</p>
+                      )}
                     </div>
 
                     <button 
                       onClick={handleAddManualUser}
-                      disabled={isManualSaving || !manualEmail || manualSelectedComms.length === 0}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || manualSelectedComms.length === 0) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
+                      disabled={isManualSaving || !manualEmail || !manualSelectedMappingId}
+                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || !manualSelectedMappingId) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                       {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
                       {isManualSaving ? 'Granting...' : 'Grant Access'}
                     </button>
                   </div>
                 </div>
-              ) : activeTab === 'patreon' ? (
+              )}
+              
+              {activeTab === 'patreon' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
@@ -907,11 +872,13 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     )}
 
                     <div className="text-[10px] text-gray-500 font-medium leading-relaxed text-left">
-                      Upload your Patreon "Relationship Manager" CSV. We will extract your unique Tiers so you can map them!
+                      Upload your Patreon "Relationship Manager" CSV. We will extract your unique Tiers so you can build access rules!
                     </div>
                   </div>
                 </div>
-              ) : (
+              )}
+              
+              {['stripe', 'paypal'].includes(activeTab) && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
                     <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
@@ -990,7 +957,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
-              {/* --- NEW: USAGE ESTIMATE BOX --- */}
+              {/* ESTIMATED USAGE BOX */}
               {['stripe', 'paypal'].includes(activeTab) && (
                   <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
                       <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
@@ -1057,9 +1024,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                     </h3>
                     <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
                       {activeTab === 'patreon' 
-                        ? 'Process your uploaded Patreon CSV. Our Smart Engine will automatically grant access to new patrons and revoke access for canceled ones.'
+                        ? 'Process your uploaded Patreon CSV to automatically grant access to new patrons and revoke access for canceled ones.'
                         : activeTab === 'paypal'
-                        ? 'PayPal does not support automatic bulk syncing. Upload your active PayPal subscriptions CSV to bridge your historic users. Going forward, the Webhook will handle new signups!'
+                        ? 'Upload your active PayPal subscriptions CSV to bridge historic users. The Webhook will handle new signups!'
                         : 'Pull in your existing Stripe subscribers and automatically grant them access.'}
                     </p>
                     
@@ -1100,41 +1067,17 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           {syncSubsResult?.success ? syncSubsResult.text : 'Run Smart Import'}
                         </button>
                     )}
-
-                    {activeTab === 'stripe' && audienceStats.filter(stat => stat.isMapped).length > 0 && (
-                      <div className="mt-6 pt-6 border-t border-white/10">
-                        <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between px-1">
-                          <span>Bridged Products</span>
-                          {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                        </p>
-                        <div className="space-y-2">
-                          {audienceStats.filter(stat => stat.isMapped).map(stat => (
-                            <div 
-                              key={stat.productId} 
-                              onClick={() => setModalData(stat)}
-                              className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-3 flex justify-between items-center cursor-pointer transition-colors group"
-                            >
-                              <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
-                              <div className="flex flex-col items-end">
-                                  <span className="bg-[#9df01c]/10 text-[#9df01c] px-2 py-1 rounded-md text-[10px] font-black">{stat.bridgedCount} Active on SC</span>
-                                  <span className="text-[9px] text-gray-500 font-medium mt-1">{stat.totalCount} Total Stripe Subs</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-[9px] text-gray-600 mt-3 text-center italic">Click a product to view subscribers</p>
-                      </div>
-                    )}
                   </div>
               )}
 
             </div>
 
             <div className="lg:col-span-8">
-              <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
-                
-                {activeTab === 'aliases' ? (
-                  <>
+              
+              {/* === RIGHT COLUMN CONTENT BASED ON TAB === */}
+
+              {activeTab === 'aliases' && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
@@ -1174,10 +1117,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                               </div>
                           ))
                       )}
+                      </div>
                   </div>
-                  </>
-                ) : activeTab === 'manual' ? (
-                  <>
+              )}
+              
+              {activeTab === 'manual' && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
@@ -1216,37 +1161,36 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             ))
                         )}
                       </div>
-                  </>
-                ) : (
-                  <>
+                  </div>
+              )}
+
+              {/* --- NEW: THE CENTRALIZED MAPPINGS ENGINE --- */}
+              {activeTab === 'mappings' && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
                         <div>
                           <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                            {activeTab === 'patreon' ? (
-                                <img src={patreonIcon} alt="Patreon" className="w-6 h-6 object-contain" />
-                            ) : (
-                                <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-6 h-6 object-contain" />
-                            )}
-                            Subscription Mappings
+                            <Zap className="w-6 h-6 text-[#9df01c]" />
+                            Access Rules
                           </h3>
                           <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Rule: If they buy [{activeTab === 'patreon' ? 'Tier' : 'Product'}], grant access to [Communities]
+                            Rule: If they buy [Product], grant access to [Communities]
                           </p>
                         </div>
-                        <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all">
-                          <Plus className="w-4 h-4" /> Add Mapping
+                        <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-black/50">
+                          <Plus className="w-4 h-4" /> Add Rule
                         </button>
                       </div>
 
                       <div className="space-y-4 flex-1">
-                        {currentTabMappings.length === 0 ? (
+                        {mappings.length === 0 ? (
                           <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
                             <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Mappings</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Mapping" to connect a {activeTab === 'patreon' ? 'Tier' : 'Product'} to a Crowd or Space.</p>
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Rules Created</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Rule" to map a payment product to a community.</p>
                           </div>
                         ) : (
-                          currentTabMappings.map((mapping) => (
+                          mappings.map((mapping) => (
                             <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
                               
                               <div className="flex-1 w-full md:mt-1">
@@ -1256,24 +1200,52 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                                 
                                 <select 
                                    className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                                   value={mapping.productId}
-                                   onChange={(e) => updateMapping(mapping.id, 'productId', e.target.value)}
+                                   value={mapping.provider && mapping.productId ? `${mapping.provider}:::${mapping.productId}` : ""}
+                                   onChange={(e) => {
+                                       const [prov, prodId] = e.target.value.split(':::');
+                                       updateMapping(mapping.id, 'provider', prov);
+                                       updateMapping(mapping.id, 'productId', prodId);
+                                   }}
                                 >
-                                  <option value="">Select {activeTab === 'patreon' ? 'Tier' : 'Product'}...</option>
-                                  {providerProducts[activeTab] && providerProducts[activeTab].length > 0 ? (
-                                      providerProducts[activeTab].map(prod => (
-                                          <option key={prod.id} value={prod.id}>{prod.name}</option>
-                                      ))
-                                  ) : (
-                                      <option value="" disabled>
-                                          {activeTab === 'patreon' || activeTab === 'paypal' ? 'Upload a CSV or create plans in PayPal first.' : 'No products found. Sync Credentials first.'}
-                                      </option>
+                                  <option value="" disabled>Select Product or Tier...</option>
+                                  
+                                  {providerProducts.stripe?.length > 0 && (
+                                      <optgroup label="Stripe Products">
+                                          {providerProducts.stripe.map(prod => (
+                                              <option key={`stripe_${prod.id}`} value={`stripe:::${prod.id}`}>{prod.name}</option>
+                                          ))}
+                                      </optgroup>
                                   )}
+
+                                  {providerProducts.paypal?.length > 0 && (
+                                      <optgroup label="PayPal Plans">
+                                          {providerProducts.paypal.map(prod => (
+                                              <option key={`paypal_${prod.id}`} value={`paypal:::${prod.id}`}>{prod.name}</option>
+                                          ))}
+                                      </optgroup>
+                                  )}
+
+                                  {providerProducts.patreon?.length > 0 && (
+                                      <optgroup label="Patreon Tiers">
+                                          {providerProducts.patreon.map(prod => (
+                                              <option key={`patreon_${prod.id}`} value={`patreon:::${prod.id}`}>{prod.name}</option>
+                                          ))}
+                                      </optgroup>
+                                  )}
+
+                                  {/* Fallback for already saved products that might not be loaded yet */}
+                                  {mapping.provider && mapping.productId && 
+                                    (!providerProducts[mapping.provider] || !providerProducts[mapping.provider].find(p => String(p.id) === String(mapping.productId))) && (
+                                        <optgroup label="Saved Rule">
+                                            <option value={`${mapping.provider}:::${mapping.productId}`}>{mapping.productId}</option>
+                                        </optgroup>
+                                    )
+                                  }
                                 </select>
                               </div>
 
                               <div className="md:pt-9 hidden md:block">
-                                <Zap className="w-5 h-5 text-[#9df01c]" />
+                                <ArrowRight className="w-5 h-5 text-[#9df01c]" />
                               </div>
 
                               <div className="flex-[2] w-full bg-[#111] border border-white/10 rounded-xl p-3">
@@ -1338,13 +1310,77 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           disabled={isSaving}
                           className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
                           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          {saveSuccess ? 'Saved!' : 'Save Configuration'}
+                          {saveSuccess ? 'Saved!' : 'Save Rules'}
                         </button>
                       </div>
-                  </>
-                )}
+                  </div>
+              )}
 
-              </div>
+              {/* --- NEW: ACTIVE SUBSCRIBERS PANEL FOR STRIPE --- */}
+              {activeTab === 'stripe' && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden text-left h-full flex flex-col">
+                      <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white mb-6">
+                        <Users className="w-6 h-6 text-[#9df01c]" />
+                        Active Subscribers
+                      </h3>
+                      
+                      {audienceStats.filter(stat => stat.isMapped).length > 0 ? (
+                        <>
+                            <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between px-1">
+                              <span>Bridged Products</span>
+                              {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                            </p>
+                            <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-2">
+                              {audienceStats.filter(stat => stat.isMapped).map(stat => (
+                                <div 
+                                  key={stat.productId} 
+                                  onClick={() => setModalData(stat)}
+                                  className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-4 flex justify-between items-center cursor-pointer transition-colors group shadow-lg"
+                                >
+                                  <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
+                                  <div className="flex flex-col items-end">
+                                      <span className="bg-[#9df01c]/10 text-[#9df01c] px-3 py-1.5 rounded-lg text-[10px] font-black">{stat.bridgedCount} Active on SC</span>
+                                      <span className="text-[9px] text-gray-500 font-medium mt-2">{stat.totalCount} Total Stripe Subs</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-[9px] text-gray-600 mt-4 text-center italic border-t border-white/5 pt-4">Click a product to view and manage individual subscribers</p>
+                        </>
+                      ) : (
+                          <div className="flex-1 border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center items-center">
+                            <CreditCard className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
+                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Bridged Subscriptions</p>
+                            <p className="text-gray-600 text-[10px] mt-2 font-medium max-w-[250px] mx-auto">Click "Sync Existing Users" on the left, or create a Rule in the Access Rules tab.</p>
+                          </div>
+                      )}
+                  </div>
+              )}
+              
+              {/* --- EMPTY STATE FOR PATREON/PAYPAL --- */}
+              {['patreon', 'paypal'].includes(activeTab) && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 flex flex-col items-center justify-center text-center h-full">
+                      <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
+                          <Layers className="text-gray-600 w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">Automated Billing Sync</h3>
+                      <p className="text-xs text-gray-500 font-medium max-w-sm leading-relaxed mb-8">
+                          To grant users access, upload your CSV file on the left. Then head over to the <strong>Access Rules</strong> tab to dictate which communities they unlock!
+                      </p>
+                      <button onClick={() => {
+                          const event = new URL(window.location);
+                          event.searchParams.set('tab', 'mappings');
+                          window.history.pushState({}, '', event);
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                          // The layout tab changes via the topbar handleAppSwitch, but we can't easily call it from here without the prop.
+                          // Instead, let's just trigger a reload to that tab:
+                          window.location.reload();
+                      }} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] hover:underline">
+                          Go to Access Rules &rarr;
+                      </button>
+                  </div>
+              )}
+
             </div>
           </div>
 

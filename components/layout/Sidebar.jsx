@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -230,6 +230,12 @@ export default function Sidebar({
                                 </button>
                                 <button onClick={() => handleNavClick('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                </button>
+                                
+                                <div className="h-px bg-white/5 my-2 mx-2"></div>
+                                
+                                <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Zap size={16} /> Access Rules {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <UserPlus size={16} /> Manual {!canUseManual && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
