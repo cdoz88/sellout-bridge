@@ -666,15 +666,15 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </div>
                   <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10 text-center">Enable Subscription Bridge</h3>
                   <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed text-center">
-                      Tired of forcing your audience to migrate to a new payment processor? The Subscription Bridge lets you keep your existing billing software while we handle the community.
+                      Add your community as a seamless perk for your existing website subscribers. The Subscription Bridge grants your audience access without making them pay in two places, and automatically syncs their community membership with their active billing status.
                   </p>
                   
                   <div className="bg-black border border-white/5 rounded-2xl p-6 mb-8 w-full max-w-md mx-auto relative z-10 shadow-lg">
                       <h4 className="text-white font-bold mb-4 flex items-center gap-2"><CreditCard size={18} className="text-[#9df01c]"/> Pay-As-You-Grow Pricing</h4>
                       <ul className="space-y-3 text-sm text-gray-400 font-medium">
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Sync users from Stripe, PayPal, or Patreon.</li>
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Automatically grant and revoke community access.</li>
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> Billed automatically at <strong>$0.50/month per bridged user</strong> via your Sellout Crowds invoice.</li>
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Sync users from Stripe, PayPal, or Patreon.</span></li>
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Automatically grant and revoke community access.</span></li>
+                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Billed automatically at <strong>$0.50/month per bridged user</strong> via your Sellout Crowds invoice.</span></li>
                       </ul>
                   </div>
 
@@ -778,7 +778,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       {isAliasSaving ? 'Saving...' : 'Link Emails'}
                     </button>
                     <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed italic">
-                        After saving, click "Sync Existing Users" on your Integration tab to instantly apply it.
+                        After saving, click "Change Existing Subscribers" on your Integration tab to instantly apply it.
                     </p>
                   </div>
                 </div>
@@ -813,6 +813,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       />
                     </div>
 
+                    {/* --- NEW MANUAL MAPPING SELECTOR --- */}
                     <div>
                       <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
                         Grant Access Level
@@ -956,8 +957,35 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                 </div>
               )}
 
+              {/* ESTIMATED BILLING BOX */}
+              {['stripe', 'paypal'].includes(activeTab) && (
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
+                          <CreditCard size={64} />
+                      </div>
+                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
+                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
+                      </h3>
+                      
+                      <div className="space-y-3 relative z-10">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
+                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
+                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-1">
+                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
+                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 text-left">
+                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
                   <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
                     <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
                     Bridge Webhook URL
@@ -983,7 +1011,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               )}
 
               {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden text-left">
+                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6 text-left">
                     <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
                       {activeTab === 'patreon' ? (
                          <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
@@ -1039,33 +1067,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           {syncSubsResult?.success ? syncSubsResult.text : 'Run Smart Import'}
                         </button>
                     )}
-                  </div>
-              )}
-
-              {/* ESTIMATED BILLING BOX */}
-              {['stripe', 'paypal'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
-                          <CreditCard size={64} />
-                      </div>
-                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
-                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
-                      </h3>
-                      
-                      <div className="space-y-3 relative z-10">
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
-                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
-                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1">
-                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
-                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
-                          </div>
-                      </div>
                   </div>
               )}
 
