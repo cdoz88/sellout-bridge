@@ -200,7 +200,7 @@ export default function Sidebar({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-6 custom-scrollbar flex flex-col">
+            <div className="flex-1 overflow-y-auto pt-6 pb-2 custom-scrollbar flex flex-col">
                 
                 {showProgressBar && (
                     <div className="px-4 mb-6 cursor-pointer group" onClick={() => handleAppSwitch && handleAppSwitch('onboarding', 'checklist')}>
@@ -220,7 +220,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'bridge' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div className="space-y-1 mb-6">
                             <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Zap size={16} /> Bridges {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
@@ -248,7 +248,7 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-8 pb-8">
+                        <div className="mt-auto pt-4 pb-2">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}
@@ -266,7 +266,7 @@ export default function Sidebar({
                                 )}
                                 {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
                             </button>
-                            <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed">
+                            <p className="text-[9px] text-gray-600 mt-2 text-center px-2 font-medium leading-relaxed">
                                 {isAdmin 
                                     ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
                                     : 'Enterprise subscription required to sync communities.'}
