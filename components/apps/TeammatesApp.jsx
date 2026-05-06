@@ -268,6 +268,33 @@ export default function TeammatesApp({ session, unaData }) {
 
                 <div className="lg:col-span-4">
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
+                        
+                        {/* --- NEW PLAN ALLOWANCE BOX --- */}
+                        <div className="mb-8 pb-8 border-b border-white/5">
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Seat Allowance</h3>
+                            {freeSeats > 0 ? (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Your current plan includes <strong>{freeSeats} free teammates</strong>. Additional seats are $2.00/mo.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats} / {freeSeats} Free</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Teammate seats are billed automatically at <strong>$2.00/mo</strong> per user.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
                         <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Teammate Benefits</h3>
                         <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
                             When you upgrade a regular user to a Teammate, they unlock premium tools to help manage your brand.

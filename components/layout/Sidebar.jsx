@@ -218,7 +218,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'bridge' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div className="space-y-1 mb-6">
                             <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Zap size={16} /> Bridges {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
@@ -246,8 +246,7 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        {/* --- INCREASED BOTTOM PADDING HERE --- */}
-                        <div className="mt-auto pt-8 pb-8">
+                        <div className="mt-auto pt-4 pb-2">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}
@@ -275,7 +274,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'teammates' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -288,7 +287,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'onboarding' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -301,7 +300,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'business-card' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -320,7 +319,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'linktree' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -339,7 +338,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'address-book' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -352,7 +351,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'assets' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <div className="flex items-center justify-between mb-3 px-2">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Brand Kit</p>
@@ -429,7 +428,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'guides' && (
-                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                    <div className="px-4 flex flex-col flex-1">
                         <div>
                             <div className="flex items-center justify-between mb-3 px-2">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Help & Guides</p>
