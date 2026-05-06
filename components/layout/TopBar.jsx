@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
@@ -22,6 +22,9 @@ export default function TopBar({
     const role = Number(unaData?.user?.role);
     // Show upgrade button for everyone EXCEPT role 17 (H.O.F.)
     const showUpgrade = role && role !== 17;
+    
+    // Bridge unlocked for Admin(3), All-Star(16), HOF(17)
+    const canAccessBridge = role === 3 || [16, 17].includes(role);
 
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 z-30 sticky top-0 flex-shrink-0">
@@ -55,8 +58,11 @@ export default function TopBar({
                                 <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Link in Bio Page
                             </button>
 
-                            <button onClick={() => handleAppSwitch('bridge', 'stripe')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
+                            <button onClick={() => handleAppSwitch('bridge', 'mappings')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
+                                </div>
+                                {!canAccessBridge && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
                             <button onClick={() => handleAppSwitch('teammates', 'manage')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>

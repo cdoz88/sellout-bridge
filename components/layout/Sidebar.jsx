@@ -11,7 +11,9 @@ export default function Sidebar({
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Manual tab is unlocked for Admin, Rookie (15), All-Star (16), and H.O.F (17). Teammates (18) are locked out.
+    // Bridge unlocked for Admin, All-Star (16), HOF (17)
+    const canAccessBridge = isAdmin || [16, 17].includes(Number(unaData?.user?.role));
+    // Manual tab is unlocked for Admin, Rookie (15), All-Star (16), and H.O.F (17).
     const canUseManual = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
     const [categories, setCategories] = useState([]);
@@ -218,10 +220,10 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'bridge' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div className="space-y-1 mb-6">
                             <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <Zap size={16} /> Bridges {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                <Zap size={16} /> Bridges {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                             </button>
                         </div>
                         
@@ -229,24 +231,24 @@ export default function Sidebar({
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
                             <div className="space-y-1">
                                 <button onClick={() => handleNavClick('stripe')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <CreditCard size={16} /> Stripe {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                    <CreditCard size={16} /> Stripe {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('paypal')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'paypal' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Smartphone size={16} /> PayPal {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                    <Smartphone size={16} /> PayPal {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('patreon')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'patreon' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                    <img src={patreonIcon} alt="Patreon" className={`w-4 h-4 object-contain ${activeTab === 'patreon' ? 'filter invert' : ''}`} /> Patreon {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('manual')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manual' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <UserPlus size={16} /> Manual {!canUseManual && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                                 <button onClick={() => handleNavClick('aliases')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'aliases' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Repeat size={16} /> Email to Email {!isAdmin && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
+                                    <Repeat size={16} /> Email to Email {!canAccessBridge && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-4 pb-2">
+                        <div className="mt-auto pt-8 pb-8">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}
@@ -274,7 +276,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'teammates' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -287,7 +289,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'onboarding' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -300,7 +302,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'business-card' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -319,7 +321,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'linktree' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -338,7 +340,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'address-book' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
@@ -351,7 +353,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'assets' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <div className="flex items-center justify-between mb-3 px-2">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Brand Kit</p>
@@ -428,7 +430,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'guides' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div>
                             <div className="flex items-center justify-between mb-3 px-2">
                                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Help & Guides</p>

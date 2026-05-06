@@ -778,7 +778,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       {isAliasSaving ? 'Saving...' : 'Link Emails'}
                     </button>
                     <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed italic">
-                        After saving, click "Change Existing Subscribers" on your Integration tab to instantly apply it.
+                        After saving, click "Sync Existing Users" on your Integration tab to instantly apply it.
                     </p>
                   </div>
                 </div>
@@ -1052,7 +1052,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                             ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
                           {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Change Existing Subscribers'}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Subscribers'}
                         </button>
                     )}
 
@@ -1164,7 +1164,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </div>
               )}
 
-              {/* --- NEW: THE CENTRALIZED MAPPINGS ENGINE --- */}
+              {/* --- THE CENTRALIZED MAPPINGS ENGINE --- */}
               {activeTab === 'mappings' && (
                   <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
@@ -1316,7 +1316,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   </div>
               )}
 
-              {/* --- NEW: ACTIVE SUBSCRIBERS PANEL FOR STRIPE --- */}
+              {/* --- ACTIVE SUBSCRIBERS PANEL FOR STRIPE --- */}
               {activeTab === 'stripe' && (
                   <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden text-left h-full flex flex-col">
                       <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white mb-6">
@@ -1372,8 +1372,6 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                           event.searchParams.set('tab', 'mappings');
                           window.history.pushState({}, '', event);
                           window.dispatchEvent(new PopStateEvent('popstate'));
-                          // The layout tab changes via the topbar handleAppSwitch, but we can't easily call it from here without the prop.
-                          // Instead, let's just trigger a reload to that tab:
                           window.location.reload();
                       }} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] hover:underline">
                           Go to Bridges &rarr;

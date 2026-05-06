@@ -13,7 +13,8 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Creators must have premium roles to access the bridge and teammates
+    // Bridge unlocked for Admin, All-Star(16), HOF(17)
+    const canAccessBridge = isAdmin || [16, 17].includes(role);
     const hasBillingAccess = isAdmin || [15, 16, 17].includes(role);
 
     useEffect(() => {
@@ -51,7 +52,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
         { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: isAdmin || [16, 17].includes(role) },
         { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasBillingAccess },
+        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessBridge },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
@@ -119,7 +120,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                         <div className="w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-white/5">
                             <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-1">Monthly Total</p>
                             <div className="flex items-end gap-1">
-                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.billableTeamCount * 2) + (billingEstimate.bridgedCount * 0.5)).toFixed(2)}</span>
+                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.billableTeamCount * 2) + (billingEstimate.bridgedCount * 0.50)).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>
