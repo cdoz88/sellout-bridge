@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag, Podcast, Download, Lock } from 'lucide-react';
+import SelloutIcon from '../icons/SelloutIcon';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -29,17 +30,6 @@ const TwitchIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
     </svg>
-);
-
-const SelloutIcon = ({ size=20, className="" }) => (
-    <img 
-        src="https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png" 
-        width={size} 
-        height={size} 
-        className={className}
-        alt="Sellout Crowds"
-        style={{ objectFit: 'contain' }}
-    />
 );
 
 const DEFAULT_LINKS = [
@@ -254,7 +244,6 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
 };
 
 export default function BioPageApp({ session, activeTab, unaData }) {
-    // Permission Check: Admin (3), All-Star (16), H.O.F. (17)
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     const canAccess = isAdmin || [16, 17].includes(Number(unaData?.user?.role));

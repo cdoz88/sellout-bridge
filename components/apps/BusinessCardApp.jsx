@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Save, Loader2, Share2, QrCode, Download, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, User, FileText, MessageSquare, ShoppingBag, GripVertical, Trash2, Plus, Podcast, UserPlus, CheckCircle2 } from 'lucide-react';
+import SelloutIcon from '../icons/SelloutIcon';
 
 const TiktokIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -29,17 +30,6 @@ const TwitchIcon = ({ size=20, className="" }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
         <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z"/>
     </svg>
-);
-
-const SelloutIcon = ({ size=20, className="" }) => (
-    <img 
-        src="https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png" 
-        width={size} 
-        height={size} 
-        className={className}
-        alt="Sellout Crowds"
-        style={{ objectFit: 'contain' }}
-    />
 );
 
 const DEFAULT_LINKS = [
@@ -333,6 +323,7 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
                 </div>
             </div>
 
+            {/* Existing Phone Actions Modal */}
             {showPhoneAction && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowPhoneAction(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
@@ -353,6 +344,7 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
                 </div>
             )}
 
+            {/* Existing Notes Modal */}
             {showNotesModal && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowNotesModal(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
@@ -366,6 +358,7 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
                 </div>
             )}
 
+            {/* --- NEW SHARE CONTACT MODAL --- */}
             {showShareModal && (
                 <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setShowShareModal(false)}>
                     <div className={`w-full max-w-sm p-6 rounded-3xl shadow-2xl relative flex flex-col max-h-[90vh] ${isLight ? 'bg-white' : 'bg-[#111] border border-white/10'}`} onClick={e => e.stopPropagation()}>
