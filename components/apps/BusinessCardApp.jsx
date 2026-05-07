@@ -155,7 +155,6 @@ export const PublicCardView = ({ data, isFullScreen = false, slug }) => {
     const [showPhoneAction, setShowPhoneAction] = useState(false);
     const [activePhoneString, setActivePhoneString] = useState(''); 
 
-    // --- NEW: SHARE CONTACT STATE ---
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareData, setShareData] = useState({ name: '', company: '', title: '', phone: '', email: '', website: '', notes: '', photo: '' });
     const [isSharing, setIsSharing] = useState(false);
@@ -554,7 +553,7 @@ export default function BusinessCardApp({ session, activeTab }) {
     };
     const removeLink = (id) => setCardData({ ...cardData, links: cardData.links.filter(l => l.id !== id) });
 
-    const getShareUrl = () => slug ? `https://crowds.bio/${slug}` : '';
+    const getShareUrl = () => slug ? `https://crowds.bio/c/${slug}` : '';
     
     const copyShareLink = () => {
         const url = getShareUrl();
@@ -708,7 +707,7 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 <label className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3 block">Claim Your Public Link</label>
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-black p-1.5 sm:pl-4 rounded-xl border border-white/10 focus-within:border-[#9df01c] transition-colors overflow-hidden">
                                     <div className="flex items-center flex-1 min-w-0 px-3 sm:px-0 py-2 sm:py-0">
-                                        <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio /</span>
+                                        <span className="text-gray-500 font-bold whitespace-nowrap">crowds.bio/c/</span>
                                         <input type="text" value={slug} onChange={e => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} placeholder="your-name" className="flex-1 bg-transparent text-white font-bold outline-none min-w-[50px] ml-1" />
                                     </div>
                                     <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto bg-[#9df01c] text-black hover:bg-[#8ce015] px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 shadow-sm flex-shrink-0">
@@ -879,7 +878,11 @@ export default function BusinessCardApp({ session, activeTab }) {
                                 </div>
                                 {cardData.qrLogoEnabled && (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-black p-5 rounded-xl border border-white/5 animate-in fade-in">
-                                        <div><label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label><input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" /><p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p></div>
+                                        <div>
+                                            <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Logo Background Block</label>
+                                            <input type="color" value={cardData.qrLogoBg || '#ffffff'} onChange={e => setCardData({...cardData, qrLogoBg: e.target.value})} className="w-full h-12 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
+                                            <p className="text-[9px] text-gray-600 mt-2">The color of the square sitting behind the logo.</p>
+                                        </div>
                                         <div>
                                             <label className="text-[9px] text-gray-400 font-bold uppercase block mb-2">Custom QR Logo (Optional)</label>
                                             <div className="flex items-center gap-4">

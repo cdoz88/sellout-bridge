@@ -149,17 +149,18 @@ export default function App() {
 
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
           
-          if (pathname.startsWith('/page/')) {
-              const pathSlug = pathname.replace('/page/', '');
+          // SWAPPED LOGIC: /c/slug is now the Business Card, and /slug is the Bio Page
+          if (pathname.startsWith('/c/')) {
+              const pathSlug = pathname.replace('/c/', '');
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
-                  setPublicPageType('bio');
+                  setPublicPageType('card');
                   setPublicSlug(pathSlug);
                   setIsLoading(true);
-                  fetch(`/api/public-bio-page/${pathSlug}`)
+                  fetch(`/api/public-card/${pathSlug}`)
                       .then(res => res.json())
                       .then(data => {
-                          if (data.success && data.page) setPublicCardData(data.page);
+                          if (data.success && data.card) setPublicCardData(data.card);
                           else setPublicBioError(true);
                           setIsLoading(false);
                       })
@@ -172,13 +173,13 @@ export default function App() {
               const pathSlug = pathname.substring(1); 
               if (pathSlug && pathSlug !== '') {
                   setIsPublicBio(true);
-                  setPublicPageType('card');
+                  setPublicPageType('bio');
                   setPublicSlug(pathSlug);
                   setIsLoading(true);
-                  fetch(`/api/public-card/${pathSlug}`)
+                  fetch(`/api/public-bio-page/${pathSlug}`)
                       .then(res => res.json())
                       .then(data => {
-                          if (data.success && data.card) setPublicCardData(data.card);
+                          if (data.success && data.page) setPublicCardData(data.page);
                           else setPublicBioError(true);
                           setIsLoading(false);
                       })
