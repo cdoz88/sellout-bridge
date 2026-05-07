@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Loader2, Link2, AlertCircle, Save, Zap, RefreshCcw, CheckCircle2, X, UserX, UserCheck, Upload, MonitorSmartphone, UserPlus, Users, Repeat, ArrowRight, LogOut, Lock, Layers, CreditCard } from 'lucide-react';
+import { Loader2, MonitorSmartphone } from 'lucide-react';
+import BridgePremiumLock from './bridge/BridgePremiumLock';
+import BridgeOptIn from './bridge/BridgeOptIn';
+import BridgeAliases from './bridge/BridgeAliases';
+import BridgeManual from './bridge/BridgeManual';
+import BridgeMappings from './bridge/BridgeMappings';
+import BridgeProviderSetup from './bridge/BridgeProviderSetup';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -322,7 +328,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               const email = cleanRow[emailIdx];
               const plan = cleanRow[planIdx];
               
-              if (email && plan && (status === 'active' || status === 'completed')) {
+              if (email && plan) {
                   parsedUsers.push({ email, plan });
                   uniquePlans.add(plan);
               }
@@ -400,7 +406,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       if (!res.ok) throw new Error(data.error || "Failed to sync subscribers.");
       
       if (data.count === 0 && data.debug && data.debug.length > 0) {
-          setError(`Sync complete! Some Stripe subscribers haven't created an account on your site yet, so their access is pending. (If they used a different email, use the 'Email to Email' tool!)`);
+          setError(`Sync complete! Some Stripe subscribers haven't created an account on your site yet, so their access is pending.`);
       } else {
           setSyncSubsResult({ success: true, text: `Successfully Synced ${data.count} SC Users!` });
           setTimeout(() => setSyncSubsResult(null), 5000);
@@ -513,12 +519,12 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               fetchManualUsers(); 
               
               if (data.notice) {
-                  setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet. Their access will automatically activate once they sign up.`);
+                  setError(`Access saved successfully! Note: This user hasn't registered an account on your site yet.`);
               } else {
                   setError(null);
               }
           } else {
-              throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
+              throw new Error(data.error || `Server Error`);
           }
       } catch (err) {
           setError(err.message);
@@ -564,7 +570,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
               fetchAliases();
               fetchAudienceStats();
           } else {
-              throw new Error(data.error || `Server Error: ${textRaw.substring(0, 100)}`);
+              throw new Error(data.error || `Server Error`);
           }
       } catch (err) {
           setError(err.message);
@@ -632,72 +638,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const roleNum = Number(unaData?.user?.role);
   const isAdmin = roleNum === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
   
-  // Fully unlocked for Admin, All-Star(16), HOF(17)
   const canUseBridge = isAdmin || [16, 17].includes(roleNum);
   const isRookie = roleNum === 15;
-  // Rookies are allowed to see the component so they can hit the pitch screen
   const canAccessApp = canUseBridge || isRookie;
 
   if (!canAccessApp) {
-      return (
-          <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-              <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                  <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
-                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
-                  <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                      The Subscription Bridge allows creators to bypass standard site commissions by connecting their external billing accounts. This tool is available to our premium subscribers.
-                  </p>
-                  <a 
-                      href="https://www.selloutcrowds.com/plans" 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10"
-                  >
-                      Learn More About Premium Plans
-                  </a>
-              </div>
-          </div>
-      );
+      return <BridgePremiumLock />;
   }
 
   if (!hasOptedIn || !canUseBridge) {
-      return (
-          <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-              <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full text-left">
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                  <div className="w-16 h-16 bg-[#9df01c]/10 rounded-2xl flex items-center justify-center text-[#9df01c] mb-6 relative z-10 mx-auto">
-                      <Layers size={32} />
-                  </div>
-                  <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10 text-center">Enable Subscription Bridge</h3>
-                  <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed text-center">
-                      Add your community as a seamless perk for your existing website subscribers. The Subscription Bridge grants your audience access without making them pay in two places, and automatically syncs their community membership with their active billing status.
-                  </p>
-                  
-                  <div className="bg-black border border-white/5 rounded-2xl p-6 mb-8 w-full max-w-md mx-auto relative z-10 shadow-lg">
-                      <h4 className="text-white font-bold mb-4 flex items-center gap-2"><CreditCard size={18} className="text-[#9df01c]"/> Pay-As-You-Grow Pricing</h4>
-                      <ul className="space-y-3 text-sm text-gray-400 font-medium">
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Sync users from Stripe, PayPal, or Patreon.</span></li>
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Automatically grant and revoke community access.</span></li>
-                          <li className="flex items-start gap-3"><CheckCircle2 size={16} className="text-[#9df01c] mt-0.5 flex-shrink-0"/> <span>Billed automatically at <strong>$0.50/month per bridged user</strong> via your Sellout Crowds invoice.</span></li>
-                      </ul>
-                  </div>
-
-                  {canUseBridge ? (
-                      <>
-                          <button onClick={() => setHasOptedIn(true)} className="bg-[#9df01c] mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                              I Understand, Enable Bridge
-                          </button>
-                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4 text-center relative z-10">You will not be billed until you successfully map a user.</p>
-                      </>
-                  ) : (
-                      <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] w-fit mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                          Upgrade to Unlock
-                      </a>
-                  )}
-              </div>
-          </div>
-      );
+      return <BridgeOptIn setHasOptedIn={setHasOptedIn} canUseBridge={canUseBridge} />;
   }
 
   return (
@@ -705,9 +655,11 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       {isLoadingOAuth && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
               <Loader2 className="w-12 h-12 animate-spin text-[#9df01c] mb-4" />
-              <p className="text-white font-bold tracking-widest uppercase text-xs">Connecting to Auth Provider...</p>
+              <p className="text-white font-bold tracking-widest uppercase text-xs">Connecting...</p>
           </div>
       )}
+      
+      {/* Mobile restriction notice */}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-[#050505]">
           <MonitorSmartphone size={48} className="text-gray-600 mb-6" />
           <h2 className="text-2xl font-black uppercase tracking-tighter text-white mb-2">Desktop Required</h2>
@@ -717,811 +669,98 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       </div>
 
       <div className="hidden lg:block max-w-7xl mx-auto py-12 px-8">
-          {activeTab === 'patreon' && (
-            <div className="mb-8 p-5 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-400 text-left flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-black uppercase text-[10px] tracking-widest mb-1">Manual Migration Tool</p>
-                <p className="text-xs font-medium opacity-90 leading-relaxed">
-                  Patreon restricts automatic syncing, meaning you must regularly upload a new CSV to add new patrons and automatically remove canceled ones. <strong>We highly recommend fully migrating your subscribers directly to Sellout Crowds</strong> to automate your community and avoid Patreon's high fees!
-                </p>
-              </div>
-            </div>
+          {activeTab === 'aliases' && (
+              <BridgeAliases 
+                  aliases={aliases} 
+                  aliasOriginal={aliasOriginal} 
+                  setAliasOriginal={setAliasOriginal} 
+                  aliasTarget={aliasTarget} 
+                  setAliasTarget={setAliasTarget} 
+                  isAliasSaving={isAliasSaving} 
+                  handleAddAlias={handleAddAlias} 
+                  handleRemoveAlias={handleRemoveAlias} 
+                  audienceStats={audienceStats} 
+              />
           )}
 
-          {error && (
-              <div className="mb-8 p-5 bg-[#1a1a1a] border border-[#9df01c]/30 rounded-2xl text-[#9df01c] text-left flex items-start gap-3 shadow-lg shadow-[#9df01c]/5">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#9df01c]" />
-                <div>
-                  <p className="font-black uppercase text-[10px] tracking-widest mb-1 text-white">System Notice</p>
-                  <p className="text-xs font-medium opacity-90">{error}</p>
-                </div>
-              </div>
+          {activeTab === 'manual' && (
+              <BridgeManual 
+                  manualUsers={manualUsers}
+                  manualEmail={manualEmail}
+                  setManualEmail={setManualEmail}
+                  manualSelectedMappingId={manualSelectedMappingId}
+                  setManualSelectedMappingId={setManualSelectedMappingId}
+                  isManualSaving={isManualSaving}
+                  handleAddManualUser={handleAddManualUser}
+                  handleRemoveManualUser={handleRemoveManualUser}
+                  mappings={mappings}
+                  getProductName={getProductName}
+                  manualModalData={manualModalData}
+                  setManualModalData={setManualModalData}
+                  unaData={unaData}
+                  error={error}
+              />
           )}
 
-          <div className="grid lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-4 space-y-6">
-              
-              {/* === LEFT COLUMN CONTENT BASED ON TAB === */}
+          {activeTab === 'mappings' && (
+              <BridgeMappings 
+                  mappings={mappings}
+                  providerProducts={providerProducts}
+                  unaData={unaData}
+                  isSaving={isSaving}
+                  saveSuccess={saveSuccess}
+                  addMapping={addMapping}
+                  updateMapping={updateMapping}
+                  toggleCommunity={toggleCommunity}
+                  removeMapping={removeMapping}
+                  saveMappingsToDatabase={saveMappingsToDatabase}
+              />
+          )}
 
-              {activeTab === 'aliases' && (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
-                    <Repeat size={18} className="text-[#9df01c]" />
-                    Create Email Alias
-                  </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                    Link a subscriber's payment email to their preferred account email on Sellout Crowds.
-                  </p>
-                  <div className="space-y-5 relative z-10">
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                        Original Payment Email
-                      </label>
-                      <input 
-                        list="subscriber-emails" 
-                        value={aliasOriginal}
-                        onChange={e => setAliasOriginal(e.target.value)}
-                        placeholder="Select or type original email..."
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
-                      />
-                      <datalist id="subscriber-emails">
-                          {Array.from(new Set(audienceStats.flatMap(s => s.users.map(u => u.email)))).sort().map(email => (
-                              <option key={email} value={email} />
-                          ))}
-                      </datalist>
-                    </div>
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                        Alias Email (Sellout Crowds)
-                      </label>
-                      <input 
-                        type="email" 
-                        value={aliasTarget} 
-                        onChange={(e) => setAliasTarget(e.target.value)} 
-                        placeholder="community@example.com" 
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
-                      />
-                    </div>
-                    <button 
-                      onClick={handleAddAlias}
-                      disabled={isAliasSaving || !aliasOriginal || !aliasTarget}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${!aliasOriginal || !aliasTarget ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                      {isAliasSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
-                      {isAliasSaving ? 'Saving...' : 'Link Emails'}
-                    </button>
-                    <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed italic">
-                        After saving, click "Change Existing Subscribers" on your Integration tab to instantly apply it.
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {activeTab === 'manual' && (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
-                    <UserPlus size={18} className="text-[#9df01c]" />
-                    Grant Access
-                  </h3>
-
-                  <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 p-4 rounded-xl flex gap-3 items-start mb-6">
-                      <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
-                      <div>
-                          <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
-                          <p className="text-xs text-gray-300">Users manually bridged here are billed at <strong>$0.50/month</strong>. To grant free access to your staff, please use the <strong>Teammates</strong> tab instead.</p>
-                      </div>
-                  </div>
-
-                  <div className="space-y-5 relative z-10">
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                        Email Address
-                      </label>
-                      <input 
-                        type="email" 
-                        value={manualEmail} 
-                        onChange={(e) => setManualEmail(e.target.value)} 
-                        placeholder="vip@example.com" 
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:border-[#9df01c] transition-colors text-white" 
-                      />
-                    </div>
-
-                    {/* --- NEW MANUAL MAPPING SELECTOR --- */}
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                        Grant Access Level
-                      </label>
-                      <select 
-                          value={manualSelectedMappingId} 
-                          onChange={(e) => setManualSelectedMappingId(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-[#9df01c] outline-none transition-colors"
-                      >
-                          <option value="" disabled>Select an existing Access Rule...</option>
-                          {mappings.filter(m => m.productId && m.communities.length > 0).map(m => (
-                              <option key={m.id} value={m.id}>
-                                  {getProductName(m.provider, m.productId)} ({m.communities.length} Communities)
-                              </option>
-                          ))}
-                      </select>
-                      {mappings.filter(m => m.productId && m.communities.length > 0).length === 0 && (
-                          <p className="text-[9px] text-red-500 mt-2 font-medium">You must create at least one rule in the "Bridges" tab first.</p>
-                      )}
-                    </div>
-
-                    <button 
-                      onClick={handleAddManualUser}
-                      disabled={isManualSaving || !manualEmail || !manualSelectedMappingId}
-                      className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${(!manualEmail || !manualSelectedMappingId) ? 'opacity-50 cursor-not-allowed bg-white/5 text-white' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                      {isManualSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      {isManualSaving ? 'Granting...' : 'Grant Access'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              
-              {activeTab === 'patreon' && (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
-                    <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
-                    Upload CSV
-                  </h3>
-                  <div className="space-y-5 relative z-10">
-                    <div>
-                      <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1">
-                        Patreon Audience CSV
-                      </label>
-                      <input 
-                        type="file" 
-                        accept=".csv"
-                        onChange={handlePatreonUpload}
-                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#9df01c] transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:tracking-widest file:bg-[#9df01c]/10 file:text-[#9df01c] hover:file:bg-[#9df01c]/20 file:transition-colors cursor-pointer" 
-                      />
-                    </div>
-                    
-                    {keySuccess && (
-                      <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" /> Successfully parsed {patreonUsers.length} users
-                      </div>
-                    )}
-
-                    <div className="text-[10px] text-gray-500 font-medium leading-relaxed text-left">
-                      Upload your Patreon "Relationship Manager" CSV. We will extract your unique Tiers so you can build access rules!
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {['stripe', 'paypal'].includes(activeTab) && (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden">
-                  <h3 className="text-lg font-black uppercase tracking-tighter mb-6 relative z-10 flex items-center gap-2 text-white">
-                    <img src={activeTab === 'stripe' ? stripeIcon : paypalIcon} alt={activeTab} className="w-5 h-5 object-contain" />
-                    Provider Setup
-                  </h3>
-                  <div className="space-y-5 relative z-10">
-                    {activeTab === 'stripe' ? (
-                        stripeAccountId ? (
-                            <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
-                                <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
-                                <p className="text-sm font-bold text-white mb-1">Stripe Connected!</p>
-                                <p className="text-xs text-gray-500 mb-4 break-all">ID: {stripeAccountId}</p>
-                                <button onClick={handleDisconnectStripe} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
-                                    <LogOut size={12} /> Disconnect
-                                </button>
-                            </div>
-                        ) : (
-                            <div>
-                                <p className="text-sm text-gray-400 font-medium leading-relaxed mb-6 text-left">
-                                    Connect your Stripe account to automatically map your active products to Sellout Crowds communities.
-                                </p>
-                                <button 
-                                    onClick={startStripeOAuth}
-                                    className="w-full font-black py-4 rounded-xl uppercase text-[11px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 bg-[#635BFF] hover:bg-[#7A73FF] text-white shadow-lg shadow-[#635BFF]/20">
-                                    Connect with Stripe
-                                </button>
-                            </div>
-                        )
-                    ) : (
-                        paypalAccountId ? (
-                            <div className="bg-white/5 p-5 rounded-xl border border-white/10 text-center">
-                                <CheckCircle2 size={32} className="mx-auto text-green-500 mb-3" />
-                                <p className="text-sm font-bold text-white mb-1">PayPal API Connected!</p>
-                                <p className="text-[10px] text-gray-500 mb-4 truncate" title={paypalAccountId}>{paypalAccountId}</p>
-                                <button onClick={handleDisconnectPaypal} className="text-[10px] text-red-500 font-bold uppercase tracking-widest hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 w-full bg-red-500/10 py-2.5 rounded-lg">
-                                    <LogOut size={12} /> Disconnect
-                                </button>
-                            </div>
-                        ) : (
-                            <>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                                        PayPal Client ID
-                                    </label>
-                                    <input 
-                                        type="text" 
-                                        value={paypalClientId} 
-                                        onChange={(e) => setPaypalClientId(e.target.value)} 
-                                        placeholder="Enter Client ID..." 
-                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                                        PayPal Secret Key
-                                    </label>
-                                    <input 
-                                        type="password" 
-                                        value={paypalSecretKey} 
-                                        onChange={(e) => setPaypalSecretKey(e.target.value)} 
-                                        placeholder="Enter Secret Key..." 
-                                        className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs font-mono outline-none focus:border-[#9df01c] transition-colors text-white" 
-                                    />
-                                </div>
-                                <button 
-                                  onClick={handleSavePaypalKeys}
-                                  disabled={isValidatingKey || (!paypalClientId || !paypalSecretKey)}
-                                  className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 ${keySuccess ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-white/10 text-white'}`}>
-                                  {isValidatingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : (keySuccess ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />)}
-                                  {keySuccess ? 'Connected' : 'Save & Sync Products'}
-                                </button>
-                            </>
-                        )
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ESTIMATED BILLING BOX */}
-              {['stripe', 'paypal'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 mt-6 shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none">
-                          <CreditCard size={64} />
-                      </div>
-                      <h3 className="text-sm font-black uppercase tracking-tighter mb-4 text-white flex items-center gap-2 relative z-10">
-                          <Zap size={16} className="text-[#9df01c]"/> Estimated Billing
-                      </h3>
-                      
-                      <div className="space-y-3 relative z-10">
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Active {activeTab === 'stripe' ? 'Stripe' : 'PayPal'} Subscribers</span>
-                              <span className="text-xs font-black text-white">{activeTab === 'stripe' ? totalStripeBridged : totalPaypalBridged}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cost Per Active User</span>
-                              <span className="text-xs font-black text-gray-400">$0.50 / mo</span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1">
-                              <span className="text-xs text-white font-black uppercase tracking-widest">Est. Monthly Total</span>
-                              <span className="text-lg font-black text-[#9df01c]">${activeTab === 'stripe' ? stripeEstimatedCost : paypalEstimatedCost}</span>
-                          </div>
-                      </div>
-                  </div>
-              )}
-
-              {activeTab === 'paypal' && (
-                <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-8 shadow-2xl shadow-[#9df01c]/5 mt-6 text-left">
-                  <h3 className="text-lg font-black uppercase tracking-tighter mb-2 text-white relative z-10 flex items-center gap-2">
-                    <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
-                    Bridge Webhook URL
-                  </h3>
-                  <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6">
-                    Paste this URL into your PayPal Webhooks settings so we know when someone pays.
-                  </p>
-                  
-                  <div 
-                    onClick={copyWebhook} 
-                    className="bg-black border border-[#9df01c]/30 rounded-xl p-4 flex items-center justify-between group cursor-pointer hover:border-[#9df01c] transition-colors"
-                  >
-                    <span className="text-xs font-mono text-gray-300 truncate mr-4">
-                      https://bridge.selloutcrowds.com/api/paypal-webhook
-                    </span>
-                    {webhookCopied ? (
-                      <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest shrink-0">Copied!</span>
-                    ) : (
-                      <Link2 className="w-4 h-4 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden mt-6 text-left">
-                    <h3 className="text-lg font-black uppercase tracking-tighter mb-2 relative z-10 flex items-center gap-2 text-white">
-                      {activeTab === 'patreon' ? (
-                         <img src={patreonIcon} alt="Patreon" className="w-5 h-5 object-contain" />
-                      ) : activeTab === 'paypal' ? (
-                         <img src={paypalIcon} alt="PayPal" className="w-5 h-5 object-contain" />
-                      ) : (
-                         <img src={stripeIcon} alt="Stripe" className="w-5 h-5 object-contain" />
-                      )}
-                      {['patreon', 'paypal'].includes(activeTab) ? 'Import CSV Data' : 'Sync Subscribers'}
-                    </h3>
-                    <p className="text-gray-500 text-[10px] font-bold leading-relaxed mb-6 text-left">
-                      {activeTab === 'patreon' 
-                        ? 'Process your uploaded Patreon CSV to automatically grant access to new patrons and revoke access for canceled ones.'
-                        : activeTab === 'paypal'
-                        ? 'Upload your active PayPal subscriptions CSV to bridge historic users. The Webhook will handle new signups!'
-                        : 'Import your existing Stripe subscribers and automatically grant them access to your community.'}
-                    </p>
-                    
-                    {['patreon', 'paypal'].includes(activeTab) && (
-                      <div className="mb-6">
-                        <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">
-                          {activeTab === 'patreon' ? 'Patreon Audience CSV' : 'PayPal Subscriptions CSV'}
-                        </label>
-                        <input 
-                          type="file" 
-                          accept=".csv"
-                          onChange={activeTab === 'patreon' ? handlePatreonUpload : handlePaypalUpload}
-                          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#9df01c] transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:uppercase file:tracking-widest file:bg-[#9df01c]/10 file:text-[#9df01c] hover:file:bg-[#9df01c]/20 file:transition-colors cursor-pointer" 
-                        />
-                      </div>
-                    )}
-
-                    {activeTab === 'stripe' && (
-                        <button 
-                          onClick={syncExistingSubscribers}
-                          disabled={isSyncingSubs || !stripeAccountId}
-                          className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
-                            ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
-                            ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                          {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Change Existing Subscribers'}
-                        </button>
-                    )}
-
-                    {['patreon', 'paypal'].includes(activeTab) && (
-                        <button 
-                          onClick={activeTab === 'patreon' ? runPatreonImport : runPaypalImport}
-                          disabled={isSyncingSubs || (activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)}
-                          className={`w-full font-black py-3 rounded-xl uppercase text-[10px] tracking-widest transition-all flex justify-center items-center gap-2 mt-2 
-                            ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
-                            ${((activeTab === 'patreon' && patreonUsers.length === 0) || (activeTab === 'paypal' && paypalUsers.length === 0)) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
-                          {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <Upload className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Run Smart Import'}
-                        </button>
-                    )}
-                  </div>
-              )}
-
-            </div>
-
-            <div className="lg:col-span-8">
-              
-              {/* === RIGHT COLUMN CONTENT BASED ON TAB === */}
-
-              {activeTab === 'aliases' && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
-                        <div>
-                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                            <Repeat className="w-6 h-6 text-[#9df01c]" />
-                            Active Email Aliases
-                          </h3>
-                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Mapped emails for active subscriptions
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 flex-1">
-                        {aliases.length === 0 ? (
-                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
-                            <Repeat className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Aliases Set</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to link a subscriber's payment email to their account email.</p>
-                          </div>
-                        ) : (
-                            aliases.map((alias) => (
-                                <div key={alias.id} className="bg-black border border-white/5 p-5 rounded-[1.5rem] flex items-center justify-between group hover:border-[#9df01c]/30 transition-all">
-                                  <div className="flex items-center gap-4 flex-1">
-                                      <div className="flex-1">
-                                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1"><CreditCard size={10}/> Paying</p>
-                                          <p className="font-mono text-sm text-gray-300 truncate">{alias.original_email}</p>
-                                      </div>
-                                      <ArrowRight size={16} className="text-[#9df01c] mx-2 flex-shrink-0" />
-                                      <div className="flex-1">
-                                          <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1 flex items-center gap-1"><Users size={10}/> Accessing</p>
-                                          <p className="font-mono text-sm text-[#9df01c] truncate">{alias.alias_email}</p>
-                                      </div>
-                                  </div>
-                                  <button onClick={() => handleRemoveAlias(alias.id)} className="ml-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-xl transition-colors">
-                                      <Trash2 size={16} />
-                                  </button>
-                              </div>
-                          ))
-                      )}
-                      </div>
-                  </div>
-              )}
-              
-              {activeTab === 'manual' && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
-                        <div>
-                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                            <Users className="w-6 h-6 text-[#9df01c]" />
-                            Active Manual Members
-                          </h3>
-                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            People who have been manually granted access to your communities.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 flex-1">
-                        {manualUsers.length === 0 ? (
-                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
-                            <UserPlus className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Manual Users</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Use the form to grant access to a partner or VIP.</p>
-                          </div>
-                        ) : (
-                            manualUsers.map((user, idx) => (
-                                <div 
-                                    key={idx} 
-                                    onClick={() => setManualModalData(user)} 
-                                    className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 group cursor-pointer transition-colors"
-                                >
-                                    <div className="flex-1 w-full text-center md:text-left">
-                                        <p className="text-sm font-bold text-white group-hover:text-[#9df01c] transition-colors">{user.email}</p>
-                                    </div>
-                                    <div className="flex items-center gap-4 shrink-0">
-                                        <span className="bg-[#9df01c]/10 text-[#9df01c] px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-[#9df01c]/20">
-                                            {user.communities?.length || 0} {(user.communities?.length === 1) ? 'Community' : 'Communities'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                      </div>
-                  </div>
-              )}
-
-              {/* --- THE CENTRALIZED MAPPINGS ENGINE --- */}
-              {activeTab === 'mappings' && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 min-h-full flex flex-col text-left">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 text-left">
-                        <div>
-                          <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
-                            <Zap className="w-6 h-6 text-[#9df01c]" />
-                            Access Rules
-                          </h3>
-                          <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-                            Rule: If they buy [Product], grant access to [Communities]
-                          </p>
-                        </div>
-                        <button onClick={addMapping} className="flex items-center gap-2 bg-white/5 text-white hover:bg-white/10 border border-white/10 font-black py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-black/50">
-                          <Plus className="w-4 h-4" /> Add Rule
-                        </button>
-                      </div>
-
-                      <div className="space-y-4 flex-1">
-                        {mappings.length === 0 ? (
-                          <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center h-full flex flex-col justify-center">
-                            <Zap className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Rules Created</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium">Click "Add Rule" to map a payment product to a community.</p>
-                          </div>
-                        ) : (
-                          mappings.map((mapping) => (
-                            <div key={mapping.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-                              
-                              <div className="flex-1 w-full md:mt-1">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block px-1 text-left">
-                                  Payment Product
-                                </label>
-                                
-                                <select 
-                                   className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-[#9df01c]"
-                                   value={mapping.provider && mapping.productId ? `${mapping.provider}:::${mapping.productId}` : ""}
-                                   onChange={(e) => {
-                                       const [prov, prodId] = e.target.value.split(':::');
-                                       updateMapping(mapping.id, 'provider', prov);
-                                       updateMapping(mapping.id, 'productId', prodId);
-                                   }}
-                                >
-                                  <option value="" disabled>Select Product or Tier...</option>
-                                  
-                                  {providerProducts.stripe?.length > 0 && (
-                                      <optgroup label="Stripe Products">
-                                          {providerProducts.stripe.map(prod => (
-                                              <option key={`stripe_${prod.id}`} value={`stripe:::${prod.id}`}>{prod.name}</option>
-                                          ))}
-                                      </optgroup>
-                                  )}
-
-                                  {providerProducts.paypal?.length > 0 && (
-                                      <optgroup label="PayPal Plans">
-                                          {providerProducts.paypal.map(prod => (
-                                              <option key={`paypal_${prod.id}`} value={`paypal:::${prod.id}`}>{prod.name}</option>
-                                          ))}
-                                      </optgroup>
-                                  )}
-
-                                  {providerProducts.patreon?.length > 0 && (
-                                      <optgroup label="Patreon Tiers">
-                                          {providerProducts.patreon.map(prod => (
-                                              <option key={`patreon_${prod.id}`} value={`patreon:::${prod.id}`}>{prod.name}</option>
-                                          ))}
-                                      </optgroup>
-                                  )}
-
-                                  {/* Fallback for already saved products that might not be loaded yet */}
-                                  {mapping.provider && mapping.productId && 
-                                    (!providerProducts[mapping.provider] || !providerProducts[mapping.provider].find(p => String(p.id) === String(mapping.productId))) && (
-                                        <optgroup label="Saved Rule">
-                                            <option value={`${mapping.provider}:::${mapping.productId}`}>{mapping.productId}</option>
-                                        </optgroup>
-                                    )
-                                  }
-                                </select>
-                              </div>
-
-                              <div className="md:pt-9 hidden md:block">
-                                <ArrowRight className="w-5 h-5 text-[#9df01c]" />
-                              </div>
-
-                              <div className="flex-[2] w-full bg-[#111] border border-white/10 rounded-xl p-3">
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block px-1 text-left">Grant Access To (Select Multiple)</label>
-                                <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1">
-                                    
-                                    {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
-                                        <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-lg">No communities found. Click "Sync Communities" on the left.</p>
-                                    ) : (
-                                        <>
-                                            {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                                            {(unaData?.crowds || []).map(c => {
-                                                const combinedId = `bx_spaces_${c.id}`;
-                                                const isChecked = (mapping.communities || []).includes(combinedId);
-                                                return (
-                                                    <label key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                            </div>
-                                                            <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-400'}`}>{c.title}</span>
-                                                        </div>
-                                                        <span className="text-[8px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
-                                                    </label>
-                                                );
-                                            })}
-
-                                            {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                                            {(unaData?.spaces || []).map(s => {
-                                                const combinedId = `bx_groups_${s.id}`;
-                                                const isChecked = (mapping.communities || []).includes(combinedId);
-                                                return (
-                                                    <label key={combinedId} onClick={() => toggleCommunity(mapping.id, combinedId)} className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-transparent hover:bg-white/5'}`}>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isChecked ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                                                {isChecked && <CheckCircle2 size={12} className="text-black" />}
-                                                            </div>
-                                                            <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-white' : 'text-gray-400'}`}>{s.title}</span>
-                                                        </div>
-                                                        <span className="text-[8px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </>
-                                    )}
-                                </div>
-                              </div>
-
-                              <div className="md:pt-8 w-full md:w-auto">
-                                <button onClick={() => removeMapping(mapping.id)} className="w-full md:w-auto p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center">
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      <div className="mt-8 pt-8 border-t border-white/5 flex justify-end">
-                        <button 
-                          onClick={saveMappingsToDatabase}
-                          disabled={isSaving}
-                          className={`flex items-center gap-2 font-black py-3 px-8 rounded-xl text-[11px] uppercase tracking-widest transition-all ${saveSuccess ? 'bg-green-500 text-black' : 'bg-[#9df01c] text-black hover:bg-[#8ce015]'}`}>
-                          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          {saveSuccess ? 'Saved!' : 'Save Rules'}
-                        </button>
-                      </div>
-                  </div>
-              )}
-
-              {/* --- ACTIVE SUBSCRIBERS PANEL FOR STRIPE --- */}
-              {activeTab === 'stripe' && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 relative overflow-hidden text-left h-full flex flex-col">
-                      <h3 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white mb-6">
-                        <Users className="w-6 h-6 text-[#9df01c]" />
-                        Active Subscribers
-                      </h3>
-                      
-                      {audienceStats.filter(stat => stat.isMapped).length > 0 ? (
-                        <>
-                            <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-3 flex items-center justify-between px-1">
-                              <span>Bridged Products</span>
-                              {isStatsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                            </p>
-                            <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-2">
-                              {audienceStats.filter(stat => stat.isMapped).map(stat => (
-                                <div 
-                                  key={stat.productId} 
-                                  onClick={() => setModalData(stat)}
-                                  className="bg-black border border-white/5 hover:border-[#9df01c]/50 rounded-xl p-4 flex justify-between items-center cursor-pointer transition-colors group shadow-lg"
-                                >
-                                  <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">{stat.productName}</span>
-                                  <div className="flex flex-col items-end">
-                                      <span className="bg-[#9df01c]/10 text-[#9df01c] px-3 py-1.5 rounded-lg text-[10px] font-black">{stat.bridgedCount} Active on SC</span>
-                                      <span className="text-[9px] text-gray-500 font-medium mt-2">{stat.totalCount} Total Stripe Subs</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            <p className="text-[9px] text-gray-600 mt-4 text-center italic border-t border-white/5 pt-4">Click a product to view and manage individual subscribers</p>
-                        </>
-                      ) : (
-                          <div className="flex-1 border-2 border-dashed border-white/10 rounded-2xl p-12 text-center flex flex-col justify-center items-center">
-                            <CreditCard className="w-8 h-8 text-gray-600 mx-auto mb-4 opacity-50" />
-                            <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">No Active Bridged Subscriptions</p>
-                            <p className="text-gray-600 text-[10px] mt-2 font-medium max-w-[250px] mx-auto">Click "Sync Existing Subscribers" on the left, or create a Rule in the Bridges tab.</p>
-                          </div>
-                      )}
-                  </div>
-              )}
-              
-              {/* --- EMPTY STATE FOR PATREON/PAYPAL --- */}
-              {['patreon', 'paypal'].includes(activeTab) && (
-                  <div className="bg-[#111] rounded-[2rem] border border-white/5 p-8 flex flex-col items-center justify-center text-center h-full">
-                      <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                          <Layers className="text-gray-600 w-8 h-8" />
-                      </div>
-                      <h3 className="text-xl font-black uppercase tracking-tight text-white mb-2">Automated Billing Sync</h3>
-                      <p className="text-xs text-gray-500 font-medium max-w-sm leading-relaxed mb-8">
-                          To grant users access, upload your CSV file on the left. Then head over to the <strong>Bridges</strong> tab to dictate which communities they unlock!
-                      </p>
-                      <button onClick={() => {
-                          const event = new URL(window.location);
-                          event.searchParams.set('tab', 'mappings');
-                          window.history.pushState({}, '', event);
-                          window.dispatchEvent(new PopStateEvent('popstate'));
-                          window.location.reload();
-                      }} className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] hover:underline">
-                          Go to Bridges &rarr;
-                      </button>
-                  </div>
-              )}
-
-            </div>
-          </div>
-
-        {/* --- MANUAL USERS MODAL --- */}
-        {manualModalData && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden text-left">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
-                <div>
-                  <h3 className="text-xl font-black uppercase text-white">{manualModalData.email}</h3>
-                  <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">Manual Access Granted</p>
-                </div>
-                <button onClick={() => setManualModalData(null)} className="p-2 text-gray-400 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3">
-                {manualModalData.communities?.map((comm, i) => {
-                    const isCrowd = comm.module === 'bx_spaces';
-                    const sourceList = isCrowd ? (unaData.crowds || []) : (unaData.spaces || []);
-                    const commData = sourceList.find(c => c.id === comm.contentId.toString() || c.id === parseInt(comm.contentId));
-                    const title = commData ? commData.title : `Unknown ID: ${comm.contentId}`;
-
-                    return (
-                        <div key={i} className="border border-white/5 rounded-xl p-4 flex justify-between items-center bg-black hover:border-white/10 transition-colors">
-                            <div className="flex-1 flex flex-col">
-                                <p className="text-sm font-bold text-white flex items-center gap-2 mb-0.5">
-                                    <span className="truncate max-w-[200px]">{title}</span>
-                                    <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />
-                                </p>
-                                <span className={`text-[8px] font-black uppercase tracking-widest w-fit ${isCrowd ? 'text-[#9df01c]' : 'text-[#38bdf8]'}`}>{isCrowd ? 'Crowd' : 'Space'}</span>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    handleRemoveManualUser(comm.id, manualModalData.email, comm.module, comm.contentId);
-                                    const updatedComms = manualModalData.communities.filter(c => c.id !== comm.id);
-                                    if (updatedComms.length === 0) setManualModalData(null);
-                                    else setManualModalData({...manualModalData, communities: updatedComms});
-                                }} 
-                                className="p-2 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors" title="Revoke Access"
-                            >
-                                <UserX className="w-4 h-4" />
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- AUDIENCE MODAL --- */}
-        {modalData && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
-              
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#0a0a0a]">
-                <div>
-                  <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">{modalData.productName}</h3>
-                  <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mt-1">
-                    {modalData.bridgedCount} Active on SC / {modalData.totalCount} Total Subs
-                  </p>
-                </div>
-                <button onClick={() => setModalData(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                {(!modalData.users || modalData.users.length === 0) ? (
-                    <p className="text-gray-500 text-center text-sm py-8">No active subscribers found for this product.</p>
-                ) : (
-                    <div className="flex flex-col">
-                        <div className="hidden sm:flex justify-between items-center px-4 pb-3 mb-3 border-b border-white/10 text-[10px] text-gray-500 font-black uppercase tracking-widest">
-                            <div className="flex-1">User</div>
-                            <div className="w-32 text-center">SC Status</div>
-                            <div className="w-24 text-right">Revoke Access</div>
-                        </div>
-
-                        <div className="space-y-3">
-                            {modalData.users.map((user, i) => (
-                                <div key={i} className={`border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 transition-colors ${user.isRevoked ? 'bg-red-500/5 border-red-500/20' : 'bg-black border-white/5 hover:border-white/10'}`}>
-                                    <div className="flex-1 min-w-0 w-full sm:w-auto">
-                                        <p className="text-sm font-bold text-white flex items-center gap-2">
-                                            <span className="truncate">{user.name}</span>
-                                            {user.isRevoked && <UserX className="w-4 h-4 text-red-500 shrink-0" />}
-                                            {user.isBridged && <UserCheck className="w-4 h-4 text-[#9df01c] shrink-0" />}
-                                        </p>
-                                        <p className="text-xs text-gray-500 font-mono mt-0.5 truncate">{user.displayEmail || user.email}</p>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                                        <div className="w-full sm:w-32 flex justify-center">
-                                            <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg text-center w-full
-                                                ${user.isBridged ? 'bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20' : 
-                                                  user.isRevoked ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
-                                                  'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
-                                                {user.status}
-                                            </span>
-                                        </div>
-
-                                        <div className="w-auto sm:w-24 flex justify-end">
-                                            {user.isRevoked ? (
-                                                <button 
-                                                    onClick={() => toggleUserAccess(user.email, modalData.productId, 'restore')}
-                                                    disabled={processingUser === user.email}
-                                                    className="p-1.5 bg-white/5 hover:bg-[#9df01c] hover:text-black text-gray-400 rounded-lg transition-colors group relative"
-                                                    title="Restore Access">
-                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => toggleUserAccess(user.email, modalData.productId, 'revoke')}
-                                                    disabled={processingUser === user.email}
-                                                    className="p-1.5 bg-white/5 hover:bg-red-500 hover:text-white text-gray-400 rounded-lg transition-colors group relative"
-                                                    title="Revoke Access (Survives Sync)">
-                                                    {processingUser === user.email ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+          {['stripe', 'paypal', 'patreon'].includes(activeTab) && (
+              <BridgeProviderSetup 
+                  activeTab={activeTab}
+                  stripeAccountId={stripeAccountId}
+                  paypalClientId={paypalClientId}
+                  setPaypalClientId={setPaypalClientId}
+                  paypalSecretKey={paypalSecretKey}
+                  setPaypalSecretKey={setPaypalSecretKey}
+                  paypalAccountId={paypalAccountId}
+                  providerProducts={providerProducts}
+                  isValidatingKey={isValidatingKey}
+                  keySuccess={keySuccess}
+                  isSyncingSubs={isSyncingSubs}
+                  syncSubsResult={syncSubsResult}
+                  audienceStats={audienceStats}
+                  isStatsLoading={isStatsLoading}
+                  modalData={modalData}
+                  setModalData={setModalData}
+                  patreonUsers={patreonUsers}
+                  paypalUsers={paypalUsers}
+                  error={error}
+                  isLoadingOAuth={isLoadingOAuth}
+                  startStripeOAuth={startStripeOAuth}
+                  handleDisconnectStripe={handleDisconnectStripe}
+                  handleSavePaypalKeys={handleSavePaypalKeys}
+                  handleDisconnectPaypal={handleDisconnectPaypal}
+                  handlePatreonUpload={handlePatreonUpload}
+                  handlePaypalUpload={handlePaypalUpload}
+                  syncExistingSubscribers={syncExistingSubscribers}
+                  runPatreonImport={runPatreonImport}
+                  runPaypalImport={runPaypalImport}
+                  toggleUserAccess={toggleUserAccess}
+                  copyWebhook={copyWebhook}
+                  webhookCopied={webhookCopied}
+                  processingUser={processingUser}
+                  totalStripeBridged={totalStripeBridged}
+                  stripeEstimatedCost={stripeEstimatedCost}
+                  totalPaypalBridged={totalPaypalBridged}
+                  paypalEstimatedCost={paypalEstimatedCost}
+                  stripeIcon={stripeIcon}
+                  paypalIcon={paypalIcon}
+                  patreonIcon={patreonIcon}
+              />
+          )}
       </div>
     </>
   );
