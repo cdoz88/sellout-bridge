@@ -629,11 +629,16 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   };
 
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
-  const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+  const roleNum = Number(unaData?.user?.role);
+  const isAdmin = roleNum === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
   
-  const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+  // Fully unlocked for Admin, All-Star(16), HOF(17)
+  const canUseBridge = isAdmin || [16, 17].includes(roleNum);
+  const isRookie = roleNum === 15;
+  // Rookies are allowed to see the component so they can hit the pitch screen
+  const canAccessApp = canUseBridge || isRookie;
 
-  if (!canAccess) {
+  if (!canAccessApp) {
       return (
           <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
               <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
@@ -656,7 +661,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
       );
   }
 
-  if (!hasOptedIn) {
+  if (!hasOptedIn || !canUseBridge) {
       return (
           <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
               <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full text-left">
@@ -678,10 +683,18 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       </ul>
                   </div>
 
-                  <button onClick={() => setHasOptedIn(true)} className="bg-[#9df01c] mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                      I Understand, Enable Bridge
-                  </button>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4 text-center relative z-10">You will not be billed until you successfully map a user.</p>
+                  {canUseBridge ? (
+                      <>
+                          <button onClick={() => setHasOptedIn(true)} className="bg-[#9df01c] mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
+                              I Understand, Enable Bridge
+                          </button>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-4 text-center relative z-10">You will not be billed until you successfully map a user.</p>
+                      </>
+                  ) : (
+                      <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] w-fit mx-auto block text-black font-black py-4 px-12 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
+                          Upgrade to Unlock
+                      </a>
+                  )}
               </div>
           </div>
       );
@@ -778,7 +791,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                       {isAliasSaving ? 'Saving...' : 'Link Emails'}
                     </button>
                     <p className="text-[9px] text-gray-600 mt-3 text-center px-2 font-medium leading-relaxed italic">
-                        After saving, click "Sync Existing Users" on your Integration tab to instantly apply it.
+                        After saving, click "Change Existing Subscribers" on your Integration tab to instantly apply it.
                     </p>
                   </div>
                 </div>
@@ -1052,7 +1065,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                             ${syncSubsResult?.success ? 'bg-green-500 text-black' : 'bg-white/5 hover:bg-[#9df01c] hover:text-black text-white'}
                             ${(!stripeAccountId) ? 'opacity-50 cursor-not-allowed hover:bg-white/5 hover:text-white' : ''}`}>
                           {isSyncingSubs ? <Loader2 className="w-4 h-4 animate-spin" /> : (syncSubsResult?.success ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCcw className="w-4 h-4" />)}
-                          {syncSubsResult?.success ? syncSubsResult.text : 'Sync Existing Subscribers'}
+                          {syncSubsResult?.success ? syncSubsResult.text : 'Change Existing Subscribers'}
                         </button>
                     )}
 
