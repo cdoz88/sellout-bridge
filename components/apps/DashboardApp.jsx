@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe } from 'lucide-react';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const [onboardingSteps, setOnboardingSteps] = useState([]);
@@ -13,8 +13,8 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Bridge unlocked for Admin, All-Star(16), HOF(17)
-    const canAccessBridge = isAdmin || [16, 17].includes(role);
+    // Premium features unlocked for Admin, All-Star(16), HOF(17)
+    const canAccessPremium = isAdmin || [16, 17].includes(role);
     const hasBillingAccess = isAdmin || [15, 16, 17].includes(role);
 
     useEffect(() => {
@@ -50,9 +50,10 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     
     const apps = [
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
-        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: isAdmin || [16, 17].includes(role) },
-        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessBridge },
+        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: canAccessPremium },
+        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: canAccessPremium },
+        { id: 'community-link', tab: 'setup', name: 'Community Link', icon: Globe, desc: 'Create a branded redirect domain for your space.', canAccess: canAccessPremium },
+        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessPremium },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }

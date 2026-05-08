@@ -13,6 +13,7 @@ import GuidesApp from './components/apps/GuidesApp';
 import TeammatesApp from './components/apps/TeammatesApp';
 import OnboardingApp from './components/apps/OnboardingApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
+import CommunityLinkApp from './components/apps/CommunityLinkApp'; // <--- NEW IMPORT
 
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
@@ -89,7 +90,6 @@ export default function App() {
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
   const UNA_CLIENT_ID = "yxxnxsihu2"; 
 
-  // Keep ref updated to handle unauthorized robustly
   useEffect(() => {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
@@ -141,15 +141,15 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData, isOAuthFlow]);
 
+  // --- NEW ROUTING LOGIC ---
   useEffect(() => {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
+      // 1. LINK IN BIO & BUSINESS CARD ROUTING
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
-          
-          // SWAPPED LOGIC: /c/slug is now the Business Card, and /slug is the Bio Page
           if (pathname.startsWith('/c/')) {
               const pathSlug = pathname.replace('/c/', '');
               if (pathSlug && pathSlug !== '') {
@@ -164,10 +164,7 @@ export default function App() {
                           else setPublicBioError(true);
                           setIsLoading(false);
                       })
-                      .catch(() => {
-                          setPublicBioError(true);
-                          setIsLoading(false);
-                      });
+                      .catch(() => { setPublicBioError(true); setIsLoading(false); });
               }
           } else {
               const pathSlug = pathname.substring(1); 
@@ -183,11 +180,34 @@ export default function App() {
                           else setPublicBioError(true);
                           setIsLoading(false);
                       })
-                      .catch(() => {
-                          setPublicBioError(true);
-                          setIsLoading(false);
-                      });
+                      .catch(() => { setPublicBioError(true); setIsLoading(false); });
               }
+          }
+          return; 
+      }
+
+      // 2. NEW COMMUNITY LINK ROUTING LOGIC
+      if (hostname.endsWith('.selloutcrowds.com') && !hostname.includes('localhost')) {
+          const subdomain = hostname.replace('.selloutcrowds.com', '');
+          
+          // Ignore official platform subdomains
+          const ignoredSubdomains = ['www', 'hub', 'admin', 'studio', 'api', 'dev', 'bridge'];
+
+          if (subdomain && subdomain !== '' && !ignoredSubdomains.includes(subdomain)) {
+              setIsLoading(true); 
+              
+              fetch(`/api/resolve-domain/${subdomain}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.success && data.url) {
+                          window.location.href = data.url; 
+                      } else {
+                          window.location.href = 'https://selloutcrowds.com';
+                      }
+                  })
+                  .catch(() => { window.location.href = 'https://selloutcrowds.com'; });
+                  
+              return; 
           }
       }
   }, []);
@@ -585,12 +605,14 @@ export default function App() {
               return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'address-book':
               return <AddressBookApp session={session} unaData={unaData} />;
+          case 'linktree':
+              return <BioPageApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'community-link':
+              return <CommunityLinkApp session={session} unaData={unaData} />;
           case 'bridge':
               return <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />;
           case 'teammates':
               return <TeammatesApp session={session} unaData={unaData} />;
-          case 'linktree':
-              return <BioPageApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'assets':
               return <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'guides':

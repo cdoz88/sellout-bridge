@@ -9,6 +9,7 @@ import billingRoutes from '../server/routes/billing.js';
 import bridgeRoutes from '../server/routes/bridge.js';
 import contentRoutes from '../server/routes/content.js';
 import authRoutes from '../server/routes/auth.js';
+import domainRoutes from '../server/routes/domains.js';
 
 const app = express();
 
@@ -21,5 +22,6 @@ app.use('/', billingRoutes);
 app.use('/', bridgeRoutes);
 app.use('/', contentRoutes);
 app.use('/', authRoutes);
+app.use('/', domainRoutes);
 
 export default app;

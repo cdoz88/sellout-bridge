@@ -121,6 +121,10 @@ export async function ensureSchema() {
         try { await sql`CREATE TABLE IF NOT EXISTS bridge_address_book (id SERIAL PRIMARY KEY, user_id INTEGER, name VARCHAR(255), title VARCHAR(255), company VARCHAR(255), phone VARCHAR(255), email VARCHAR(255), website VARCHAR(255), notes TEXT, photo TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e) {}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (id SERIAL PRIMARY KEY, user_id INTEGER, creator_id INTEGER, provider VARCHAR(50), stripe_product_id VARCHAR(255), una_module VARCHAR(50), una_content_id INTEGER)`;
+        
+        // --- NEW COMMUNITY LINK DOMAINS TABLE ---
+        try { await sql`CREATE TABLE IF NOT EXISTS bridge_custom_domains (user_id INTEGER PRIMARY KEY, subdomain VARCHAR(255) UNIQUE, target_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e) {}
+
     } catch (e) { console.error("Schema check notice:", e.message); }
 }
 
