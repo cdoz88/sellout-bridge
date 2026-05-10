@@ -28,8 +28,29 @@ const WordPressIcon = ({ className }) => (
 );
 
 export default function App() {
+  // Sync check: If this is a redirect domain, freeze the UI on a blank screen instantly
+  const [isRedirecting, setIsRedirecting] = useState(() => {
+      try {
+          if (typeof window !== 'undefined') {
+              return window.location.hostname.endsWith('.selloutcrowds.fan') && !window.location.hostname.includes('localhost');
+          }
+      } catch(e) {}
+      return false;
+  });
+
+  // Sync check: If this is a bio page, know instantly to prevent login screen flash
+  const [isPublicBio, setIsPublicBio] = useState(() => {
+      try {
+          if (typeof window !== 'undefined') {
+              const host = window.location.hostname;
+              const path = window.location.pathname;
+              return host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth'));
+          }
+      } catch(e) {}
+      return false;
+  });
+
   const [publicCardData, setPublicCardData] = useState(null);
-  const [isPublicBio, setIsPublicBio] = useState(false);
   const [publicPageType, setPublicPageType] = useState(null); 
   const [publicSlug, setPublicSlug] = useState(null); 
   const [publicBioError, setPublicBioError] = useState(false);
@@ -45,7 +66,18 @@ export default function App() {
     return saved ? JSON.parse(saved) : { user: null, crowds: [], spaces: [], debug: null };
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => {
+      try {
+          if (typeof window !== 'undefined') {
+              const host = window.location.hostname;
+              const path = window.location.pathname;
+              // Start loading instantly if it's a bio page to prevent layout shift
+              if (host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth'))) return true;
+          }
+      } catch(e) {}
+      return false;
+  });
+  
   const [isSyncingCommunities, setIsSyncingCommunities] = useState(false);
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -121,7 +153,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-      if (!isPublicBio && !isOAuthFlow && session) {
+      if (!isPublicBio && !isOAuthFlow && session && !isRedirecting) {
           try {
               const url = new URL(window.location);
               url.searchParams.set('app', currentApp);
@@ -129,17 +161,17 @@ export default function App() {
               window.history.replaceState({}, '', url);
           } catch(e) {}
       }
-  }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session]);
+  }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session, isRedirecting]);
 
   useEffect(() => {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
       } else if (isOAuthFlow) {
           document.title = "Authorize Connection | SC Hub";
-      } else {
+      } else if (!isRedirecting) {
           document.title = "Sellout Crowds Hub";
       }
-  }, [isPublicBio, publicCardData, isOAuthFlow]);
+  }, [isPublicBio, publicCardData, isOAuthFlow, isRedirecting]);
 
   // --- ROUTING LOGIC ---
   useEffect(() => {
@@ -153,10 +185,8 @@ export default function App() {
           if (pathname.startsWith('/c/')) {
               const pathSlug = pathname.replace('/c/', '');
               if (pathSlug && pathSlug !== '') {
-                  setIsPublicBio(true);
                   setPublicPageType('card');
                   setPublicSlug(pathSlug);
-                  setIsLoading(true);
                   fetch(`/api/public-card/${pathSlug}`)
                       .then(res => res.json())
                       .then(data => {
@@ -169,10 +199,8 @@ export default function App() {
           } else {
               const pathSlug = pathname.substring(1); 
               if (pathSlug && pathSlug !== '') {
-                  setIsPublicBio(true);
                   setPublicPageType('bio');
                   setPublicSlug(pathSlug);
-                  setIsLoading(true);
                   fetch(`/api/public-bio-page/${pathSlug}`)
                       .then(res => res.json())
                       .then(data => {
@@ -191,8 +219,7 @@ export default function App() {
           const subdomain = hostname.replace('.selloutcrowds.fan', '');
           
           if (subdomain && subdomain !== '') {
-              setIsLoading(true); 
-              
+              // The isRedirecting state already froze the UI, so we just run the fetch in the background
               fetch(`/api/resolve-domain/${subdomain}`)
                   .then(res => res.json())
                   .then(data => {
@@ -220,7 +247,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('bridge_unadata', JSON.stringify(unaData)); }, [unaData]);
 
   useEffect(() => {
-    if (isPublicBio) return; 
+    if (isPublicBio || isRedirecting) return; 
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
@@ -233,7 +260,7 @@ export default function App() {
             fetchUser(session);
         }
     } catch(e) {}
-  }, [isPublicBio, session]);
+  }, [isPublicBio, isRedirecting, session]);
 
   const handleLogout = () => {
     setSession(null);
@@ -392,6 +419,14 @@ export default function App() {
       }
   };
 
+  // --- RENDER LOGIC ---
+
+  // 1. If this is a redirect link, freeze the UI to a completely dark, seamless screen
+  if (isRedirecting) {
+      return <div className="min-h-screen bg-[#050505]"></div>;
+  }
+
+  // 2. Public Link in Bio / Business Card
   if (isPublicBio) {
       if (isLoading) {
           return (
@@ -431,6 +466,7 @@ export default function App() {
       );
   }
 
+  // 3. User Login Screen
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
@@ -457,6 +493,7 @@ export default function App() {
     );
   }
 
+  // 4. OAuth Flow Check
   if (isOAuthFlow && session && unaData.user) {
       const role = Number(unaData.user.role);
       if ([1, 2, 15, 18].includes(role)) {
