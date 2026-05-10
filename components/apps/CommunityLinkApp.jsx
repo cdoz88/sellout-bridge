@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, ArrowRight, CheckCircle2, Lock, Link2, Copy } from 'lucide-react';
+import { Globe, Save, Loader2, ArrowRight, CheckCircle2, Lock, Link2, Copy, Trash2 } from 'lucide-react';
 
 export default function CommunityLinkApp({ session, unaData }) {
     const role = Number(unaData?.user?.role) || 1;
@@ -11,8 +11,11 @@ export default function CommunityLinkApp({ session, unaData }) {
 
     const [subdomain, setSubdomain] = useState('');
     const [targetUrl, setTargetUrl] = useState('');
+    const [hasSavedDomain, setHasSavedDomain] = useState(false);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
     useEffect(() => {
@@ -26,6 +29,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                 if (data.domain) {
                     setSubdomain(data.domain.subdomain || '');
                     setTargetUrl(data.domain.target_url || '');
+                    setHasSavedDomain(true);
                 }
                 setIsLoading(false);
             })
@@ -49,6 +53,7 @@ export default function CommunityLinkApp({ session, unaData }) {
             if (data.error) {
                 alert(data.error);
             } else {
+                setHasSavedDomain(true);
                 setSaveSuccess(true);
                 setTimeout(() => setSaveSuccess(false), 3000);
             }
@@ -56,6 +61,30 @@ export default function CommunityLinkApp({ session, unaData }) {
             alert("Network error. Please try again.");
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm("Are you sure you want to disconnect this link? This will instantly break any existing links you've shared.")) return;
+        
+        setIsDeleting(true);
+        try {
+            const res = await fetch('/api/delete-domain', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+            });
+            
+            if (res.ok) {
+                setSubdomain('');
+                setTargetUrl('');
+                setHasSavedDomain(false);
+            } else {
+                alert("Failed to disconnect link.");
+            }
+        } catch (err) {
+            alert("Network error. Please try again.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -147,11 +176,16 @@ export default function CommunityLinkApp({ session, unaData }) {
 
                     {/* Step 3: Save */}
                     <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row gap-4 items-center justify-between">
-                        <div className="text-left w-full sm:w-auto">
-                            {subdomain && targetUrl && (
-                                <button onClick={copyToClipboard} className="text-[10px] text-gray-400 hover:text-white font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors">
-                                    <Copy size={12} /> Copy Share Link
-                                </button>
+                        <div className="text-left w-full sm:w-auto flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                            {hasSavedDomain && (
+                                <>
+                                    <button onClick={copyToClipboard} className="text-[10px] text-gray-400 hover:text-white font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors">
+                                        <Copy size={12} /> Copy Share Link
+                                    </button>
+                                    <button onClick={handleDelete} disabled={isDeleting} className="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors">
+                                        {isDeleting ? <Loader2 size={12} className="animate-spin"/> : <Trash2 size={12} />} Disconnect Link
+                                    </button>
+                                </>
                             )}
                         </div>
                         <button 

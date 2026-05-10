@@ -63,4 +63,20 @@ router.post('/api/save-domain', async (req, res) => {
     }
 });
 
+// AUTH ROUTE: Delete their subdomain
+router.post('/api/delete-domain', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        await ensureSchema();
+        await sql`DELETE FROM bridge_custom_domains WHERE user_id = ${user.id}`;
+        
+        res.json({ success: true });
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ error: "Failed to delete domain" }); 
+    }
+});
+
 export default router;
