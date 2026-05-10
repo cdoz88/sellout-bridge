@@ -61,7 +61,7 @@ export default function CommunityLinkApp({ session, unaData }) {
 
     const copyToClipboard = () => {
         if (!subdomain) return;
-        navigator.clipboard.writeText(`https://${subdomain}.selloutcrowds.com`);
+        navigator.clipboard.writeText(`https://${subdomain}.selloutcrowds.fan`);
         alert("Link copied!");
     };
 
@@ -73,7 +73,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        Claim a branded subdomain (e.g. <strong>yourname</strong>.selloutcrowds.com) to seamlessly route fans to your community. Available exclusively to All-Star and H.O.F. subscribers.
+                        Claim a branded subdomain (e.g. <strong>yourname</strong>.selloutcrowds.fan) to seamlessly route fans to your community. Available exclusively to All-Star and H.O.F. subscribers.
                     </p>
                     <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
                         Upgrade to Unlock
@@ -117,7 +117,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                                     placeholder="yourbrand" 
                                     className="bg-transparent text-white font-black outline-none w-full text-right sm:text-left text-lg placeholder:text-gray-700" 
                                 />
-                                <span className="text-gray-500 font-bold ml-1 text-lg whitespace-nowrap">.selloutcrowds.com</span>
+                                <span className="text-gray-500 font-bold ml-1 text-lg whitespace-nowrap">.selloutcrowds.fan</span>
                             </div>
                         </div>
                         <p className="text-[10px] text-gray-500 mt-2 ml-1 font-medium">Letters, numbers, and hyphens only.</p>

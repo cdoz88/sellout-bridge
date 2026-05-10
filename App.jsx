@@ -13,7 +13,7 @@ import GuidesApp from './components/apps/GuidesApp';
 import TeammatesApp from './components/apps/TeammatesApp';
 import OnboardingApp from './components/apps/OnboardingApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
-import CommunityLinkApp from './components/apps/CommunityLinkApp'; // <--- NEW IMPORT
+import CommunityLinkApp from './components/apps/CommunityLinkApp';
 
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
@@ -141,7 +141,7 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData, isOAuthFlow]);
 
-  // --- NEW ROUTING LOGIC ---
+  // --- ROUTING LOGIC ---
   useEffect(() => {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
@@ -186,14 +186,11 @@ export default function App() {
           return; 
       }
 
-      // 2. NEW COMMUNITY LINK ROUTING LOGIC
-      if (hostname.endsWith('.selloutcrowds.com') && !hostname.includes('localhost')) {
-          const subdomain = hostname.replace('.selloutcrowds.com', '');
+      // 2. NEW COMMUNITY LINK ROUTING LOGIC (.fan)
+      if (hostname.endsWith('.selloutcrowds.fan') && !hostname.includes('localhost')) {
+          const subdomain = hostname.replace('.selloutcrowds.fan', '');
           
-          // Ignore official platform subdomains
-          const ignoredSubdomains = ['www', 'hub', 'admin', 'studio', 'api', 'dev', 'bridge'];
-
-          if (subdomain && subdomain !== '' && !ignoredSubdomains.includes(subdomain)) {
+          if (subdomain && subdomain !== '') {
               setIsLoading(true); 
               
               fetch(`/api/resolve-domain/${subdomain}`)
