@@ -185,8 +185,8 @@ export default function CommunityLinkApp({ session, unaData }) {
                         <Globe className="text-[#9df01c]" size={36} />
                         Custom Community URL
                     </h2>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                        Manage branded redirect URLs for your communities.
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                        Create and manage custom branded URLs for your communities. These URLs will be redirected to whatever page or community that you choose.
                     </p>
                 </div>
                 

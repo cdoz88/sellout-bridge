@@ -52,7 +52,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
         { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: canAccessPremium },
         { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: canAccessPremium },
-        { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a branded redirect domain for your space.', canAccess: canAccessPremium },
+        { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: canAccessPremium },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessPremium },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
