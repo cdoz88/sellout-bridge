@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle } from 'lucide-react';
+import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function CommunityLinkApp({ session, unaData }) {
     const role = Number(unaData?.user?.role) || 1;
