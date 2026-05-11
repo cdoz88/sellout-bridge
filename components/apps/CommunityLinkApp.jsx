@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
+import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function CommunityLinkApp({ session, unaData }) {
     const role = Number(unaData?.user?.role) || 1;
@@ -13,7 +13,6 @@ export default function CommunityLinkApp({ session, unaData }) {
     const maxLinks = isAdmin ? Infinity : (role === 17 ? 3 : (role === 16 ? 1 : 0));
 
     const [domains, setDomains] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
     // Single Add Modal
@@ -155,11 +154,6 @@ export default function CommunityLinkApp({ session, unaData }) {
         alert("Link copied!");
     };
 
-    const filteredDomains = domains.filter(d => 
-        (d.subdomain && d.subdomain.toLowerCase().includes(searchTerm.toLowerCase())) || 
-        (d.target_url && d.target_url.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
     const currentLinks = domains.length;
     const canAddMore = currentLinks < maxLinks;
 
@@ -189,7 +183,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
                         <Globe className="text-[#9df01c]" size={36} />
-                        Community Links
+                        Custom Community URL
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
                         Manage branded redirect URLs for your communities.
@@ -221,16 +215,6 @@ export default function CommunityLinkApp({ session, unaData }) {
                             {currentLinks}{!isAdmin && ` / ${maxLinks}`}
                         </span>
                     </h3>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                        <input 
-                            type="text" 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                            placeholder="Search links or targets..." 
-                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
-                        />
-                    </div>
                 </div>
 
                 <div className="relative z-10 flex-1">
@@ -240,11 +224,9 @@ export default function CommunityLinkApp({ session, unaData }) {
                             <p className="text-gray-400 font-bold text-sm">No Links Reserved</p>
                             <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">Click "New Link" {isAdmin && 'or "Bulk Automator" '}to get started.</p>
                         </div>
-                    ) : filteredDomains.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500 font-medium text-sm">No links match your search.</div>
                     ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {filteredDomains.map(d => (
+                            {domains.map(d => (
                                 <div key={d.id} className="bg-black border border-white/5 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-white/20 transition-colors group">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">

@@ -9,7 +9,7 @@ export default function TopBar({
             case 'business-card': return { name: 'Business Card', icon: <Contact size={20} className="text-[#9df01c]" /> };
             case 'address-book': return { name: 'Address Book', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'linktree': return { name: 'Link in Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
-            case 'community-link': return { name: 'Community Link', icon: <Globe size={20} className="text-[#9df01c]" /> };
+            case 'community-link': return { name: 'Custom Community URL', icon: <Globe size={20} className="text-[#9df01c]" /> };
             case 'bridge': return { name: 'Subscription Bridge', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
             case 'teammates': return { name: 'Teammates', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
@@ -61,7 +61,7 @@ export default function TopBar({
 
                             <button onClick={() => handleAppSwitch('community-link', 'setup')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'community-link' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
-                                    <Globe size={18} className={currentApp === 'community-link' ? 'text-[#9df01c]' : ''}/> Community Link
+                                    <Globe size={18} className={currentApp === 'community-link' ? 'text-[#9df01c]' : ''}/> Custom Community URL
                                 </div>
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
