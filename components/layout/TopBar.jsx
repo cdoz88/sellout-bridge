@@ -24,8 +24,8 @@ export default function TopBar({
     // Show upgrade button for everyone EXCEPT role 17 (H.O.F.)
     const showUpgrade = role && role !== 17;
     
-    // Bridge & Community Link unlocked for Admin(3), All-Star(16), HOF(17)
-    const canAccessPremium = role === 3 || [16, 17].includes(role);
+    // Bridge & Community Link unlocked for Admin(3), Enterprise(12), All-Star(16), HOF(17)
+    const canAccessPremium = role === 3 || [12, 16, 17].includes(role);
 
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 z-30 sticky top-0 flex-shrink-0">

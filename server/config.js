@@ -17,6 +17,11 @@ export const METERED_PRICE_ID = 'price_1TTjNp6y5pIVcSscCLCUffP8';
 export const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
 export async function ensureExpansionsSubscription(user, exactTeammateQuantity = null) {
+    // ENTERPRISE BYPASS: Role 12 pays no metered fees.
+    if (Number(user.role) === 12) {
+        return { customerId: null, subscription: null };
+    }
+
     if (!process.env.STRIPE_SECRET_KEY) throw new Error("Platform Stripe key not set");
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     
@@ -122,7 +127,6 @@ export async function ensureSchema() {
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_mappings (id SERIAL PRIMARY KEY, user_id INTEGER, creator_id INTEGER, provider VARCHAR(50), stripe_product_id VARCHAR(255), una_module VARCHAR(50), una_content_id INTEGER)`;
         
-        // --- NEW COMMUNITY LINK DOMAINS TABLE ---
         try { await sql`CREATE TABLE IF NOT EXISTS bridge_custom_domains (user_id INTEGER PRIMARY KEY, subdomain VARCHAR(255) UNIQUE, target_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e) {}
 
     } catch (e) { console.error("Schema check notice:", e.message); }

@@ -7,7 +7,7 @@ export default function AddressBookApp({ session, unaData }) {
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
     // Unlocked for all premium creator tiers, locked for Free (1,2) and Teammates (18)
-    const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+    const canAccess = isAdmin || [12, 15, 16, 17].includes(Number(unaData?.user?.role));
 
     const [contacts, setContacts] = useState([]);
     const [contactView, setContactView] = useState('list'); 

@@ -638,7 +638,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
   const roleNum = Number(unaData?.user?.role);
   const isAdmin = roleNum === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
   
-  const canUseBridge = isAdmin || [16, 17].includes(roleNum);
+  const canUseBridge = isAdmin || [12, 16, 17].includes(roleNum);
   const isRookie = roleNum === 15;
   const canAccessApp = canUseBridge || isRookie;
 

@@ -13,9 +13,9 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Premium features unlocked for Admin, All-Star(16), HOF(17)
-    const canAccessPremium = isAdmin || [16, 17].includes(role);
-    const hasBillingAccess = isAdmin || [15, 16, 17].includes(role);
+    // Premium features unlocked for Admin, Enterprise(12), All-Star(16), HOF(17)
+    const canAccessPremium = isAdmin || [12, 16, 17].includes(role);
+    const hasBillingAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
     useEffect(() => {
         if (!session) return;
@@ -70,6 +70,8 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
+    const monthlyTotal = billingEstimate?.isEnterprise ? 0 : ((billingEstimate?.billableTeamCount || 0) * 2) + ((billingEstimate?.bridgedCount || 0) * 0.50);
+
     return (
         <div className="max-w-7xl mx-auto pt-16 pb-12 lg:py-12 px-4 sm:px-8 animate-in fade-in duration-300">
             <div className="mb-10">
@@ -94,7 +96,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                             <Zap size={18} className="text-[#9df01c]"/> Est. Add-On Usage
                         </h3>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                            Billed automatically via your Sellout Crowds invoice
+                            {billingEstimate.isEnterprise ? 'Enterprise plan includes unlimited add-ons' : 'Billed automatically via your Sellout Crowds invoice'}
                         </p>
                     </div>
 
@@ -102,26 +104,28 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                         <div className="w-full sm:w-auto">
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Teammates</p>
                             <div className="flex items-end gap-2">
-                                <span className="text-2xl font-black text-white">{billingEstimate.billableTeamCount}</span>
-                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ $2.00</span>
+                                <span className="text-2xl font-black text-white">{billingEstimate.isEnterprise ? billingEstimate.teamCount : billingEstimate.billableTeamCount}</span>
+                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ {billingEstimate.isEnterprise ? '$0.00' : '$2.00'}</span>
                             </div>
-                            {billingEstimate.freeSeats > 0 && (
+                            {billingEstimate.freeSeats === Infinity ? (
+                                <p className="text-[9px] text-[#9df01c] font-bold uppercase tracking-widest mt-1">Unlimited Included</p>
+                            ) : billingEstimate.freeSeats > 0 ? (
                                 <p className="text-[9px] text-[#9df01c] font-bold uppercase tracking-widest mt-1">+{billingEstimate.freeSeats} Free Included</p>
-                            )}
+                            ) : null}
                         </div>
                         <div className="hidden sm:block w-px h-10 bg-white/10"></div>
                         <div className="w-full sm:w-auto">
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Bridged Users</p>
                             <div className="flex items-end gap-2">
                                 <span className="text-2xl font-black text-white">{billingEstimate.bridgedCount}</span>
-                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ $0.50</span>
+                                <span className="text-xs font-bold text-gray-400 mb-1.5">@ {billingEstimate.isEnterprise ? '$0.00' : '$0.50'}</span>
                             </div>
                         </div>
                         <div className="hidden sm:block w-px h-10 bg-white/10"></div>
                         <div className="w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-white/5">
                             <p className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-1">Monthly Total</p>
                             <div className="flex items-end gap-1">
-                                <span className="text-2xl font-black text-[#9df01c]">${((billingEstimate.billableTeamCount * 2) + (billingEstimate.bridgedCount * 0.50)).toFixed(2)}</span>
+                                <span className="text-2xl font-black text-[#9df01c]">${monthlyTotal.toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

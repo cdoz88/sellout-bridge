@@ -246,7 +246,7 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
 export default function BioPageApp({ session, activeTab, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    const canAccess = isAdmin || [16, 17].includes(Number(unaData?.user?.role));
+    const canAccess = isAdmin || [12, 16, 17].includes(Number(unaData?.user?.role));
 
     const [cardData, setCardData] = useState(DEFAULT_BIO_PAGE);
     const [slug, setSlug] = useState('');

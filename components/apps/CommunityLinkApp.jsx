@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, AlertCircle, ArrowRight } from 'lucide-react';
+import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function CommunityLinkApp({ session, unaData }) {
     const role = Number(unaData?.user?.role) || 1;
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Feature unlocked for Admin(3), All-Star(16), HOF(17)
-    const canAccess = isAdmin || [16, 17].includes(role);
+    // Feature unlocked for Admin(3), Enterprise(12), All-Star(16), HOF(17)
+    const canAccess = isAdmin || [12, 16, 17].includes(role);
 
     // Calculate maximum allowed links based on role
-    const maxLinks = isAdmin ? Infinity : (role === 17 ? 3 : (role === 16 ? 1 : 0));
+    const maxLinks = isAdmin ? Infinity : (role === 17 ? 3 : ([12, 16].includes(role) ? 1 : 0));
 
     const [domains, setDomains] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
     // Single Add Modal
@@ -153,6 +154,11 @@ export default function CommunityLinkApp({ session, unaData }) {
         navigator.clipboard.writeText(`https://${sub}.selloutcrowds.fan`);
         alert("Link copied!");
     };
+
+    const filteredDomains = domains.filter(d => 
+        (d.subdomain && d.subdomain.toLowerCase().includes(searchTerm.toLowerCase())) || 
+        (d.target_url && d.target_url.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
 
     const currentLinks = domains.length;
     const canAddMore = currentLinks < maxLinks;

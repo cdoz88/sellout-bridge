@@ -70,8 +70,11 @@ router.get('/api/billing-estimate', async (req, res) => {
         const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
         const teamCount = parseInt(tRows[0].count) || 0;
 
+        const isEnterprise = Number(user.role) === 12;
+
         let freeSeats = 0;
-        if (Number(user.role) === 17) freeSeats = 6;
+        if (isEnterprise) freeSeats = Infinity;
+        else if (Number(user.role) === 17) freeSeats = 6;
         else if (Number(user.role) === 16) freeSeats = 3;
 
         const billableTeamCount = Math.max(0, teamCount - freeSeats);
@@ -106,7 +109,8 @@ router.get('/api/billing-estimate', async (req, res) => {
         res.json({ 
             teamCount, 
             freeSeats,
-            billableTeamCount, 
+            billableTeamCount,
+            isEnterprise,
             bridgedCount: activeStripeCount + ppCount + pCount + mCount 
         });
     } catch (error) { res.status(500).json({ error: "Failed to fetch estimate" }); }

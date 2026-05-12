@@ -4,7 +4,9 @@ import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Brief
 export default function TeammatesApp({ session, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    const canAccess = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
+    
+    // Unlocked for 12, 15, 16, 17
+    const canAccess = isAdmin || [12, 15, 16, 17].includes(Number(unaData?.user?.role));
 
     const [teammates, setTeammates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -24,8 +26,9 @@ export default function TeammatesApp({ session, unaData }) {
     // --- Dynamic Pricing Variables ---
     const role = Number(unaData?.user?.role) || 1;
     let freeSeats = 0;
-    if (role === 17) freeSeats = 6;
-    if (role === 16) freeSeats = 3;
+    if (role === 12) freeSeats = Infinity;
+    else if (role === 17) freeSeats = 6;
+    else if (role === 16) freeSeats = 3;
 
     const usedSeats = teammates.length;
     const isNextSeatFree = usedSeats < freeSeats;
@@ -81,7 +84,7 @@ export default function TeammatesApp({ session, unaData }) {
     };
 
     const handleRevoke = async (email) => {
-        const willReduceBill = usedSeats > freeSeats;
+        const willReduceBill = freeSeats !== Infinity && usedSeats > freeSeats;
         const msg = willReduceBill 
             ? `Are you sure you want to revoke teammate access for ${email}? This will lower your monthly billing by $2.00.`
             : `Are you sure you want to revoke teammate access for ${email}?`;
@@ -272,7 +275,17 @@ export default function TeammatesApp({ session, unaData }) {
                         {/* --- NEW PLAN ALLOWANCE BOX --- */}
                         <div className="mb-8 pb-8 border-b border-white/5">
                             <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Seat Allowance</h3>
-                            {freeSeats > 0 ? (
+                            {freeSeats === Infinity ? (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Your Enterprise plan includes <strong>unlimited free teammates</strong>.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats} / Unlimited</span>
+                                    </div>
+                                </>
+                            ) : freeSeats > 0 ? (
                                 <>
                                     <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
                                         Your current plan includes <strong>{freeSeats} free teammates</strong>. Additional seats are $2.00/mo.
@@ -337,7 +350,11 @@ export default function TeammatesApp({ session, unaData }) {
                             <AlertCircle size={16} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
-                                {freeSeats > 0 ? (
+                                {freeSeats === Infinity ? (
+                                    <p className="text-xs text-gray-300">
+                                        Your Enterprise plan includes <strong>unlimited teammates</strong>. This teammate will be added for free.
+                                    </p>
+                                ) : freeSeats > 0 ? (
                                     <p className="text-xs text-gray-300">
                                         Your plan includes <strong>{freeSeats} free teammates</strong>. You are using {usedSeats}. 
                                         {isNextSeatFree ? ' This teammate will be added for free.' : ' Adding this teammate will add a recurring $2.00/month charge.'}

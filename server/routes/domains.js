@@ -21,10 +21,8 @@ router.get('/api/resolve-domain/:subdomain', async (req, res) => {
         const { subdomain } = req.params;
         await ensureLinksSchema();
         
-        // 1. Check the new unlimited links table
         let rows = await sql`SELECT target_url FROM bridge_community_links WHERE subdomain = ${subdomain.toLowerCase()}`;
         
-        // 2. Fallback to the old single-link table just in case
         if (rows.length === 0) {
             rows = await sql`SELECT target_url FROM bridge_custom_domains WHERE subdomain = ${subdomain.toLowerCase()}`;
         }
@@ -44,7 +42,6 @@ router.get('/api/get-domains', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureLinksSchema();
         
-        // Merge legacy domains and new domains for a seamless transition
         const newRows = await sql`SELECT id, subdomain, target_url, created_at FROM bridge_community_links WHERE user_id = ${user.id}`;
         const legacyRows = await sql`SELECT user_id as id, subdomain, target_url, created_at FROM bridge_custom_domains WHERE user_id = ${user.id}`;
         
@@ -69,7 +66,7 @@ router.post('/api/save-domain', async (req, res) => {
 
         await ensureLinksSchema();
 
-        // 1. Determine User Limit
+        // 1. Determine User Limit (12 gets 1)
         const role = Number(user.role);
         const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
         const isAdmin = role === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
@@ -77,7 +74,7 @@ router.post('/api/save-domain', async (req, res) => {
         let maxLinks = 0;
         if (isAdmin) maxLinks = Infinity;
         else if (role === 17) maxLinks = 3;
-        else if (role === 16) maxLinks = 1;
+        else if (role === 16 || role === 12) maxLinks = 1;
 
         // 2. Check current usage if not admin
         if (maxLinks !== Infinity) {
@@ -163,7 +160,6 @@ router.post('/api/delete-domain', async (req, res) => {
         const { id, subdomain } = req.body;
         await ensureLinksSchema();
         
-        // Attempt to delete from both tables just to be safe
         await sql`DELETE FROM bridge_community_links WHERE user_id = ${user.id} AND subdomain = ${subdomain}`;
         await sql`DELETE FROM bridge_custom_domains WHERE user_id = ${user.id} AND subdomain = ${subdomain}`;
         
