@@ -513,7 +513,7 @@ export default function BioPageApp({ session, activeTab, unaData }) {
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Link in Bio page allows you to create a custom landing page for your social links. This tool is exclusively available to All-Star, H.O.F. and Enterprise subscribers.
+                        The Link in Bio page allows you to create a custom landing page for your social links. This tool is exclusively available to All-Star, H.O.F., and Commissioner Exempt subscribers.
                     </p>
                     <a 
                         href="https://www.selloutcrowds.com/plans" 

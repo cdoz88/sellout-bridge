@@ -13,7 +13,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Premium features unlocked for Admin, Enterprise(12), All-Star(16), HOF(17)
+    // Premium features unlocked for Admin, Commissioner Exempt(12), All-Star(16), HOF(17)
     const canAccessPremium = isAdmin || [12, 16, 17].includes(role);
     const hasBillingAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
@@ -96,7 +96,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                             <Zap size={18} className="text-[#9df01c]"/> Est. Add-On Usage
                         </h3>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                            {billingEstimate.isEnterprise ? 'Enterprise plan includes unlimited add-ons' : 'Billed automatically via your Sellout Crowds invoice'}
+                            {billingEstimate.isEnterprise ? 'Commissioner Exempt accounts include unlimited add-ons' : 'Billed automatically via your Sellout Crowds invoice'}
                         </p>
                     </div>
 

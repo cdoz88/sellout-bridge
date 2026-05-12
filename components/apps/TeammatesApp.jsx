@@ -278,7 +278,7 @@ export default function TeammatesApp({ session, unaData }) {
                             {freeSeats === Infinity ? (
                                 <>
                                     <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
-                                        Your Enterprise plan includes <strong>unlimited free teammates</strong>.
+                                        Your Commissioner Exempt account includes <strong>unlimited free teammates</strong>.
                                     </p>
                                     <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
                                         <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
@@ -352,7 +352,7 @@ export default function TeammatesApp({ session, unaData }) {
                                 <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
                                 {freeSeats === Infinity ? (
                                     <p className="text-xs text-gray-300">
-                                        Your Enterprise plan includes <strong>unlimited teammates</strong>. This teammate will be added for free.
+                                        Your Commissioner Exempt account includes <strong>unlimited free teammates</strong>. This teammate will be added for free.
                                     </p>
                                 ) : freeSeats > 0 ? (
                                     <p className="text-xs text-gray-300">

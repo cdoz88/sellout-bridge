@@ -504,7 +504,7 @@ export default function App() {
                       <Lock size={56} className="text-gray-500 mb-6 relative z-10 mx-auto" />
                       <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                       <p className="text-sm font-medium text-gray-400 mb-8 leading-relaxed relative z-10">
-                          The WordPress integration is exclusively available to All-Star, H.O.F. and Enterprise subscribers.
+                          The WordPress integration is exclusively available to All-Star, H.O.F. and Commissioner Exempt subscribers.
                       </p>
                       <a 
                           href="https://www.selloutcrowds.com/plans" 

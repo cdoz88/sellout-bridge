@@ -6,7 +6,7 @@ export default function CommunityLinkApp({ session, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Feature unlocked for Admin(3), Enterprise(12), All-Star(16), HOF(17)
+    // Feature unlocked for Admin(3), Commissioner Exempt(12), All-Star(16), HOF(17)
     const canAccess = isAdmin || [12, 16, 17].includes(role);
 
     // Calculate maximum allowed links based on role
@@ -171,7 +171,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        Claim branded subdomains (e.g. <strong>yourname</strong>.selloutcrowds.fan) to seamlessly route fans to your communities. Available exclusively to All-Star and H.O.F. subscribers.
+                        Claim branded subdomains (e.g. <strong>yourname</strong>.selloutcrowds.fan) to seamlessly route fans to your communities. Available exclusively to All-Star, H.O.F., and Commissioner Exempt subscribers.
                     </p>
                     <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
                         Upgrade to Unlock
@@ -221,6 +221,16 @@ export default function CommunityLinkApp({ session, unaData }) {
                             {currentLinks}{!isAdmin && ` / ${maxLinks}`}
                         </span>
                     </h3>
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                        <input 
+                            type="text" 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            placeholder="Search links or targets..." 
+                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
+                        />
+                    </div>
                 </div>
 
                 <div className="relative z-10 flex-1">
@@ -230,9 +240,11 @@ export default function CommunityLinkApp({ session, unaData }) {
                             <p className="text-gray-400 font-bold text-sm">No Links Reserved</p>
                             <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">Click "New Link" {isAdmin && 'or "Bulk Automator" '}to get started.</p>
                         </div>
+                    ) : filteredDomains.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500 font-medium text-sm">No links match your search.</div>
                     ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {domains.map(d => (
+                            {filteredDomains.map(d => (
                                 <div key={d.id} className="bg-black border border-white/5 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-white/20 transition-colors group">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
