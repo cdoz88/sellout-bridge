@@ -15,7 +15,7 @@ export default function ContentApp({ session, unaData }) {
 
     // Compose State
     const [content, setContent] = useState('');
-    const [selectedCommunities, setSelectedCommunities] = useState([]);
+    const [selectedCommunity, setSelectedCommunity] = useState(''); // Changed to single string
     const [imageUrl, setImageUrl] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     
@@ -82,8 +82,8 @@ export default function ContentApp({ session, unaData }) {
             alert("Your post must include text or an image.");
             return;
         }
-        if (selectedCommunities.length === 0) {
-            alert("Please select at least one community to post to.");
+        if (!selectedCommunity) {
+            alert("Please select a community to post to.");
             return;
         }
         if (!publishDate || !publishTime) {
@@ -103,7 +103,7 @@ export default function ContentApp({ session, unaData }) {
                 body: JSON.stringify({
                     content,
                     image_url: imageUrl,
-                    target_communities: selectedCommunities,
+                    target_communities: [selectedCommunity], // Keep as array for backend compatibility
                     publish_time: combinedDateTime.toISOString()
                 })
             });
@@ -114,7 +114,7 @@ export default function ContentApp({ session, unaData }) {
                     setSaveSuccess(false);
                     setContent('');
                     setImageUrl('');
-                    setSelectedCommunities([]);
+                    setSelectedCommunity('');
                     setView('queue');
                 }, 2000);
             } else {
@@ -142,10 +142,6 @@ export default function ContentApp({ session, unaData }) {
         }
     };
 
-    const toggleCommunity = (id) => {
-        setSelectedCommunities(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
-    };
-
     const renderCommunityChecklist = () => (
         <div className="max-h-60 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
             {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
@@ -155,12 +151,12 @@ export default function ContentApp({ session, unaData }) {
                     {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
                     {(unaData?.crowds || []).map(c => {
                         const combinedId = `bx_spaces_${c.id}`;
-                        const isSelected = selectedCommunities.includes(combinedId);
+                        const isSelected = selectedCommunity === combinedId;
                         return (
-                            <label key={combinedId} onClick={() => toggleCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                            <label key={combinedId} onClick={() => setSelectedCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                        {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-colors ${isSelected ? 'border-[#9df01c]' : 'border-gray-500'}`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-[#9df01c]"></div>}
                                     </div>
                                     <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
                                 </div>
@@ -172,12 +168,12 @@ export default function ContentApp({ session, unaData }) {
                     {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
                     {(unaData?.spaces || []).map(s => {
                         const combinedId = `bx_groups_${s.id}`;
-                        const isSelected = selectedCommunities.includes(combinedId);
+                        const isSelected = selectedCommunity === combinedId;
                         return (
-                            <label key={combinedId} onClick={() => toggleCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                            <label key={combinedId} onClick={() => setSelectedCommunity(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                        {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-colors ${isSelected ? 'border-[#38bdf8]' : 'border-gray-500'}`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-[#38bdf8]"></div>}
                                     </div>
                                     <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
                                 </div>
@@ -264,7 +260,7 @@ export default function ContentApp({ session, unaData }) {
 
                     <div className="lg:col-span-5 space-y-6">
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl">
-                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4">Target Communities</h3>
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4">Target Community</h3>
                             <div className="mb-6">
                                 {renderCommunityChecklist()}
                             </div>
@@ -282,12 +278,18 @@ export default function ContentApp({ session, unaData }) {
                                     <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Time (Local)</label>
                                     <div className="relative">
                                         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
-                                        <input type="time" value={publishTime} onChange={e => setPublishTime(e.target.value)} className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-3 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors [color-scheme:dark]" />
+                                        <input 
+                                            type="time" 
+                                            step="300" // Forces 5-minute intervals
+                                            value={publishTime} 
+                                            onChange={e => setPublishTime(e.target.value)} 
+                                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-3 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors [color-scheme:dark]" 
+                                        />
                                     </div>
                                 </div>
                             </div>
 
-                            <button onClick={handleSchedule} disabled={isSaving || (!content && !imageUrl) || selectedCommunities.length === 0} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-gray-500 disabled:shadow-none">
+                            <button onClick={handleSchedule} disabled={isSaving || (!content && !imageUrl) || !selectedCommunity} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-gray-500 disabled:shadow-none">
                                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : (saveSuccess ? <CheckCircle2 size={16} /> : <CalendarClock size={16} />)}
                                 {saveSuccess ? 'Post Scheduled!' : 'Schedule Post'}
                             </button>
@@ -315,15 +317,10 @@ export default function ContentApp({ session, unaData }) {
                                 const isFailed = post.status === 'failed';
                                 const publishDateObj = new Date(post.publish_time);
                                 
-                                // Format communities
+                                // Parse community target
                                 let comms = [];
-                                try { 
-                                    comms = typeof post.target_communities === 'string' 
-                                        ? JSON.parse(post.target_communities) 
-                                        : post.target_communities;
-                                    if (!Array.isArray(comms)) comms = [];
-                                } catch(e) {}
-                                const commCount = comms.length;
+                                try { comms = JSON.parse(post.target_communities); } catch(e) {}
+                                const isCrowd = comms[0]?.includes('bx_spaces');
 
                                 return (
                                     <div key={post.id} className="bg-black border border-white/10 rounded-2xl p-5 flex flex-col hover:border-white/20 transition-colors">
@@ -348,7 +345,7 @@ export default function ContentApp({ session, unaData }) {
 
                                         <div className="pt-4 border-t border-white/5 flex items-center justify-between mt-auto">
                                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                                {commCount} {commCount === 1 ? 'Community' : 'Communities'}
+                                                Target: <span className={isCrowd ? 'text-[#9df01c]' : 'text-[#38bdf8]'}>{isCrowd ? 'Crowd' : 'Space'}</span>
                                             </span>
                                             
                                             {post.status === 'pending' ? (
