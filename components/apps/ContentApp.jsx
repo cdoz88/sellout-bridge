@@ -1,5 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, X, Trash2, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
+import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, AlertCircle, X, Trash2, UploadCloud, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
+
+// Pre-generate the 5-minute intervals for our strict time picker
+const TIME_OPTIONS = [];
+for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 5) {
+        const hour = h.toString().padStart(2, '0');
+        const min = m.toString().padStart(2, '0');
+        TIME_OPTIONS.push(`${hour}:${min}`);
+    }
+}
+
+// Helper to display the 24hr time in standard 12hr AM/PM format
+const formatTimeDisplay = (time24) => {
+    const [h, m] = time24.split(':');
+    const hour = parseInt(h, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${m} ${ampm}`;
+};
 
 export default function ContentApp({ session, unaData, activeTab, setActiveTab }) {
     const role = Number(unaData?.user?.role) || 1;
@@ -18,10 +37,12 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
     const [imageUrl, setImageUrl] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     
-    // Default to tomorrow at noon
+    // Default to tomorrow
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const [publishDate, setPublishDate] = useState(tomorrow.toISOString().split('T')[0]);
+    
+    // Set a default 5-minute interval time (12:00 PM)
     const [publishTime, setPublishTime] = useState('12:00');
     
     const [isSaving, setIsSaving] = useState(false);
@@ -274,13 +295,15 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
                                     <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1.5 block">Time (Local)</label>
                                     <div className="relative">
                                         <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
-                                        <input 
-                                            type="time" 
-                                            step="300" // Forces 5-minute intervals
+                                        <select 
                                             value={publishTime} 
                                             onChange={e => setPublishTime(e.target.value)} 
-                                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-3 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors [color-scheme:dark]" 
-                                        />
+                                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-3 py-3 text-xs text-white focus:border-[#9df01c] outline-none transition-colors appearance-none cursor-pointer"
+                                        >
+                                            {TIME_OPTIONS.map(time => (
+                                                <option key={time} value={time}>{formatTimeDisplay(time)}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
