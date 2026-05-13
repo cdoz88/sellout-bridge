@@ -92,7 +92,7 @@ router.post('/api/posts/delete', async (req, res) => {
     }
 });
 
-// 4. CRON JOB: PUBLISH AND AUTO-CLEAN (Runs every 15 minutes via Vercel)
+// 4. CRON JOB: PUBLISH AND AUTO-CLEAN (Runs every 5 minutes via Vercel)
 router.get('/api/cron/publish-posts', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -112,16 +112,34 @@ router.get('/api/cron/publish-posts', async (req, res) => {
                 formData.append('user', post.profile_link || '');
                 formData.append('domain', 'https://bridge.selloutcrowds.com');
                 
-                formData.append('data[content]', post.content || '');
-                if (post.image_url) formData.append('data[image]', post.image_url);
+                // 1. Generate a Title from the Content (UNA requires a title for posts)
+                let title = 'Community Update';
+                if (post.content && post.content.trim().length > 0) {
+                    title = post.content.trim().split(/\s+/).slice(0, 8).join(' ');
+                    if (post.content.length > title.length) title += '...';
+                }
+                formData.append('data[title]', title);
                 
+                // 2. The Body Text
+                formData.append('data[text]', post.content || '');
+                
+                // 3. The Attached Image
+                if (post.image_url) {
+                    formData.append('data[post_image]', post.image_url);
+                }
+                
+                // 4. Community Routing (UNA uses negative Profile IDs in the allow_view_to field)
                 let comms = [];
                 try {
                     comms = typeof post.target_communities === 'string' ? JSON.parse(post.target_communities) : post.target_communities;
                 } catch(e) {}
 
-                if (comms && Array.isArray(comms)) {
-                    formData.append('data[communities]', comms.join(','));
+                if (comms && Array.isArray(comms) && comms.length > 0) {
+                    const targetString = comms[0];
+                    const targetId = targetString.split('_').pop();
+                    formData.append('data[allow_view_to]', '-' + targetId); // The minus sign routes it to the context timeline!
+                } else {
+                    formData.append('data[allow_view_to]', '3'); // Fallback to public
                 }
 
                 const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/create-post`;
@@ -139,9 +157,8 @@ router.get('/api/cron/publish-posts', async (req, res) => {
                 
                 try {
                     const json = JSON.parse(text);
-                    if (json.success || !json.error) success = true;
+                    if (json.success || !json.error || json.post_id) success = true;
                 } catch(e) {
-                    // If response is OK but not JSON, we assume success
                     if (response.ok) success = true;
                 }
 
@@ -156,7 +173,6 @@ router.get('/api/cron/publish-posts', async (req, res) => {
         }
 
         // --- PART B: THE SELF-CLEANING DATABASE ---
-        // Find posts older than 7 days that are either published or failed
         const oldPosts = await sql`SELECT id, image_url FROM bridge_scheduled_posts WHERE status IN ('published', 'failed') AND publish_time < NOW() - INTERVAL '7 days'`;
         
         for (const old of oldPosts) {
