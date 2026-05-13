@@ -655,7 +655,7 @@ export default function App() {
           case 'onboarding':
               return <OnboardingApp session={session} unaData={unaData} />;
           case 'content':
-              return <ContentApp session={session} unaData={unaData} />;
+              return <ContentApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }

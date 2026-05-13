@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, AlertCircle, X, Trash2, UploadCloud, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
+import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, X, Trash2, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
 
-export default function ContentApp({ session, unaData }) {
+export default function ContentApp({ session, unaData, activeTab, setActiveTab }) {
     const role = Number(unaData?.user?.role) || 1;
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
@@ -9,13 +9,12 @@ export default function ContentApp({ session, unaData }) {
     // Feature unlocked for Admin(3), Commissioner Exempt(12), Rookie(15), All-Star(16), HOF(17)
     const canAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
-    const [view, setView] = useState('compose'); // 'compose' or 'queue'
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Compose State
     const [content, setContent] = useState('');
-    const [selectedCommunity, setSelectedCommunity] = useState(''); // Changed to single string
+    const [selectedCommunity, setSelectedCommunity] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     
@@ -47,12 +46,12 @@ export default function ContentApp({ session, unaData }) {
     };
 
     useEffect(() => {
-        if (view === 'queue') {
+        if (['queue', 'history'].includes(activeTab)) {
             fetchPosts();
         } else {
             setIsLoading(false);
         }
-    }, [session, canAccess, view]);
+    }, [session, canAccess, activeTab]);
 
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -115,7 +114,7 @@ export default function ContentApp({ session, unaData }) {
                     setContent('');
                     setImageUrl('');
                     setSelectedCommunity('');
-                    setView('queue');
+                    if (setActiveTab) setActiveTab('queue');
                 }, 2000);
             } else {
                 alert("Failed to schedule post.");
@@ -206,30 +205,27 @@ export default function ContentApp({ session, unaData }) {
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
+    const displayPosts = posts.filter(post => {
+        if (activeTab === 'queue') return post.status === 'pending';
+        if (activeTab === 'history') return post.status !== 'pending';
+        return true;
+    });
+
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
                         <CalendarClock className="text-[#9df01c]" size={36} />
-                        Content Scheduler
+                        {activeTab === 'history' ? 'Post History' : activeTab === 'queue' ? 'Scheduled Queue' : 'Content Scheduler'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                        Draft and schedule posts to automatically publish to your communities.
+                        {activeTab === 'history' ? 'Review your recently published updates.' : activeTab === 'queue' ? 'Manage your upcoming automated posts.' : 'Draft and schedule posts to automatically publish to your communities.'}
                     </p>
                 </div>
             </div>
 
-            <div className="flex bg-black p-1 rounded-xl border border-white/10 mb-6 w-full max-w-md mx-auto sm:mx-0">
-                <button onClick={() => setView('compose')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${view === 'compose' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>
-                    <Send size={14} /> Compose Post
-                </button>
-                <button onClick={() => setView('queue')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${view === 'queue' ? 'bg-[#222] text-white shadow' : 'text-gray-500 hover:text-white'}`}>
-                    <LayoutList size={14} /> Queue & History
-                </button>
-            </div>
-
-            {view === 'compose' ? (
+            {activeTab === 'compose' ? (
                 <div className="grid lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
                     <div className="lg:col-span-7 space-y-6">
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl relative">
@@ -300,27 +296,49 @@ export default function ContentApp({ session, unaData }) {
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 shadow-2xl min-h-[60vh] animate-in fade-in duration-300">
                     <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-6">
                         <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-3">
-                            Post Queue
+                            {activeTab === 'history' ? 'Post History' : 'Upcoming Posts'}
                         </h3>
                     </div>
 
-                    {posts.length === 0 ? (
+                    {displayPosts.length === 0 ? (
                         <div className="border-2 border-dashed border-white/5 rounded-2xl p-12 text-center h-[40vh] flex flex-col items-center justify-center">
                             <CalendarClock size={48} className="text-gray-600 mb-4 opacity-30" />
-                            <p className="text-gray-400 font-bold text-sm">Your Queue is Empty</p>
-                            <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">Go to "Compose Post" to schedule your first update.</p>
+                            <p className="text-gray-400 font-bold text-sm">
+                                {activeTab === 'history' ? 'No Post History' : 'Your Queue is Empty'}
+                            </p>
+                            <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">
+                                {activeTab === 'history' ? 'Recently published posts will appear here.' : 'Go to "Compose Post" to schedule your first update.'}
+                            </p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {posts.map(post => {
+                            {displayPosts.map(post => {
                                 const isPublished = post.status === 'published';
                                 const isFailed = post.status === 'failed';
                                 const publishDateObj = new Date(post.publish_time);
                                 
                                 // Parse community target
                                 let comms = [];
-                                try { comms = JSON.parse(post.target_communities); } catch(e) {}
-                                const isCrowd = comms[0]?.includes('bx_spaces');
+                                try { 
+                                    comms = typeof post.target_communities === 'string' 
+                                        ? JSON.parse(post.target_communities) 
+                                        : post.target_communities;
+                                    if (!Array.isArray(comms)) comms = [];
+                                } catch(e) {}
+                                
+                                const targetString = comms[0] || '';
+                                const isCrowd = targetString.includes('bx_spaces');
+                                const targetId = targetString.split('_').pop();
+                                
+                                // Cross-reference with UNA Data to get the real title
+                                let targetName = 'Unknown Community';
+                                if (isCrowd && unaData?.crowds) {
+                                    const found = unaData.crowds.find(c => String(c.id) === String(targetId));
+                                    if (found) targetName = found.title;
+                                } else if (!isCrowd && unaData?.spaces) {
+                                    const found = unaData.spaces.find(s => String(s.id) === String(targetId));
+                                    if (found) targetName = found.title;
+                                }
 
                                 return (
                                     <div key={post.id} className="bg-black border border-white/10 rounded-2xl p-5 flex flex-col hover:border-white/20 transition-colors">
@@ -344,18 +362,28 @@ export default function ContentApp({ session, unaData }) {
                                         </p>
 
                                         <div className="pt-4 border-t border-white/5 flex items-center justify-between mt-auto">
-                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                                Target: <span className={isCrowd ? 'text-[#9df01c]' : 'text-[#38bdf8]'}>{isCrowd ? 'Crowd' : 'Space'}</span>
-                                            </span>
+                                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                                                <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex-shrink-0 ${isCrowd ? 'bg-[#9df01c]/10 text-[#9df01c]' : 'bg-[#38bdf8]/10 text-[#38bdf8]'}`}>
+                                                    {isCrowd ? 'Crowd' : 'Space'}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-gray-400 truncate">
+                                                    {targetName}
+                                                </span>
+                                            </div>
                                             
                                             {post.status === 'pending' ? (
-                                                <button onClick={() => handleDelete(post.id)} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded-lg transition-colors flex items-center justify-center" title="Cancel Post">
+                                                <button onClick={() => handleDelete(post.id)} className="text-red-500 hover:text-white hover:bg-red-500 p-2 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Cancel Post">
                                                     <Trash2 size={14}/>
                                                 </button>
                                             ) : (
-                                                <span className="text-[9px] text-gray-600 italic">Auto-deletes in 7 days</span>
+                                                <span className="text-[9px] text-gray-600 italic flex-shrink-0">Auto-deletes in 7 days</span>
                                             )}
                                         </div>
+                                        {post.status === 'failed' && post.error_log && (
+                                            <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-[9px] font-mono break-all">
+                                                <AlertCircle size={10} className="inline mr-1" />{post.error_log}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}

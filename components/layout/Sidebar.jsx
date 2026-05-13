@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -240,11 +240,14 @@ export default function Sidebar({
                                 <Send size={16} /> Compose Post
                             </button>
                             <button onClick={() => handleNavClick('queue')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'queue' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                <LayoutList size={16} /> Queue & History
+                                <CalendarClock size={16} /> Scheduled Queue
+                            </button>
+                            <button onClick={() => handleNavClick('history')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'history' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <LayoutList size={16} /> Post History
                             </button>
                         </div>
 
-                        <div className="mt-auto pt-4 pb-2">
+                        <div className="pt-2 pb-2">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}
@@ -272,7 +275,7 @@ export default function Sidebar({
                 )}
 
                 {currentApp === 'bridge' && (
-                    <div className="px-4 flex flex-col flex-1">
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
                         <div className="space-y-1 mb-6">
                             <button onClick={() => handleNavClick('mappings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'mappings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                 <Zap size={16} /> Bridges {!canAccessPremium && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
@@ -281,7 +284,7 @@ export default function Sidebar({
                         
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Integrations</p>
-                            <div className="space-y-1">
+                            <div className="space-y-1 mb-6">
                                 <button onClick={() => handleNavClick('stripe')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'stripe' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <CreditCard size={16} /> Stripe {!canAccessPremium && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
@@ -300,7 +303,7 @@ export default function Sidebar({
                             </div>
                         </div>
 
-                        <div className="mt-auto pt-4 pb-2">
+                        <div className="pt-2 pb-2">
                             <button 
                                 onClick={() => syncCommunities()}
                                 disabled={isSyncingCommunities || !isAdmin}
