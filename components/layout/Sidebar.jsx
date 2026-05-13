@@ -175,6 +175,7 @@ export default function Sidebar({
         if (!roleId) return 'Creator';
         switch (Number(roleId)) {
             case 3: return 'Admin';
+            case 12: return 'Com. Exempt';
             case 15: return 'Rookie';
             case 16: return 'All-Star';
             case 17: return 'H.O.F.';
@@ -234,16 +235,38 @@ export default function Sidebar({
 
                 {currentApp === 'content' && (
                     <div className="px-4 flex flex-col flex-1 h-full min-h-full">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
-                            <div className="space-y-1">
-                                <button onClick={() => handleNavClick('compose')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'compose' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <Send size={16} /> Compose Post
-                                </button>
-                                <button onClick={() => handleNavClick('queue')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'queue' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <LayoutList size={16} /> Queue & History
-                                </button>
-                            </div>
+                        <div className="space-y-1 mb-6">
+                            <button onClick={() => handleNavClick('compose')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'compose' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <Send size={16} /> Compose Post
+                            </button>
+                            <button onClick={() => handleNavClick('queue')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'queue' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                <LayoutList size={16} /> Queue & History
+                            </button>
+                        </div>
+
+                        <div className="mt-auto pt-4 pb-2">
+                            <button 
+                                onClick={() => syncCommunities()}
+                                disabled={isSyncingCommunities || !isAdmin}
+                                className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
+                                    !isAdmin 
+                                        ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
+                                        : 'bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'
+                                }`}>
+                                {isSyncingCommunities ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : !isAdmin ? (
+                                    <Lock className="w-4 h-4" />
+                                ) : (
+                                    <RefreshCcw className="w-4 h-4" />
+                                )}
+                                {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
+                            </button>
+                            <p className="text-[9px] text-gray-600 mt-2 text-center px-2 font-medium leading-relaxed">
+                                {isAdmin 
+                                    ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
+                                    : 'Commissioner Exempt subscription required to sync communities.'}
+                            </p>
                         </div>
                     </div>
                 )}
@@ -298,7 +321,7 @@ export default function Sidebar({
                             <p className="text-[9px] text-gray-600 mt-2 text-center px-2 font-medium leading-relaxed">
                                 {isAdmin 
                                     ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
-                                    : 'Enterprise subscription required to sync communities.'}
+                                    : 'Commissioner Exempt subscription required to sync communities.'}
                             </p>
                         </div>
                     </div>
