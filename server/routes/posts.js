@@ -1,5 +1,5 @@
 import express from 'express';
-import { sql, getAuthenticatedUser, ensureSchema, UNA_BASE_URL, FSAN_TOKEN } from '../config.js';
+import { sql, getAuthenticatedUser, ensureSchema, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
 
@@ -38,7 +38,7 @@ router.post('/api/posts/schedule', async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        // Format the user's profile URL so Una accepts the post as coming from them
+        // Format the user's profile URL 
         let userProfileUrl = user.profile_link || user.url || user.link || '';
         if (userProfileUrl) {
             userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
@@ -107,49 +107,38 @@ router.get('/api/cron/publish-posts', async (req, res) => {
         
         for (const post of pendingPosts) {
             try {
-                const formData = new URLSearchParams();
-                formData.append('api_key', FSAN_TOKEN);
-                formData.append('user', post.profile_link || '');
-                formData.append('domain', 'https://bridge.selloutcrowds.com');
-                
-                // 1. Generate a Title from the Content (UNA requires a title for posts)
-                let title = 'Community Update';
-                if (post.content && post.content.trim().length > 0) {
-                    title = post.content.trim().split(/\s+/).slice(0, 8).join(' ');
-                    if (post.content.length > title.length) title += '...';
-                }
-                formData.append('data[title]', title);
-                
-                // 2. The Body Text
-                formData.append('data[text]', post.content || '');
-                
-                // 3. The Attached Image
-                if (post.image_url) {
-                    formData.append('data[post_image]', post.image_url);
-                }
-                
-                // 4. Community Routing (UNA uses negative Profile IDs in the allow_view_to field)
+                // Grab the creator's email to verify identity on the UNA side
+                const settingsRows = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${post.user_id}`;
+                const creatorEmail = settingsRows.length > 0 ? settingsRows[0].creator_email : '';
+
+                // Community Routing (UNA uses negative IDs in the Privacy field to push to spaces/crowds)
                 let comms = [];
                 try {
                     comms = typeof post.target_communities === 'string' ? JSON.parse(post.target_communities) : post.target_communities;
                 } catch(e) {}
 
+                let privacyVal = 3; // Default to public
                 if (comms && Array.isArray(comms) && comms.length > 0) {
                     const targetString = comms[0];
                     const targetId = targetString.split('_').pop();
-                    formData.append('data[allow_view_to]', '-' + targetId); // The minus sign routes it to the context timeline!
-                } else {
-                    formData.append('data[allow_view_to]', '3'); // Fallback to public
+                    privacyVal = -Math.abs(parseInt(targetId)); 
                 }
 
-                const endpoint = `${UNA_BASE_URL}/m/fsan/wordpress/create-post`;
+                // Send the exact data to the native bridge-connector!
+                const endpoint = `${UNA_BASE_URL}/bridge-connector.php`;
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 
-                        'User-Agent': 'UNA-Bridge-Cron', 
-                        'Content-Type': 'application/x-www-form-urlencoded' 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${UNA_SECRET}`
                     },
-                    body: formData
+                    body: JSON.stringify({
+                        action: 'create_timeline_post',
+                        email: creatorEmail,
+                        text: post.content || '',
+                        image: post.image_url || '',
+                        privacy: privacyVal
+                    })
                 });
                 
                 const text = await response.text();
