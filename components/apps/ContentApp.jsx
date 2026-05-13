@@ -317,7 +317,12 @@ export default function ContentApp({ session, unaData }) {
                                 
                                 // Format communities
                                 let comms = [];
-                                try { comms = JSON.parse(post.target_communities); } catch(e) {}
+                                try { 
+                                    comms = typeof post.target_communities === 'string' 
+                                        ? JSON.parse(post.target_communities) 
+                                        : post.target_communities;
+                                    if (!Array.isArray(comms)) comms = [];
+                                } catch(e) {}
                                 const commCount = comms.length;
 
                                 return (
