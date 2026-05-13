@@ -10,6 +10,7 @@ import bridgeRoutes from '../server/routes/bridge.js';
 import contentRoutes from '../server/routes/content.js';
 import authRoutes from '../server/routes/auth.js';
 import domainRoutes from '../server/routes/domains.js';
+import postsRoutes from '../server/routes/posts.js';
 
 const app = express();
 
@@ -23,5 +24,6 @@ app.use('/', bridgeRoutes);
 app.use('/', contentRoutes);
 app.use('/', authRoutes);
 app.use('/', domainRoutes);
+app.use('/', postsRoutes);
 
 export default app;

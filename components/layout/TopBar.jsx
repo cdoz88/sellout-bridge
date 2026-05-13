@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
@@ -10,6 +10,7 @@ export default function TopBar({
             case 'address-book': return { name: 'Address Book', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'linktree': return { name: 'Link in Bio Page', icon: <Link2 size={20} className="text-[#9df01c]" /> };
             case 'community-link': return { name: 'Custom Community URL', icon: <Globe size={20} className="text-[#9df01c]" /> };
+            case 'content': return { name: 'Content Scheduler', icon: <CalendarClock size={20} className="text-[#9df01c]" /> };
             case 'bridge': return { name: 'Subscription Bridge', icon: <CreditCard size={20} className="text-[#9df01c]" /> };
             case 'teammates': return { name: 'Teammates', icon: <Users size={20} className="text-[#9df01c]" /> };
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
@@ -24,8 +25,8 @@ export default function TopBar({
     // Show upgrade button for everyone EXCEPT role 17 (H.O.F.)
     const showUpgrade = role && role !== 17;
     
-    // Bridge & Community Link unlocked for Admin(3), Enterprise(12), All-Star(16), HOF(17)
     const canAccessPremium = role === 3 || [12, 16, 17].includes(role);
+    const canAccessContent = role === 3 || [12, 15, 16, 17].includes(role);
 
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 z-30 sticky top-0 flex-shrink-0">
@@ -64,6 +65,13 @@ export default function TopBar({
                                     <Globe size={18} className={currentApp === 'community-link' ? 'text-[#9df01c]' : ''}/> Custom Community URL
                                 </div>
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                            </button>
+
+                            <button onClick={() => handleAppSwitch('content', 'compose')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'content' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <CalendarClock size={18} className={currentApp === 'content' ? 'text-[#9df01c]' : ''}/> Content Scheduler
+                                </div>
+                                {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
                             <button onClick={() => handleAppSwitch('bridge', 'mappings')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
