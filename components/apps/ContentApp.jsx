@@ -214,7 +214,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Content Scheduler allows you to draft posts and automate their delivery to your crowds and spaces. This feature is exclusively available to premium subscribers.
+                        The Post Scheduler allows you to draft posts and automate their delivery to your crowds and spaces. This feature is exclusively available to premium subscribers.
                     </p>
                     <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
                         Upgrade to Unlock
@@ -238,7 +238,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
                         <CalendarClock className="text-[#9df01c]" size={36} />
-                        {activeTab === 'history' ? 'Post History' : activeTab === 'queue' ? 'Scheduled Queue' : 'Content Scheduler'}
+                        {activeTab === 'history' ? 'Post History' : activeTab === 'queue' ? 'Scheduled Queue' : 'Post Scheduler'}
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
                         {activeTab === 'history' ? 'Review your recently published updates.' : activeTab === 'queue' ? 'Manage your upcoming automated posts.' : 'Draft and schedule posts to automatically publish to your communities.'}
