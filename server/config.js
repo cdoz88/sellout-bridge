@@ -130,7 +130,6 @@ export async function ensureSchema() {
         try { await sql`CREATE TABLE IF NOT EXISTS bridge_custom_domains (user_id INTEGER PRIMARY KEY, subdomain VARCHAR(255) UNIQUE, target_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e) {}
         try { await sql`CREATE TABLE IF NOT EXISTS bridge_community_links (id SERIAL PRIMARY KEY, user_id INTEGER, subdomain VARCHAR(255) UNIQUE, target_url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e) {}
 
-        // --- NEW POST SCHEDULER TABLE ---
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_scheduled_posts (
                 id SERIAL PRIMARY KEY, 
@@ -144,6 +143,45 @@ export async function ensureSchema() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`;
         } catch(e) {}
+
+        // --- NEW NEWSLETTER SYSTEM ---
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_settings (
+                user_id INTEGER PRIMARY KEY,
+                sender_name VARCHAR(255),
+                reply_to_email VARCHAR(255),
+                footer_text TEXT
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_newsletters (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                subject VARCHAR(255),
+                content JSONB,
+                html_body TEXT,
+                status VARCHAR(50) DEFAULT 'draft',
+                sent_at TIMESTAMP,
+                recipient_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_unsubscribes (
+                user_id INTEGER,
+                email VARCHAR(255),
+                unsubscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, email)
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_email_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                newsletter_id INTEGER,
+                recipient_email VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'sent',
+                aws_message_id VARCHAR(255),
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
+        } catch(e) { console.error("Newsletter Schema Error:", e.message); }
 
     } catch (e) { console.error("Schema check notice:", e.message); }
 }
