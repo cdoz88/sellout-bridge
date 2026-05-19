@@ -15,6 +15,7 @@ import OnboardingApp from './components/apps/OnboardingApp';
 import PlaceholderApp from './components/apps/PlaceholderApp';
 import CommunityLinkApp from './components/apps/CommunityLinkApp';
 import ContentApp from './components/apps/ContentApp';
+import NewsletterApp from './components/apps/NewsletterApp';
 
 const WordPressIcon = ({ className }) => (
     <svg viewBox="0 0 447.674 447.674" className={className}>
@@ -656,6 +657,8 @@ export default function App() {
               return <OnboardingApp session={session} unaData={unaData} />;
           case 'content':
               return <ContentApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'newsletter':
+              return <NewsletterApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }

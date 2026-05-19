@@ -11,6 +11,7 @@ import contentRoutes from '../server/routes/content.js';
 import authRoutes from '../server/routes/auth.js';
 import domainRoutes from '../server/routes/domains.js';
 import postsRoutes from '../server/routes/posts.js';
+import newsletterRoutes from '../server/routes/newsletter.js';
 
 const app = express();
 
@@ -25,5 +26,6 @@ app.use('/', contentRoutes);
 app.use('/', authRoutes);
 app.use('/', domainRoutes);
 app.use('/', postsRoutes);
+app.use('/', newsletterRoutes);
 
 export default app;
