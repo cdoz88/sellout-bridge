@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -7,11 +7,11 @@ const compileEmailHtml = (blocks) => {
     
     blocks.forEach(b => {
         if (b.type === 'header') {
-            html += `<h2 style="margin: 0 0 15px 0; font-size: 24px; font-weight: bold; text-align: ${b.align || 'left'};">${b.text || 'Heading'}</h2>`;
+            html += `<h2 style="margin: 0 0 15px 0; font-size: ${b.fontSize || 24}px; font-weight: bold; text-align: ${b.align || 'left'};">${b.text || 'Heading'}</h2>`;
         } else if (b.type === 'paragraph') {
             html += `<p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; text-align: ${b.align || 'left'}; white-space: pre-wrap;">${b.text || 'Type your message...'}</p>`;
         } else if (b.type === 'image') {
-            let imgHtml = b.url ? `<img src="${b.url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: inline-block; border: none;" />` : `<div style="background:#f3f4f6; padding:40px; text-align:center; color:#9ca3af; border-radius:8px;">[Image Placeholder]</div>`;
+            let imgHtml = b.url ? `<img src="${b.url}" alt="Image" style="width: ${b.width || 100}%; max-width: 100%; height: auto; border-radius: 8px; display: inline-block; border: none;" />` : `<div style="background:#f3f4f6; padding:40px; text-align:center; color:#9ca3af; border-radius:8px;">[Image Placeholder]</div>`;
             
             if (b.url && b.linkUrl) {
                 imgHtml = `<a href="${b.linkUrl}" target="_blank" style="text-decoration: none; border: none; display: inline-block;">${imgHtml}</a>`;
@@ -23,7 +23,7 @@ const compileEmailHtml = (blocks) => {
                 <a href="${b.url || '#'}" style="background-color: ${b.color || '#9df01c'}; color: ${b.textColor || '#000000'}; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">${b.text || 'Click Here'}</a>
             </div>`;
         } else if (b.type === 'divider') {
-            html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />`;
+            html += `<hr style="border: none; border-top: 1px solid ${b.color || '#e5e7eb'}; margin: 30px 0;" />`;
         }
     });
 
@@ -132,7 +132,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         }));
     };
 
-    const addEmailBlock = (type) => setEmailBlocks([...emailBlocks, { id: Date.now().toString(), type, text: '', url: '', align: 'left', color: '#9df01c', textColor: '#000000' }]);
+    const addEmailBlock = (type) => setEmailBlocks([...emailBlocks, { id: Date.now().toString(), type, text: '', url: '', align: 'left', color: '#9df01c', textColor: '#000000', width: 100, fontSize: 24 }]);
     const updateEmailBlock = (id, updates) => setEmailBlocks(emailBlocks.map(b => b.id === id ? { ...b, ...updates } : b));
     const removeEmailBlock = (id) => { setEmailBlocks(emailBlocks.filter(b => b.id !== id)); if (selectedBlockId === id) setSelectedBlockId(null); };
 
@@ -143,6 +143,28 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         newBlocks[index] = newBlocks[index + dir];
         newBlocks[index + dir] = temp;
         setEmailBlocks(newBlocks);
+    };
+
+    const insertTag = (blockId, prefix, suffix) => {
+        const textarea = document.getElementById(`editor-${blockId}`);
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const targetBlock = emailBlocks.find(b => b.id === blockId);
+        if (!targetBlock) return;
+        
+        const text = targetBlock.text || '';
+        const before = text.substring(0, start);
+        const selected = text.substring(start, end);
+        const after = text.substring(end);
+        
+        updateEmailBlock(blockId, { text: before + prefix + selected + suffix + after });
+        
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+        }, 0);
     };
 
     const handleSaveDraft = async () => {
@@ -440,16 +462,16 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                 </div>
 
                                                 <div style={{ textAlign: block.align || 'left' }} className="w-full">
-                                                    {block.type === 'header' && <h2 className="text-2xl font-bold text-black m-0">{block.text || 'Heading'}</h2>}
-                                                    {block.type === 'paragraph' && <p className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed">{block.text || 'Type your message...'}</p>}
+                                                    {block.type === 'header' && <h2 dangerouslySetInnerHTML={{__html: block.text || 'Heading'}} style={{ fontSize: `${block.fontSize || 24}px` }} className="font-bold text-black m-0" />}
+                                                    {block.type === 'paragraph' && <p dangerouslySetInnerHTML={{__html: block.text || 'Type your message...'}} className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed" />}
                                                     {block.type === 'image' && (
                                                         block.url ? (
                                                             block.linkUrl ? (
-                                                                <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                                                                    <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                                <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', width: `${block.width || 100}%` }}>
+                                                                    <img src={block.url} style={{ width: '100%' }} className="h-auto rounded-lg" alt="Block" />
                                                                 </a>
                                                             ) : (
-                                                                <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                                <img src={block.url} style={{ width: `${block.width || 100}%` }} className="h-auto rounded-lg" alt="Block" />
                                                             )
                                                         ) : (
                                                             <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
@@ -458,7 +480,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                     {block.type === 'button' && (
                                                         <a href="#" onClick={e=>e.preventDefault()} style={{ backgroundColor: block.color || '#9df01c', color: block.textColor || '#000' }} className="px-6 py-3 rounded-lg font-bold inline-block shadow-sm pointer-events-none">{block.text || 'Click Here'}</a>
                                                     )}
-                                                    {block.type === 'divider' && <hr className="border-t border-gray-200 my-4" />}
+                                                    {block.type === 'divider' && <hr style={{ borderTopColor: block.color || '#e5e7eb' }} className="border-t my-4" />}
                                                 </div>
                                             </div>
                                         ))}
@@ -487,11 +509,31 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 {selectedBlockId ? (
                                     emailBlocks.filter(b => b.id === selectedBlockId).map(block => (
                                         <div key="editor" className="space-y-3">
-                                            {(block.type === 'header' || block.type === 'button') && (
+                                            {block.type === 'header' && (
+                                                <>
+                                                    <input type="text" value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} placeholder="Text..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Font Size</label>
+                                                            <span className="text-[9px] text-[#9df01c] font-bold">{block.fontSize || 24}px</span>
+                                                        </div>
+                                                        <input type="range" min="12" max="64" value={block.fontSize || 24} onChange={e => updateEmailBlock(block.id, {fontSize: parseInt(e.target.value)})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                                    </div>
+                                                </>
+                                            )}
+                                            {block.type === 'button' && (
                                                 <input type="text" value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} placeholder="Text..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
                                             )}
                                             {block.type === 'paragraph' && (
-                                                <textarea value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} rows="4" className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white resize-none custom-scrollbar"></textarea>
+                                                <div className="border border-white/10 rounded-lg overflow-hidden focus-within:border-[#9df01c] transition-colors">
+                                                    <div className="bg-black p-1 border-b border-white/10 flex items-center gap-1">
+                                                        <button onClick={() => insertTag(block.id, '<b>', '</b>')} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded" title="Bold"><Bold size={12}/></button>
+                                                        <button onClick={() => insertTag(block.id, '<i>', '</i>')} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded" title="Italic"><Italic size={12}/></button>
+                                                        <div className="w-px h-4 bg-white/10 mx-1"></div>
+                                                        <button onClick={() => { const url = window.prompt("Enter URL:"); if(url) insertTag(block.id, `<a href="${url}" style="color:#9df01c; text-decoration:underline;" target="_blank">`, '</a>'); }} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/5 rounded" title="Insert Link"><LinkIcon size={12}/></button>
+                                                    </div>
+                                                    <textarea id={`editor-${block.id}`} value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} rows="5" className="w-full bg-black px-3 py-2 text-xs text-white resize-none custom-scrollbar outline-none" placeholder="Type your message..."></textarea>
+                                                </div>
                                             )}
                                             {block.type === 'button' && (
                                                 <input type="text" value={block.url || ''} onChange={e => updateEmailBlock(block.id, {url: e.target.value})} placeholder="Button Link URL..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
@@ -503,6 +545,13 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (url) => updateEmailBlock(block.id, {url}))} />
                                                     </label>
                                                     <input type="text" value={block.linkUrl || ''} onChange={e => updateEmailBlock(block.id, {linkUrl: e.target.value})} placeholder="Make image clickable (Optional URL)..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Image Width</label>
+                                                            <span className="text-[9px] text-[#9df01c] font-bold">{block.width || 100}%</span>
+                                                        </div>
+                                                        <input type="range" min="10" max="100" value={block.width || 100} onChange={e => updateEmailBlock(block.id, {width: parseInt(e.target.value)})} className="w-full accent-[#9df01c] cursor-pointer" />
+                                                    </div>
                                                 </>
                                             )}
                                             {block.type === 'button' && (
@@ -511,11 +560,19 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                     <input type="color" value={block.textColor} onChange={e => updateEmailBlock(block.id, {textColor: e.target.value})} className="w-8 h-8 rounded border-none bg-transparent cursor-pointer" title="Text Color" />
                                                 </div>
                                             )}
-                                            <div className="flex gap-1 bg-black rounded-lg border border-white/10 p-1 w-max">
-                                                <button onClick={() => updateEmailBlock(block.id, {align: 'left'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='left'?'bg-white/20':'hover:bg-white/10'}`}>Left</button>
-                                                <button onClick={() => updateEmailBlock(block.id, {align: 'center'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='center'?'bg-white/20':'hover:bg-white/10'}`}>Center</button>
-                                                <button onClick={() => updateEmailBlock(block.id, {align: 'right'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='right'?'bg-white/20':'hover:bg-white/10'}`}>Right</button>
-                                            </div>
+                                            {block.type === 'divider' && (
+                                                <div>
+                                                    <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1.5 block">Line Color</label>
+                                                    <input type="color" value={block.color || '#e5e7eb'} onChange={e => updateEmailBlock(block.id, {color: e.target.value})} className="w-full h-10 rounded-lg cursor-pointer bg-black border border-white/10 p-1" />
+                                                </div>
+                                            )}
+                                            {(block.type !== 'divider') && (
+                                                <div className="flex gap-1 bg-black rounded-lg border border-white/10 p-1 w-max mt-2">
+                                                    <button onClick={() => updateEmailBlock(block.id, {align: 'left'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='left'?'bg-white/20':'hover:bg-white/10'}`}>Left</button>
+                                                    <button onClick={() => updateEmailBlock(block.id, {align: 'center'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='center'?'bg-white/20':'hover:bg-white/10'}`}>Center</button>
+                                                    <button onClick={() => updateEmailBlock(block.id, {align: 'right'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='right'?'bg-white/20':'hover:bg-white/10'}`}>Right</button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))
                                 ) : (
