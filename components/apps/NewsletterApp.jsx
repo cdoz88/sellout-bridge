@@ -234,8 +234,22 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
 
     const loadDraft = (camp) => {
         setActiveCampaignId(camp.id);
-        setEmailSubject(camp.subject);
-        try { setEmailBlocks(JSON.parse(camp.content) || []); } catch(e) { setEmailBlocks([]); }
+        setEmailSubject(camp.subject || '');
+        
+        try {
+            // FIX: Neon automatically parses JSONB columns into objects!
+            // We check if it's a string just in case, otherwise we use it directly.
+            let parsedBlocks = typeof camp.content === 'string' ? JSON.parse(camp.content) : camp.content;
+            
+            if (Array.isArray(parsedBlocks) && parsedBlocks.length > 0) {
+                setEmailBlocks(parsedBlocks);
+            } else {
+                setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
+            }
+        } catch(e) { 
+            setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]); 
+        }
+        
         setActiveTab('compose');
     };
 
