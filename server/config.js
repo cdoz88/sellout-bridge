@@ -17,7 +17,6 @@ export const METERED_PRICE_ID = 'price_1TTjNp6y5pIVcSscCLCUffP8';
 export const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
 export async function ensureExpansionsSubscription(user, exactTeammateQuantity = null) {
-    // COMMISSIONER EXEMPT BYPASS: Role 12 pays no metered fees.
     if (Number(user.role) === 12) {
         return { customerId: null, subscription: null };
     }
@@ -93,7 +92,6 @@ export async function ensureSchema() {
 
         await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (code VARCHAR(255) PRIMARY KEY, user_id INTEGER, profile_link TEXT, redirect_uri TEXT, expires_at TIMESTAMP)`;
         await sql`CREATE TABLE IF NOT EXISTS wp_access_tokens (token VARCHAR(255) PRIMARY KEY, user_id INTEGER, profile_link TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
-        
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         
@@ -144,7 +142,6 @@ export async function ensureSchema() {
             )`;
         } catch(e) {}
 
-        // --- NEW NEWSLETTER SYSTEM ---
         try {
             await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_settings (
                 user_id INTEGER PRIMARY KEY,
@@ -152,6 +149,7 @@ export async function ensureSchema() {
                 reply_to_email VARCHAR(255),
                 footer_text TEXT
             )`;
+            try { await sql`ALTER TABLE bridge_newsletter_settings ADD COLUMN IF NOT EXISTS social_links JSONB`; } catch(e){}
 
             await sql`CREATE TABLE IF NOT EXISTS bridge_newsletters (
                 id SERIAL PRIMARY KEY,
@@ -181,7 +179,7 @@ export async function ensureSchema() {
                 aws_message_id VARCHAR(255),
                 sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`;
-        } catch(e) { console.error("Newsletter Schema Error:", e.message); }
+        } catch(e) {}
 
     } catch (e) { console.error("Schema check notice:", e.message); }
 }
@@ -209,7 +207,7 @@ export async function getAuthenticatedUser(token) {
                     }
                     await sql`INSERT INTO bridge_settings (user_id, creator_email) VALUES (${meData.id}, ${meData.email}) ON CONFLICT (user_id) DO UPDATE SET creator_email = EXCLUDED.creator_email`;
                 }
-            } catch (err) { console.error("Failed to fetch custom role", err); }
+            } catch (err) {}
             return meData;
         }
         return null;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Link2 } from 'lucide-react';
 
 const compileEmailHtml = (blocks) => {
     let html = `<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; padding: 30px; border-radius: 12px; color: #111111;">`;
@@ -26,6 +26,15 @@ const compileEmailHtml = (blocks) => {
     return html;
 };
 
+const DEFAULT_SOCIAL_LINKS = [
+    { id: 'website', type: 'website', title: 'Website', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/domain.png' },
+    { id: 'facebook', type: 'facebook', title: 'Facebook', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/facebook-new.png' },
+    { id: 'twitter', type: 'twitter', title: 'X (Twitter)', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/twitter.png' },
+    { id: 'instagram', type: 'instagram', title: 'Instagram', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/instagram-new.png' },
+    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/linkedin.png' },
+    { id: 'youtube', type: 'youtube', title: 'YouTube', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/youtube-play.png' }
+];
+
 export default function NewsletterApp({ session, unaData, activeTab, setActiveTab }) {
     const role = Number(unaData?.user?.role) || 1;
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -33,7 +42,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const canAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
     const [campaigns, setCampaigns] = useState([]);
-    const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '' });
+    const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '', social_links: DEFAULT_SOCIAL_LINKS });
     const [isLoadingEmail, setIsLoadingEmail] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
@@ -43,6 +52,17 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const [emailBlocks, setEmailBlocks] = useState([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
     const [selectedBlockId, setSelectedBlockId] = useState(null);
     const [activeCampaignId, setActiveCampaignId] = useState(null);
+
+    // Force a fresh draft if triggered from sidebar
+    useEffect(() => {
+        const handleNewDraft = () => {
+            setActiveCampaignId(null);
+            setEmailSubject('');
+            setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
+        };
+        window.addEventListener('new-newsletter-draft', handleNewDraft);
+        return () => window.removeEventListener('new-newsletter-draft', handleNewDraft);
+    }, []);
 
     const fetchEmailData = async () => {
         if (!session || !canAccess) return;
@@ -55,7 +75,16 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             const campData = await campRes.json();
             const setData = await setRes.json();
             if (campData.campaigns) setCampaigns(campData.campaigns);
-            if (setData.settings) setEmailSettings(setData.settings);
+            if (setData.settings) {
+                let mergedSocials = [...DEFAULT_SOCIAL_LINKS];
+                if (setData.settings.social_links && setData.settings.social_links.length > 0) {
+                    mergedSocials = mergedSocials.map(def => {
+                        const saved = setData.settings.social_links.find(s => s.id === def.id);
+                        return saved ? { ...def, url: saved.url } : def;
+                    });
+                }
+                setEmailSettings({ ...setData.settings, social_links: mergedSocials });
+            }
         } catch (e) {} finally { setIsLoadingEmail(false); }
     };
 
@@ -89,6 +118,13 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         } catch (e) {} finally { setIsSaving(false); }
     };
 
+    const updateSocialLink = (id, url) => {
+        setEmailSettings(prev => ({
+            ...prev,
+            social_links: prev.social_links.map(s => s.id === id ? { ...s, url } : s)
+        }));
+    };
+
     const addEmailBlock = (type) => setEmailBlocks([...emailBlocks, { id: Date.now().toString(), type, text: '', url: '', align: 'left', color: '#9df01c', textColor: '#000000' }]);
     const updateEmailBlock = (id, updates) => setEmailBlocks(emailBlocks.map(b => b.id === id ? { ...b, ...updates } : b));
     const removeEmailBlock = (id) => { setEmailBlocks(emailBlocks.filter(b => b.id !== id)); if (selectedBlockId === id) setSelectedBlockId(null); };
@@ -119,6 +155,35 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 fetchEmailData();
             }
         } catch (e) {} finally { setIsSaving(false); }
+    };
+
+    const handleSendTestEmail = async () => {
+        const testEmail = window.prompt("Enter email address to send test to:", unaData?.user?.email || '');
+        if (!testEmail) return;
+
+        if (!emailSettings.sender_name || !emailSettings.reply_to_email) return alert("Please configure your Sender Name and Email in Settings first!");
+        if (!emailSubject) return alert("Please add a subject line.");
+        
+        setIsSaving(true);
+        try {
+            const htmlBody = compileEmailHtml(emailBlocks);
+            const saveRes = await fetch('/api/newsletter/save', {
+                method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: activeCampaignId, subject: emailSubject, content: JSON.stringify(emailBlocks), html_body: htmlBody })
+            });
+            const saveData = await saveRes.json();
+            setActiveCampaignId(saveData.id); 
+            
+            const res = await fetch('/api/newsletter/send-test', {
+                method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: saveData.id, test_email: testEmail })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                alert(`Test email sent successfully to ${testEmail}!`);
+            } else { alert(data.error || "Failed to send test email."); }
+        } catch (e) { alert("Server error."); } finally { setIsSaving(false); }
     };
 
     const handleSendEmail = async () => {
@@ -191,12 +256,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 </p>
             </div>
 
-            <div className="flex gap-4 mb-6 border-b border-white/5 pb-2">
-                <button onClick={() => setActiveTab('campaigns')} className={`text-xs font-bold uppercase tracking-widest pb-2 border-b-2 transition-colors ${activeTab === 'campaigns' ? 'border-[#9df01c] text-[#9df01c]' : 'border-transparent text-gray-500 hover:text-white'}`}>Campaigns</button>
-                <button onClick={() => { setActiveCampaignId(null); setEmailSubject(''); setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]); setActiveTab('compose'); }} className={`text-xs font-bold uppercase tracking-widest pb-2 border-b-2 transition-colors ${activeTab === 'compose' ? 'border-[#9df01c] text-[#9df01c]' : 'border-transparent text-gray-500 hover:text-white'}`}>New Draft</button>
-                <button onClick={() => setActiveTab('settings')} className={`text-xs font-bold uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-1 ${activeTab === 'settings' ? 'border-[#9df01c] text-[#9df01c]' : 'border-transparent text-gray-500 hover:text-white'}`}><Settings size={14}/> Settings</button>
-            </div>
-
             {activeTab === 'settings' && (
                 <div className="max-w-2xl bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl">
                     <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">Sender Profile</h3>
@@ -210,13 +269,50 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1 block">Reply-To Email Address</label>
                             <input type="email" value={emailSettings.reply_to_email} onChange={e => setEmailSettings({...emailSettings, reply_to_email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none" />
                         </div>
-                        <div>
-                            <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1 block">Custom Footer Text (Optional)</label>
-                            <textarea value={emailSettings.footer_text} onChange={e => setEmailSettings({...emailSettings, footer_text: e.target.value})} rows="3" placeholder="P.O. Box 123, City, State..." className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none resize-none"></textarea>
-                        </div>
+                        
                         <button onClick={handleSaveEmailSettings} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
                             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                             {saveSuccess ? 'Saved!' : 'Save Settings'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'footer' && (
+                <div className="max-w-2xl bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl">
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">Footer Design</h3>
+                    <p className="text-xs text-gray-500 mb-8 leading-relaxed">Customize the footer text and social media icons that appear at the very bottom of your emails.</p>
+                    <div className="space-y-6">
+                        <div>
+                            <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2 block">Custom Footer Text (Optional)</label>
+                            <textarea value={emailSettings.footer_text} onChange={e => setEmailSettings({...emailSettings, footer_text: e.target.value})} rows="3" placeholder="P.O. Box 123, City, State..." className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none resize-none"></textarea>
+                            <p className="text-[9px] text-gray-600 mt-2 font-medium">Use this area for business addresses, copyright notices, or legal disclaimers.</p>
+                        </div>
+                        
+                        <div className="pt-6 border-t border-white/5">
+                            <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4 block">Social Media Links</label>
+                            <div className="space-y-3">
+                                {emailSettings.social_links.map(link => (
+                                    <div key={link.id} className="flex items-center gap-3 bg-black border border-white/10 p-2 rounded-xl focus-within:border-[#9df01c] transition-colors">
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                                            <img src={link.icon} className="w-4 h-4 opacity-50" alt={link.title} />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 hidden sm:block">{link.title}</span>
+                                        <input 
+                                            type="text" 
+                                            value={link.url} 
+                                            onChange={e => updateSocialLink(link.id, e.target.value)} 
+                                            placeholder="URL..." 
+                                            className="bg-transparent text-white text-xs outline-none w-full flex-1" 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <button onClick={handleSaveEmailSettings} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
+                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            {saveSuccess ? 'Saved!' : 'Save Footer Settings'}
                         </button>
                     </div>
                 </div>
@@ -267,6 +363,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
 
             {activeTab === 'compose' && (
                 <div className="grid lg:grid-cols-12 gap-6 h-[75vh] min-h-[600px]">
+                    {/* Left: Tools & Settings */}
                     <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-shrink-0">
                             <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1.5 block">Subject Line</label>
@@ -321,6 +418,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                         </div>
                     </div>
 
+                    {/* Center: The Visual Canvas */}
                     <div className="lg:col-span-6 bg-gray-200 rounded-[2rem] overflow-hidden flex flex-col shadow-inner relative border-4 border-[#111]">
                         <div className="bg-gray-300 py-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-400/30">Email Preview</div>
                         <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
@@ -352,17 +450,28 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 ))}
                             </div>
                             <div className="text-center mt-6 text-[10px] text-gray-400">
+                                {emailSettings.social_links && emailSettings.social_links.filter(l => l.url).length > 0 && (
+                                    <div className="flex justify-center gap-3 mb-4 opacity-50 grayscale">
+                                        {emailSettings.social_links.filter(l => l.url).map(link => (
+                                            <img key={link.id} src={link.icon} className="w-5 h-5" alt={link.title} />
+                                        ))}
+                                    </div>
+                                )}
                                 {emailSettings.footer_text && <p className="mb-2">{emailSettings.footer_text}</p>}
                                 <p>Unsubscribe link will be automatically added here.</p>
                             </div>
                         </div>
                     </div>
 
+                    {/* Right: Actions */}
                     <div className="lg:col-span-3 flex flex-col gap-4">
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-xl space-y-4">
                             <h3 className="text-sm font-black uppercase tracking-tighter text-white mb-2">Campaign Actions</h3>
                             <button onClick={handleSaveDraft} disabled={isSaving} className="w-full py-4 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
                                 {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save Draft
+                            </button>
+                            <button onClick={handleSendTestEmail} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                                <Send size={12}/> Send Test Email
                             </button>
                             <hr className="border-white/5" />
                             <button onClick={handleSendEmail} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
