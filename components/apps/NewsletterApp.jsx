@@ -64,7 +64,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         const newBlocks = [];
         if (settings.brand_logo) {
             newBlocks.push({ id: 'logo_' + Date.now().toString(), type: 'image', url: settings.brand_logo, align: 'center', width: 40 });
-            newBlocks.push({ id: 'div_' + Date.now().toString(), type: 'divider', color: settings.brand_color || '#e5e7eb' });
         }
         newBlocks.push({ id: 'text_' + Date.now().toString(), type: 'paragraph', text: '', align: 'left' });
         return newBlocks;
@@ -528,10 +527,10 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                         block.url ? (
                                                             block.linkUrl ? (
                                                                 <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', width: `${block.width || 100}%` }}>
-                                                                    <img src={block.url} style={{ width: '100%' }} className="h-auto rounded-lg" alt="Block" />
+                                                                    <img src={block.url} style={{ width: '100%', display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
                                                                 </a>
                                                             ) : (
-                                                                <img src={block.url} style={{ width: `${block.width || 100}%` }} className="h-auto rounded-lg" alt="Block" />
+                                                                <img src={block.url} style={{ width: `${block.width || 100}%`, display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
                                                             )
                                                         ) : (
                                                             <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
