@@ -10,9 +10,13 @@ const compileEmailHtml = (blocks) => {
         } else if (b.type === 'paragraph') {
             html += `<p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; text-align: ${b.align || 'left'}; white-space: pre-wrap;">${b.text || 'Type your message...'}</p>`;
         } else if (b.type === 'image') {
-            html += `<div style="margin: 0 0 20px 0; text-align: ${b.align || 'center'};">
-                ${b.url ? `<img src="${b.url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: inline-block;" />` : `<div style="background:#f3f4f6; padding:40px; text-align:center; color:#9ca3af; border-radius:8px;">[Image Placeholder]</div>`}
-            </div>`;
+            let imgHtml = b.url ? `<img src="${b.url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px; display: inline-block; border: none;" />` : `<div style="background:#f3f4f6; padding:40px; text-align:center; color:#9ca3af; border-radius:8px;">[Image Placeholder]</div>`;
+            
+            if (b.url && b.linkUrl) {
+                imgHtml = `<a href="${b.linkUrl}" target="_blank" style="text-decoration: none; border: none; display: inline-block;">${imgHtml}</a>`;
+            }
+            
+            html += `<div style="margin: 0 0 20px 0; text-align: ${b.align || 'center'};">${imgHtml}</div>`;
         } else if (b.type === 'button') {
             html += `<div style="margin: 25px 0; text-align: ${b.align || 'center'};">
                 <a href="${b.url || '#'}" style="background-color: ${b.color || '#9df01c'}; color: ${b.textColor || '#000000'}; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px;">${b.text || 'Click Here'}</a>
@@ -28,11 +32,14 @@ const compileEmailHtml = (blocks) => {
 
 const DEFAULT_SOCIAL_LINKS = [
     { id: 'website', type: 'website', title: 'Website', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/domain.png' },
+    { id: 'shop', type: 'shop', title: 'Shop', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/shopping-bag.png' },
+    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', url: '', icon: 'https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png' },
     { id: 'facebook', type: 'facebook', title: 'Facebook', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/facebook-new.png' },
-    { id: 'twitter', type: 'twitter', title: 'X (Twitter)', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/twitter.png' },
+    { id: 'twitter', type: 'twitter', title: 'X', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/x-twitter.png' },
     { id: 'instagram', type: 'instagram', title: 'Instagram', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/instagram-new.png' },
-    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/linkedin.png' },
-    { id: 'youtube', type: 'youtube', title: 'YouTube', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/youtube-play.png' }
+    { id: 'tiktok', type: 'tiktok', title: 'TikTok', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/tiktok.png' },
+    { id: 'youtube', type: 'youtube', title: 'YouTube', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/youtube-play.png' },
+    { id: 'linkedin', type: 'linkedin', title: 'LinkedIn', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/linkedin.png' }
 ];
 
 export default function NewsletterApp({ session, unaData, activeTab, setActiveTab }) {
@@ -53,7 +60,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const [selectedBlockId, setSelectedBlockId] = useState(null);
     const [activeCampaignId, setActiveCampaignId] = useState(null);
 
-    // Force a fresh draft if triggered from sidebar
     useEffect(() => {
         const handleNewDraft = () => {
             setActiveCampaignId(null);
@@ -391,14 +397,17 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                             {block.type === 'paragraph' && (
                                                 <textarea value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} rows="4" className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white resize-none custom-scrollbar"></textarea>
                                             )}
-                                            {(block.type === 'button' || block.type === 'image') && (
-                                                <input type="text" value={block.url} onChange={e => updateEmailBlock(block.id, {url: e.target.value})} placeholder="URL Link..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
+                                            {block.type === 'button' && (
+                                                <input type="text" value={block.url || ''} onChange={e => updateEmailBlock(block.id, {url: e.target.value})} placeholder="Button Link URL..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
                                             )}
                                             {block.type === 'image' && (
-                                                <label className={`w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-center cursor-pointer text-[10px] font-bold uppercase tracking-widest block transition-colors ${isUploading ? 'opacity-50' : ''}`}>
-                                                    {isUploading ? 'Uploading...' : 'Upload Image'}
-                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (url) => updateEmailBlock(block.id, {url}))} />
-                                                </label>
+                                                <>
+                                                    <label className={`w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-center cursor-pointer text-[10px] font-bold uppercase tracking-widest block transition-colors ${isUploading ? 'opacity-50' : ''}`}>
+                                                        {isUploading ? 'Uploading...' : 'Upload Image'}
+                                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (url) => updateEmailBlock(block.id, {url}))} />
+                                                    </label>
+                                                    <input type="text" value={block.linkUrl || ''} onChange={e => updateEmailBlock(block.id, {linkUrl: e.target.value})} placeholder="Make image clickable (Optional URL)..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
+                                                </>
                                             )}
                                             {block.type === 'button' && (
                                                 <div className="flex gap-2">
@@ -439,7 +448,17 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                             {block.type === 'header' && <h2 className="text-2xl font-bold text-black m-0">{block.text || 'Heading'}</h2>}
                                             {block.type === 'paragraph' && <p className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed">{block.text || 'Type your message...'}</p>}
                                             {block.type === 'image' && (
-                                                block.url ? <img src={block.url} className="max-w-full h-auto rounded-lg mx-auto" alt="Block" /> : <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
+                                                block.url ? (
+                                                    block.linkUrl ? (
+                                                        <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                            <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                        </a>
+                                                    ) : (
+                                                        <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                    )
+                                                ) : (
+                                                    <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
+                                                )
                                             )}
                                             {block.type === 'button' && (
                                                 <a href="#" onClick={e=>e.preventDefault()} style={{ backgroundColor: block.color || '#9df01c', color: block.textColor || '#000' }} className="px-6 py-3 rounded-lg font-bold inline-block shadow-sm pointer-events-none">{block.text || 'Click Here'}</a>
