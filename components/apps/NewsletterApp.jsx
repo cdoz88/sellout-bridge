@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate } from 'lucide-react';
+import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
     let html = `<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; padding: 30px; border-radius: 12px; color: #111111;">`;
@@ -33,7 +34,7 @@ const compileEmailHtml = (blocks) => {
 const DEFAULT_SOCIAL_LINKS = [
     { id: 'website', type: 'website', title: 'Website', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/domain.png' },
     { id: 'shop', type: 'shop', title: 'Shop', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/shopping-bag.png' },
-    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/crowd.png' },
+    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', url: '', icon: 'sellout' },
     { id: 'facebook', type: 'facebook', title: 'Facebook', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/facebook-new.png' },
     { id: 'twitter', type: 'twitter', title: 'X', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/twitterx.png' },
     { id: 'instagram', type: 'instagram', title: 'Instagram', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/instagram-new.png' },
@@ -86,7 +87,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 if (setData.settings.social_links && setData.settings.social_links.length > 0) {
                     mergedSocials = mergedSocials.map(def => {
                         const saved = setData.settings.social_links.find(s => s.id === def.id);
-                        // FIX: By using 'def.icon' instead of 'saved.icon', we force the UI to repair any broken image links automatically!
                         return saved ? { ...def, url: saved.url, icon: def.icon } : def;
                     });
                 }
@@ -301,8 +301,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             <div className="space-y-3">
                                 {emailSettings.social_links.map(link => (
                                     <div key={link.id} className="flex items-center gap-3 bg-black border border-white/10 p-2 rounded-xl focus-within:border-[#9df01c] transition-colors">
-                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-                                            <img src={link.icon} className="w-4 h-4 opacity-50" alt={link.title} />
+                                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 text-gray-500">
+                                            {link.icon === 'sellout' ? <SelloutIcon size={16} /> : <img src={link.icon} className="w-4 h-4 opacity-50" alt={link.title} />}
                                         </div>
                                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 hidden sm:block">{link.title}</span>
                                         <input 
@@ -473,7 +473,9 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 {emailSettings.social_links && emailSettings.social_links.filter(l => l.url).length > 0 && (
                                     <div className="flex justify-center gap-3 mb-4 opacity-50 grayscale">
                                         {emailSettings.social_links.filter(l => l.url).map(link => (
-                                            <img key={link.id} src={link.icon} className="w-5 h-5" alt={link.title} />
+                                            <div key={link.id} className="text-gray-500">
+                                                {link.icon === 'sellout' ? <SelloutIcon size={20} /> : <img src={link.icon} className="w-5 h-5" alt={link.title} />}
+                                            </div>
                                         ))}
                                     </div>
                                 )}
