@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -50,11 +50,25 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const canAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
     const [campaigns, setCampaigns] = useState([]);
-    const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '', social_links: DEFAULT_SOCIAL_LINKS });
+    const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '', social_links: DEFAULT_SOCIAL_LINKS, brand_color: '#9df01c', brand_logo: '' });
+    const emailSettingsRef = useRef(emailSettings);
+    useEffect(() => { emailSettingsRef.current = emailSettings; }, [emailSettings]);
+
     const [isLoadingEmail, setIsLoadingEmail] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
+    const [isUploading, setIsUploading] = useState({ default: false, logo: false });
+
+    const createNewDraftBlocks = () => {
+        const settings = emailSettingsRef.current;
+        const newBlocks = [];
+        if (settings.brand_logo) {
+            newBlocks.push({ id: 'logo_' + Date.now().toString(), type: 'image', url: settings.brand_logo, align: 'center', width: 40 });
+            newBlocks.push({ id: 'div_' + Date.now().toString(), type: 'divider', color: settings.brand_color || '#e5e7eb' });
+        }
+        newBlocks.push({ id: 'text_' + Date.now().toString(), type: 'paragraph', text: '', align: 'left' });
+        return newBlocks;
+    };
 
     const [emailSubject, setEmailSubject] = useState('');
     const [emailBlocks, setEmailBlocks] = useState([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
@@ -65,7 +79,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         const handleNewDraft = () => {
             setActiveCampaignId(null);
             setEmailSubject('');
-            setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
+            setEmailBlocks(createNewDraftBlocks());
         };
         window.addEventListener('new-newsletter-draft', handleNewDraft);
         return () => window.removeEventListener('new-newsletter-draft', handleNewDraft);
@@ -90,7 +104,14 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                         return saved ? { ...def, url: saved.url, icon: def.icon } : def;
                     });
                 }
-                setEmailSettings({ ...setData.settings, social_links: mergedSocials });
+                const newSettings = { ...setData.settings, social_links: mergedSocials };
+                setEmailSettings(newSettings);
+                
+                // If the user has no campaigns and loadDraft hasn't run yet, apply their branding defaults to the initial blank canvas
+                if (campData.campaigns && campData.campaigns.length === 0 && !activeCampaignId && emailBlocks.length === 1 && !emailBlocks[0].text) {
+                    emailSettingsRef.current = newSettings; 
+                    setEmailBlocks(createNewDraftBlocks());
+                }
             }
         } catch (e) {} finally { setIsLoadingEmail(false); }
     };
@@ -99,10 +120,10 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         fetchEmailData();
     }, [session, canAccess]);
 
-    const handleImageUpload = async (e, setUrlCallback) => {
+    const handleImageUpload = async (e, setUrlCallback, fieldType = 'default') => {
         const file = e.target.files[0];
         if (!file) return;
-        setIsUploading(true);
+        setIsUploading(prev => ({ ...prev, [fieldType]: true }));
         const formData = new FormData(); formData.append('file', file);
         try {
             const response = await fetch(`https://api.fytsolutions.com/api.php?action=upload_file`, { method: 'POST', body: formData });
@@ -110,7 +131,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             if (result.success) setUrlCallback(result.url);
             else alert("Upload failed.");
         } catch (err) { alert("Image server unreachable."); } 
-        finally { setIsUploading(false); }
+        finally { setIsUploading(prev => ({ ...prev, [fieldType]: false })); }
     };
 
     const handleSaveEmailSettings = async () => {
@@ -132,7 +153,18 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         }));
     };
 
-    const addEmailBlock = (type) => setEmailBlocks([...emailBlocks, { id: Date.now().toString(), type, text: '', url: '', align: 'left', color: '#9df01c', textColor: '#000000', width: 100, fontSize: 24 }]);
+    const addEmailBlock = (type) => setEmailBlocks([...emailBlocks, { 
+        id: Date.now().toString(), 
+        type, 
+        text: '', 
+        url: '', 
+        align: 'left', 
+        color: emailSettings.brand_color || '#e5e7eb', 
+        textColor: '#000000', 
+        width: 100, 
+        fontSize: 24 
+    }]);
+    
     const updateEmailBlock = (id, updates) => setEmailBlocks(emailBlocks.map(b => b.id === id ? { ...b, ...updates } : b));
     const removeEmailBlock = (id) => { setEmailBlocks(emailBlocks.filter(b => b.id !== id)); if (selectedBlockId === id) setSelectedBlockId(null); };
 
@@ -239,7 +271,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 alert(`Success! Email sent to ${data.count} subscribers.`);
                 setActiveCampaignId(null);
                 setEmailSubject('');
-                setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
+                setEmailBlocks(createNewDraftBlocks());
                 setActiveTab('campaigns');
                 fetchEmailData();
             } else { alert(data.error || "Failed to send email."); }
@@ -263,10 +295,10 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             if (Array.isArray(parsedBlocks) && parsedBlocks.length > 0) {
                 setEmailBlocks(parsedBlocks);
             } else {
-                setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]);
+                setEmailBlocks(createNewDraftBlocks());
             }
         } catch(e) { 
-            setEmailBlocks([{ id: Date.now().toString(), type: 'paragraph', text: '', align: 'left' }]); 
+            setEmailBlocks(createNewDraftBlocks()); 
         }
         
         setActiveTab('compose');
@@ -298,7 +330,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
 
             {activeTab === 'settings' && (
                 <div className="max-w-2xl bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl">
-                    <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">Sender Profile</h3>
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">Sender Profile & Branding</h3>
                     <p className="text-xs text-gray-500 mb-8 leading-relaxed">This information will appear in the inbox of your subscribers. When they hit "Reply", the email will go directly to the address you set here.</p>
                     <div className="space-y-5">
                         <div>
@@ -310,6 +342,34 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             <input type="email" value={emailSettings.reply_to_email} onChange={e => setEmailSettings({...emailSettings, reply_to_email: e.target.value})} className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none" />
                         </div>
                         
+                        <div className="pt-6 border-t border-white/5 mt-6">
+                            <h4 className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4 block">Brand Settings</h4>
+                            
+                            <div className="flex flex-col sm:flex-row gap-6 items-start">
+                                <div className="flex-1 w-full">
+                                    <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-2 block">Brand Logo (Auto-inserted in new drafts)</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-16 h-16 rounded-xl border border-white/10 bg-black flex items-center justify-center p-2 flex-shrink-0">
+                                            {emailSettings.brand_logo ? <img src={emailSettings.brand_logo} className="max-w-full max-h-full object-contain" alt="Logo" /> : <ImageIcon size={20} className="text-gray-500" />}
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                            <label className={`w-full py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/10 ${isUploading.logo ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                {isUploading.logo ? <Loader2 size={14} className="animate-spin"/> : <UploadCloud size={14}/>}
+                                                {isUploading.logo ? 'Uploading...' : 'Upload Logo'}
+                                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (url) => setEmailSettings({...emailSettings, brand_logo: url}), 'logo')} />
+                                            </label>
+                                            {emailSettings.brand_logo && <button onClick={() => setEmailSettings({...emailSettings, brand_logo: ''})} className="text-[9px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest text-center sm:text-left sm:pl-1 mt-1">Remove Logo</button>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="w-full sm:w-1/3">
+                                    <label className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-2 block">Accent Color</label>
+                                    <input type="color" value={emailSettings.brand_color || '#9df01c'} onChange={e => setEmailSettings({...emailSettings, brand_color: e.target.value})} className="w-full h-16 rounded-xl cursor-pointer bg-black border border-white/10 p-1.5" />
+                                </div>
+                            </div>
+                        </div>
+
                         <button onClick={handleSaveEmailSettings} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
                             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                             {saveSuccess ? 'Saved!' : 'Save Settings'}
@@ -540,8 +600,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                             )}
                                             {block.type === 'image' && (
                                                 <>
-                                                    <label className={`w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-center cursor-pointer text-[10px] font-bold uppercase tracking-widest block transition-colors ${isUploading ? 'opacity-50' : ''}`}>
-                                                        {isUploading ? 'Uploading...' : 'Upload Image'}
+                                                    <label className={`w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-center cursor-pointer text-[10px] font-bold uppercase tracking-widest block transition-colors ${isUploading.default ? 'opacity-50' : ''}`}>
+                                                        {isUploading.default ? 'Uploading...' : 'Upload Image'}
                                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, (url) => updateEmailBlock(block.id, {url}))} />
                                                     </label>
                                                     <input type="text" value={block.linkUrl || ''} onChange={e => updateEmailBlock(block.id, {linkUrl: e.target.value})} placeholder="Make image clickable (Optional URL)..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />

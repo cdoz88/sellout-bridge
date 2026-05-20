@@ -150,6 +150,8 @@ export async function ensureSchema() {
                 footer_text TEXT
             )`;
             try { await sql`ALTER TABLE bridge_newsletter_settings ADD COLUMN IF NOT EXISTS social_links JSONB`; } catch(e){}
+            try { await sql`ALTER TABLE bridge_newsletter_settings ADD COLUMN IF NOT EXISTS brand_color VARCHAR(50)`; } catch(e){}
+            try { await sql`ALTER TABLE bridge_newsletter_settings ADD COLUMN IF NOT EXISTS brand_logo TEXT`; } catch(e){}
 
             await sql`CREATE TABLE IF NOT EXISTS bridge_newsletters (
                 id SERIAL PRIMARY KEY,
