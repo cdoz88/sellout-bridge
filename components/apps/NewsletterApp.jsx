@@ -33,9 +33,9 @@ const compileEmailHtml = (blocks) => {
 const DEFAULT_SOCIAL_LINKS = [
     { id: 'website', type: 'website', title: 'Website', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/domain.png' },
     { id: 'shop', type: 'shop', title: 'Shop', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/shopping-bag.png' },
-    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', url: '', icon: 'https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png' },
+    { id: 'sellout', type: 'sellout', title: 'Sellout Crowds', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/crowd.png' },
     { id: 'facebook', type: 'facebook', title: 'Facebook', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/facebook-new.png' },
-    { id: 'twitter', type: 'twitter', title: 'X', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/x-twitter.png' },
+    { id: 'twitter', type: 'twitter', title: 'X', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/twitterx.png' },
     { id: 'instagram', type: 'instagram', title: 'Instagram', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/instagram-new.png' },
     { id: 'tiktok', type: 'tiktok', title: 'TikTok', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/tiktok.png' },
     { id: 'youtube', type: 'youtube', title: 'YouTube', url: '', icon: 'https://img.icons8.com/ios-filled/50/666666/youtube-play.png' },
@@ -86,7 +86,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 if (setData.settings.social_links && setData.settings.social_links.length > 0) {
                     mergedSocials = mergedSocials.map(def => {
                         const saved = setData.settings.social_links.find(s => s.id === def.id);
-                        return saved ? { ...def, url: saved.url } : def;
+                        // FIX: By using 'def.icon' instead of 'saved.icon', we force the UI to repair any broken image links automatically!
+                        return saved ? { ...def, url: saved.url, icon: def.icon } : def;
                     });
                 }
                 setEmailSettings({ ...setData.settings, social_links: mergedSocials });

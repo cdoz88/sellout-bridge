@@ -54,7 +54,8 @@ router.get('/api/newsletter/campaigns', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureNewsletterAnalytics();
         
-        const rows = await sql`SELECT id, subject, status, recipient_count, open_count, click_count, sent_at, created_at FROM bridge_newsletters WHERE user_id = ${user.id} ORDER BY id DESC`;
+        // FIX: Added 'content' to this SELECT statement so the editor actually receives the saved blocks!
+        const rows = await sql`SELECT id, subject, content, status, recipient_count, open_count, click_count, sent_at, created_at FROM bridge_newsletters WHERE user_id = ${user.id} ORDER BY id DESC`;
         res.json({ campaigns: rows });
     } catch (err) { res.status(500).json({ error: "Failed to fetch campaigns." }); }
 });
@@ -159,7 +160,6 @@ router.post('/api/newsletter/send-test', async (req, res) => {
         res.json({ success: true });
     } catch (err) { 
         console.error("SES Test Error:", err);
-        // We now pass the EXACT Amazon error back to the frontend!
         res.status(500).json({ error: "AWS Error: " + (err.message || "Unknown error") }); 
     }
 });
