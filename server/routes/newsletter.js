@@ -158,7 +158,9 @@ router.post('/api/newsletter/send-test', async (req, res) => {
 
         res.json({ success: true });
     } catch (err) { 
-        res.status(500).json({ error: "Failed to send test email." }); 
+        console.error("SES Test Error:", err);
+        // We now pass the EXACT Amazon error back to the frontend!
+        res.status(500).json({ error: "AWS Error: " + (err.message || "Unknown error") }); 
     }
 });
 
@@ -194,6 +196,7 @@ router.post('/api/newsletter/send', async (req, res) => {
         }
 
         let successCount = 0;
+        let lastError = null;
         
         for (const email of validEmails) {
             const unsubToken = Buffer.from(JSON.stringify({ u: user.id, e: email })).toString('base64');
@@ -222,15 +225,22 @@ router.post('/api/newsletter/send', async (req, res) => {
                 await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, aws_message_id) VALUES (${user.id}, ${id}, ${email}, ${result.MessageId})`;
                 successCount++;
             } catch (err) {
+                lastError = err;
                 await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, status) VALUES (${user.id}, ${id}, ${email}, 'failed')`;
             }
         }
 
         await sql`UPDATE bridge_newsletters SET status = 'sent', sent_at = NOW(), recipient_count = ${successCount} WHERE id = ${id}`;
+        
+        if (successCount === 0 && lastError) {
+            throw lastError; 
+        }
+
         res.json({ success: true, count: successCount });
 
     } catch (err) { 
-        res.status(500).json({ error: "A critical error occurred while sending the campaign." }); 
+        console.error("SES Send Error:", err);
+        res.status(500).json({ error: "AWS Error: " + (err.message || "Unknown error") }); 
     }
 });
 
