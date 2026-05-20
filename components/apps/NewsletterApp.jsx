@@ -237,10 +237,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         setEmailSubject(camp.subject || '');
         
         try {
-            // FIX: Neon automatically parses JSONB columns into objects!
-            // We check if it's a string just in case, otherwise we use it directly.
             let parsedBlocks = typeof camp.content === 'string' ? JSON.parse(camp.content) : camp.content;
-            
             if (Array.isArray(parsedBlocks) && parsedBlocks.length > 0) {
                 setEmailBlocks(parsedBlocks);
             } else {
@@ -383,28 +380,112 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             )}
 
             {activeTab === 'compose' && (
-                <div className="grid lg:grid-cols-12 gap-6 h-[75vh] min-h-[600px]">
-                    {/* Left: Tools & Settings */}
-                    <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-shrink-0">
-                            <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1.5 block">Subject Line</label>
-                            <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="Catchy subject here..." className="w-full bg-black border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:border-[#9df01c] outline-none" />
+                <div className="animate-in fade-in duration-300">
+                    
+                    {/* Top Horizontal Bar for Actions */}
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3 px-2">
+                            <span className="text-sm font-black uppercase tracking-tighter text-white">Campaign Actions</span>
+                            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest hidden sm:inline">| Auto-saves to drafts</span>
+                        </div>
+                        <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
+                            <button onClick={handleSaveDraft} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
+                                {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save Draft
+                            </button>
+                            <button onClick={handleSendTestEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                                <Send size={12}/> Send Test
+                            </button>
+                            <button onClick={handleSendEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-8 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
+                                <Send size={16} /> Send Blast
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="grid lg:grid-cols-12 gap-6 h-[70vh] min-h-[600px]">
+                        {/* Left: Tools (Add Block) */}
+                        <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col h-full">
+                                <h3 className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4">Add Block</h3>
+                                <div className="grid grid-cols-2 gap-2 mb-6">
+                                    <button onClick={() => addEmailBlock('header')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><Type size={18}/> Heading</button>
+                                    <button onClick={() => addEmailBlock('paragraph')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><AlignLeft size={18}/> Text</button>
+                                    <button onClick={() => addEmailBlock('image')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><ImageIcon size={18}/> Image</button>
+                                    <button onClick={() => addEmailBlock('button')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><LinkIcon size={18}/> Button</button>
+                                    <button onClick={() => addEmailBlock('divider')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase col-span-2"><Minus size={18}/> Divider</button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col">
-                            <h3 className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4">Add Block</h3>
-                            <div className="grid grid-cols-2 gap-2 mb-6">
-                                <button onClick={() => addEmailBlock('header')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><Type size={18}/> Heading</button>
-                                <button onClick={() => addEmailBlock('paragraph')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><AlignLeft size={18}/> Text</button>
-                                <button onClick={() => addEmailBlock('image')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><ImageIcon size={18}/> Image</button>
-                                <button onClick={() => addEmailBlock('button')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><LinkIcon size={18}/> Button</button>
-                                <button onClick={() => addEmailBlock('divider')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase col-span-2"><Minus size={18}/> Divider</button>
+                        {/* Center: Subject + Visual Canvas */}
+                        <div className="lg:col-span-6 flex flex-col gap-4">
+                            <div className="bg-[#111] rounded-3xl border border-white/5 p-2 shadow-xl flex-shrink-0 flex items-center gap-2">
+                                <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap pl-4">Subject Line</label>
+                                <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} placeholder="Catchy subject here..." className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none transition-colors" />
                             </div>
 
-                            {selectedBlockId && (
-                                <div className="mt-auto border-t border-white/5 pt-4">
-                                    <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-3">Edit Block</h3>
-                                    {emailBlocks.filter(b => b.id === selectedBlockId).map(block => (
+                            <div className="bg-gray-200 rounded-[2rem] overflow-hidden flex flex-col shadow-inner relative border-4 border-[#111] flex-1">
+                                <div className="bg-gray-300 py-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-400/30">Email Preview</div>
+                                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
+                                    <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
+                                        {emailBlocks.map((block, i) => (
+                                            <div 
+                                                key={block.id} 
+                                                onClick={() => setSelectedBlockId(block.id)}
+                                                className={`relative group border-2 p-6 transition-colors cursor-pointer ${selectedBlockId === block.id ? 'border-[#9df01c] bg-[#9df01c]/5' : 'border-transparent hover:border-gray-200'}`}
+                                            >
+                                                <div className={`absolute -right-2 top-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 ${selectedBlockId === block.id ? 'opacity-100 right-2' : ''}`}>
+                                                    <button onClick={(e) => { e.stopPropagation(); moveEmailBlock(i, -1); }} className="p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-600 hover:text-black"><ChevronUp size={12}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); moveEmailBlock(i, 1); }} className="p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-600 hover:text-black"><ChevronDown size={12}/></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); removeEmailBlock(block.id); }} className="p-1 bg-red-500 text-white rounded shadow-sm hover:bg-red-600 mt-1"><Trash2 size={12}/></button>
+                                                </div>
+
+                                                <div style={{ textAlign: block.align || 'left' }} className="w-full">
+                                                    {block.type === 'header' && <h2 className="text-2xl font-bold text-black m-0">{block.text || 'Heading'}</h2>}
+                                                    {block.type === 'paragraph' && <p className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed">{block.text || 'Type your message...'}</p>}
+                                                    {block.type === 'image' && (
+                                                        block.url ? (
+                                                            block.linkUrl ? (
+                                                                <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                                    <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                                </a>
+                                                            ) : (
+                                                                <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
+                                                            )
+                                                        ) : (
+                                                            <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
+                                                        )
+                                                    )}
+                                                    {block.type === 'button' && (
+                                                        <a href="#" onClick={e=>e.preventDefault()} style={{ backgroundColor: block.color || '#9df01c', color: block.textColor || '#000' }} className="px-6 py-3 rounded-lg font-bold inline-block shadow-sm pointer-events-none">{block.text || 'Click Here'}</a>
+                                                    )}
+                                                    {block.type === 'divider' && <hr className="border-t border-gray-200 my-4" />}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="text-center mt-6 text-[10px] text-gray-400">
+                                        {emailSettings.social_links && emailSettings.social_links.filter(l => l.url).length > 0 && (
+                                            <div className="flex justify-center gap-3 mb-4 opacity-50 grayscale">
+                                                {emailSettings.social_links.filter(l => l.url).map(link => (
+                                                    <div key={link.id} className="text-gray-500">
+                                                        {link.icon === 'sellout' ? <SelloutIcon size={20} /> : <img src={link.icon} className="w-5 h-5" alt={link.title} />}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {emailSettings.footer_text && <p className="mb-2">{emailSettings.footer_text}</p>}
+                                        <p>Unsubscribe link will be automatically added here.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right: Edit Block */}
+                        <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col h-full">
+                                <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-4">Edit Block</h3>
+                                {selectedBlockId ? (
+                                    emailBlocks.filter(b => b.id === selectedBlockId).map(block => (
                                         <div key="editor" className="space-y-3">
                                             {(block.type === 'header' || block.type === 'button') && (
                                                 <input type="text" value={block.text} onChange={e => updateEmailBlock(block.id, {text: e.target.value})} placeholder="Text..." className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 text-xs text-white" />
@@ -436,84 +517,14 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                 <button onClick={() => updateEmailBlock(block.id, {align: 'right'})} className={`px-2 py-1 rounded text-xs font-bold ${block.align==='right'?'bg-white/20':'hover:bg-white/10'}`}>Right</button>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Center: The Visual Canvas */}
-                    <div className="lg:col-span-6 bg-gray-200 rounded-[2rem] overflow-hidden flex flex-col shadow-inner relative border-4 border-[#111]">
-                        <div className="bg-gray-300 py-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-400/30">Email Preview</div>
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
-                            <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
-                                {emailBlocks.map((block, i) => (
-                                    <div 
-                                        key={block.id} 
-                                        onClick={() => setSelectedBlockId(block.id)}
-                                        className={`relative group border-2 p-6 transition-colors cursor-pointer ${selectedBlockId === block.id ? 'border-[#9df01c] bg-[#9df01c]/5' : 'border-transparent hover:border-gray-200'}`}
-                                    >
-                                        <div className={`absolute -right-2 top-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 ${selectedBlockId === block.id ? 'opacity-100 right-2' : ''}`}>
-                                            <button onClick={(e) => { e.stopPropagation(); moveEmailBlock(i, -1); }} className="p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-600 hover:text-black"><ChevronUp size={12}/></button>
-                                            <button onClick={(e) => { e.stopPropagation(); moveEmailBlock(i, 1); }} className="p-1 bg-white border border-gray-200 rounded shadow-sm text-gray-600 hover:text-black"><ChevronDown size={12}/></button>
-                                            <button onClick={(e) => { e.stopPropagation(); removeEmailBlock(block.id); }} className="p-1 bg-red-500 text-white rounded shadow-sm hover:bg-red-600 mt-1"><Trash2 size={12}/></button>
-                                        </div>
-
-                                        <div style={{ textAlign: block.align || 'left' }} className="w-full">
-                                            {block.type === 'header' && <h2 className="text-2xl font-bold text-black m-0">{block.text || 'Heading'}</h2>}
-                                            {block.type === 'paragraph' && <p className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed">{block.text || 'Type your message...'}</p>}
-                                            {block.type === 'image' && (
-                                                block.url ? (
-                                                    block.linkUrl ? (
-                                                        <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                                                            <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
-                                                        </a>
-                                                    ) : (
-                                                        <img src={block.url} className="max-w-full h-auto rounded-lg" alt="Block" style={{ display: 'inline-block' }} />
-                                                    )
-                                                ) : (
-                                                    <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
-                                                )
-                                            )}
-                                            {block.type === 'button' && (
-                                                <a href="#" onClick={e=>e.preventDefault()} style={{ backgroundColor: block.color || '#9df01c', color: block.textColor || '#000' }} className="px-6 py-3 rounded-lg font-bold inline-block shadow-sm pointer-events-none">{block.text || 'Click Here'}</a>
-                                            )}
-                                            {block.type === 'divider' && <hr className="border-t border-gray-200 my-4" />}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="text-center mt-6 text-[10px] text-gray-400">
-                                {emailSettings.social_links && emailSettings.social_links.filter(l => l.url).length > 0 && (
-                                    <div className="flex justify-center gap-3 mb-4 opacity-50 grayscale">
-                                        {emailSettings.social_links.filter(l => l.url).map(link => (
-                                            <div key={link.id} className="text-gray-500">
-                                                {link.icon === 'sellout' ? <SelloutIcon size={20} /> : <img src={link.icon} className="w-5 h-5" alt={link.title} />}
-                                            </div>
-                                        ))}
+                                    ))
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500 opacity-50">
+                                        <PenTool size={32} className="mb-4" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-center px-4">Select a block in the preview to edit its contents</p>
                                     </div>
                                 )}
-                                {emailSettings.footer_text && <p className="mb-2">{emailSettings.footer_text}</p>}
-                                <p>Unsubscribe link will be automatically added here.</p>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Right: Actions */}
-                    <div className="lg:col-span-3 flex flex-col gap-4">
-                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-xl space-y-4">
-                            <h3 className="text-sm font-black uppercase tracking-tighter text-white mb-2">Campaign Actions</h3>
-                            <button onClick={handleSaveDraft} disabled={isSaving} className="w-full py-4 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
-                                {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save Draft
-                            </button>
-                            <button onClick={handleSendTestEmail} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                                <Send size={12}/> Send Test Email
-                            </button>
-                            <hr className="border-white/5" />
-                            <button onClick={handleSendEmail} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
-                                <Send size={16} /> Send Blast
-                            </button>
-                            <p className="text-[9px] text-gray-500 text-center leading-relaxed">This will immediately send the email to all active, bridged subscribers.</p>
                         </div>
                     </div>
                 </div>
