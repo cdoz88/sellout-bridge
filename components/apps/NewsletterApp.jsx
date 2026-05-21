@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload, RefreshCcw, CreditCard } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload, RefreshCcw, CreditCard, Save } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -292,6 +292,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 if (fNameIdx !== -1) firstName = cleanRow[fNameIdx];
                 if (lNameIdx !== -1) lastName = cleanRow[lNameIdx];
                 
+                // If they just have a "Name" column, split it up
                 if (!firstName && nameIdx !== -1 && cleanRow[nameIdx]) {
                     const parts = cleanRow[nameIdx].split(/\s+/);
                     if (parts.length > 1) {
@@ -330,7 +331,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             }
         };
         reader.readAsText(file);
-        e.target.value = '';
+        e.target.value = ''; // Reset input
     };
 
     const handleSyncUna = async () => {
@@ -761,11 +762,36 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             {activeTab === 'compose' && (
                 <div className="animate-in fade-in duration-300">
                     
-                    {/* Top Horizontal Bar */}
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex justify-between items-center gap-4">
-                        <div className="flex items-center gap-3 px-2">
-                            <span className="text-sm font-black uppercase tracking-tighter text-white">Newsletter Editor</span>
+                    {/* Top Horizontal Bar for Actions */}
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3 px-2 w-full md:w-auto">
+                            <span className="text-sm font-black uppercase tracking-tighter text-white">Campaign Actions</span>
                             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest hidden sm:inline">| Auto-saves to drafts</span>
+                        </div>
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto border-t border-white/5 md:border-none pt-4 md:pt-0">
+                            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-3 py-1 mr-2 w-full sm:w-auto">
+                                <label className="text-[8px] text-gray-500 font-bold uppercase tracking-widest whitespace-nowrap">Target Audience:</label>
+                                <select 
+                                    value={emailTarget} 
+                                    onChange={e => setEmailTarget(e.target.value)}
+                                    className="bg-transparent text-white text-[10px] font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer py-2"
+                                >
+                                    <option value="bridged">All SC Bridged Users</option>
+                                    {audienceLists.map(list => (
+                                        <option key={list.id} value={`list_${list.id}`}>List: {list.name} ({list.subscriber_count})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <button onClick={handleSaveDraft} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
+                                {isSaving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Save Draft
+                            </button>
+                            <button onClick={handleSendTestEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                                <Send size={12}/> Send Test
+                            </button>
+                            <button onClick={handleSendEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-8 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
+                                <Send size={16} /> Send Blast
+                            </button>
                         </div>
                     </div>
 
@@ -800,6 +826,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
                                     <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
                                         {emailBlocks.map((block, i) => {
+                                            // Real-time preview of the {first_name} tag
                                             let displayHtml = block.text;
                                             if (displayHtml && typeof displayHtml === 'string') {
                                                 displayHtml = displayHtml.replace(/{first_name}/gi, '<span class="bg-[#9df01c]/20 text-[#7bb814] px-1 rounded italic">John</span>');
