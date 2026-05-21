@@ -1,6 +1,6 @@
 import express from 'express';
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { sql, getAuthenticatedUser, ensureSchema } from '../config.js';
+import { sql, getAuthenticatedUser, ensureSchema, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
 
@@ -54,7 +54,7 @@ router.post('/api/newsletter/settings', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to save settings." }); }
 });
 
-// --- 2. AUDIENCE LISTS ---
+// --- 2. AUDIENCE LISTS & SYNCING ---
 router.get('/api/newsletter/lists', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -120,7 +120,77 @@ router.post('/api/newsletter/lists/import', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to import subscribers." }); }
 });
 
-// --- 3. DRAFTS & CAMPAIGNS ---
+router.post('/api/newsletter/sync-una', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
+        const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
+
+        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({ action: 'get_community_members', email: creatorEmail })
+        });
+        
+        const text = await response.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch(e) {}
+        
+        if (data.members && Array.isArray(data.members)) {
+            let listId;
+            const existList = await sql`SELECT id FROM bridge_newsletter_lists WHERE user_id = ${user.id} AND name = 'UNA Community Members'`;
+            if (existList.length > 0) {
+                listId = existList[0].id;
+            } else {
+                const newList = await sql`INSERT INTO bridge_newsletter_lists (user_id, name) VALUES (${user.id}, 'UNA Community Members') RETURNING id`;
+                listId = newList[0].id;
+            }
+
+            let addedCount = 0;
+            for (const member of data.members) {
+                if (!member.email) continue;
+                try {
+                    await sql`INSERT INTO bridge_newsletter_subscribers (user_id, list_id, email, first_name, last_name) VALUES (${user.id}, ${listId}, ${member.email}, ${member.first_name || ''}, ${member.last_name || ''}) ON CONFLICT (list_id, email) DO UPDATE SET status = 'subscribed', first_name = EXCLUDED.first_name`;
+                    addedCount++;
+                } catch(e) {}
+            }
+            res.json({ success: true, added: addedCount });
+        } else {
+            res.json({ success: false, error: "The UNA bridge connector needs to be updated to support this sync." });
+        }
+    } catch(e) { res.status(500).json({ error: "Sync failed" }); }
+});
+
+// --- 3. BILLING & USAGE ---
+router.get('/api/newsletter/billing', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const usage = await sql`
+            SELECT COUNT(*) as sent_count 
+            FROM bridge_email_logs 
+            WHERE user_id = ${user.id} 
+            AND date_trunc('month', sent_at) = date_trunc('month', NOW())
+        `;
+        
+        // Placeholder limits for the flat-rate tiered model
+        let limit = 10000;
+        let tierName = "Tier 1 (Up to 10k/mo)";
+        
+        const sent = parseInt(usage[0].sent_count) || 0;
+        
+        res.json({ 
+            sent_this_month: sent,
+            limit: limit,
+            tier_name: tierName
+        });
+    } catch(e) { res.status(500).json({error: e.message}); }
+});
+
+// --- 4. DRAFTS & CAMPAIGNS ---
 router.get('/api/newsletter/campaigns', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -170,7 +240,7 @@ router.post('/api/newsletter/delete', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to delete campaign." }); }
 });
 
-// --- 4. THE AWS SENDING ENGINE ---
+// --- 5. THE AWS SENDING ENGINE ---
 const buildFinalHtml = (campaign, settings, unsubscribeLink) => {
     let socialHtml = '';
     
@@ -252,8 +322,10 @@ router.post('/api/newsletter/send', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        const { id, target_list } = req.body;
+        const { id, target_lists } = req.body;
         if (!id) return res.status(400).json({ error: "Missing campaign ID" });
+        
+        const listsToTarget = target_lists || ['bridged'];
 
         const campaigns = await sql`SELECT * FROM bridge_newsletters WHERE id = ${id} AND user_id = ${user.id}`;
         if (campaigns.length === 0 || campaigns[0].status === 'sent') return res.status(400).json({ error: "Invalid or already sent campaign." });
@@ -264,8 +336,8 @@ router.post('/api/newsletter/send', async (req, res) => {
 
         let rawAudience = [];
 
-        // Check if we are sending to the default Bridged Users, or a Custom List
-        if (!target_list || target_list === 'bridged') {
+        // Check if we are sending to the default Bridged Users
+        if (listsToTarget.includes('bridged')) {
             const audienceDb = await sql`
                 SELECT email FROM bridge_customers WHERE creator_id = ${user.id} AND bridge_status = 'bridged'
                 UNION
@@ -273,18 +345,32 @@ router.post('/api/newsletter/send', async (req, res) => {
                 UNION
                 SELECT email FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged'
             `;
-            rawAudience = audienceDb.map(u => ({ email: u.email, first_name: null }));
-        } else {
-            const listId = parseInt(target_list.replace('list_', ''));
-            const subsDb = await sql`SELECT email, first_name FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${user.id} AND status = 'subscribed'`;
-            rawAudience = subsDb.map(u => ({ email: u.email, first_name: u.first_name }));
+            rawAudience.push(...audienceDb.map(u => ({ email: u.email, first_name: null })));
+        } 
+        
+        // Loop through any selected custom lists
+        for (const target of listsToTarget) {
+            if (target.startsWith('list_')) {
+                const listId = parseInt(target.replace('list_', ''));
+                const subsDb = await sql`SELECT email, first_name FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${user.id} AND status = 'subscribed'`;
+                rawAudience.push(...subsDb.map(u => ({ email: u.email, first_name: u.first_name })));
+            }
         }
+        
+        // Deduplicate emails so people on multiple lists don't get 2 emails
+        const uniqueMap = new Map();
+        rawAudience.forEach(u => {
+            if (u.email && !uniqueMap.has(u.email.toLowerCase())) {
+                uniqueMap.set(u.email.toLowerCase(), u);
+            }
+        });
+        const deduplicatedAudience = Array.from(uniqueMap.values());
         
         const unsubDb = await sql`SELECT email FROM bridge_newsletter_unsubscribes WHERE user_id = ${user.id}`;
         const unsubSet = new Set(unsubDb.map(u => u.email.toLowerCase()));
         
-        // Filter out unsubscribed emails and map to final array
-        const validRecipients = rawAudience.filter(u => !unsubSet.has(u.email.toLowerCase()));
+        // Filter out unsubscribed emails
+        const validRecipients = deduplicatedAudience.filter(u => !unsubSet.has(u.email.toLowerCase()));
 
         if (validRecipients.length === 0) {
             return res.status(400).json({ error: "There are no active subscribers in the selected audience!" });

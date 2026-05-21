@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload, RefreshCcw, CreditCard } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -54,12 +54,15 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const emailSettingsRef = useRef(emailSettings);
     useEffect(() => { emailSettingsRef.current = emailSettings; }, [emailSettings]);
 
-    // NEW: Audience State
+    // --- NEW: Audience & Billing State ---
     const [audienceLists, setAudienceLists] = useState([]);
     const [isParsingCsv, setIsParsingCsv] = useState(false);
+    const [isSyncingUna, setIsSyncingUna] = useState(false);
     const [csvError, setCsvError] = useState(null);
     const [csvSuccess, setCsvSuccess] = useState(null);
-    const [emailTarget, setEmailTarget] = useState('bridged'); // 'bridged' or 'list_123'
+    const [emailTargets, setEmailTargets] = useState(['bridged']); 
+    
+    const [billingData, setBillingData] = useState(null);
 
     const [isLoadingEmail, setIsLoadingEmail] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -95,17 +98,20 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         if (!session || !canAccess) return;
         setIsLoadingEmail(true);
         try {
-            const [campRes, setRes, listRes] = await Promise.all([
+            const [campRes, setRes, listRes, billRes] = await Promise.all([
                 fetch('/api/newsletter/campaigns', { headers: { 'Authorization': `Bearer ${session}` } }),
                 fetch('/api/newsletter/settings', { headers: { 'Authorization': `Bearer ${session}` } }),
-                fetch('/api/newsletter/lists', { headers: { 'Authorization': `Bearer ${session}` } })
+                fetch('/api/newsletter/lists', { headers: { 'Authorization': `Bearer ${session}` } }),
+                fetch('/api/newsletter/billing', { headers: { 'Authorization': `Bearer ${session}` } })
             ]);
             const campData = await campRes.json();
             const setData = await setRes.json();
             const listData = await listRes.json();
+            const billData = await billRes.json();
             
             if (campData.campaigns) setCampaigns(campData.campaigns);
             if (listData.lists) setAudienceLists(listData.lists);
+            if (billData) setBillingData(billData);
 
             if (setData.settings) {
                 let mergedSocials = [...DEFAULT_SOCIAL_LINKS];
@@ -234,6 +240,12 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id })
             });
+            
+            // Uncheck if deleted
+            if (emailTargets.includes(`list_${id}`)) {
+                setEmailTargets(prev => prev.filter(t => t !== `list_${id}`));
+            }
+            
             fetchEmailData();
         } catch(e) {}
         finally { setIsSaving(false); }
@@ -280,7 +292,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 if (fNameIdx !== -1) firstName = cleanRow[fNameIdx];
                 if (lNameIdx !== -1) lastName = cleanRow[lNameIdx];
                 
-                // If they just have a "Name" column, split it up
                 if (!firstName && nameIdx !== -1 && cleanRow[nameIdx]) {
                     const parts = cleanRow[nameIdx].split(/\s+/);
                     if (parts.length > 1) {
@@ -319,10 +330,38 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             }
         };
         reader.readAsText(file);
-        e.target.value = ''; // Reset input
+        e.target.value = '';
     };
 
-    // --- END AUDIENCE LOGIC ---
+    const handleSyncUna = async () => {
+        setIsSyncingUna(true);
+        setCsvError(null);
+        setCsvSuccess(null);
+        try {
+            const res = await fetch('/api/newsletter/sync-una', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                setCsvSuccess(`Successfully synced ${data.added} users from your UNA communities!`);
+                fetchEmailData();
+            } else {
+                setCsvError(data.error || "Failed to sync UNA members.");
+            }
+        } catch (err) {
+            setCsvError("Network error during sync.");
+        } finally {
+            setIsSyncingUna(false);
+        }
+    };
+
+    const toggleEmailTarget = (targetId) => {
+        setEmailTargets(prev => {
+            if (prev.includes(targetId)) return prev.filter(id => id !== targetId);
+            return [...prev, targetId];
+        });
+    };
 
     const handleSaveDraft = async () => {
         if (!emailSubject) return alert("Please add a subject line.");
@@ -404,7 +443,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const handleSendEmail = async () => {
         if (!emailSettings.sender_name || !emailSettings.reply_to_email) return alert("Please configure your Sender Name and Email in Settings first!");
         if (!emailSubject) return alert("Please add a subject line.");
-        if (!window.confirm("Are you sure you want to blast this email to the selected audience?")) return;
+        if (emailTargets.length === 0) return alert("Please select at least one target audience.");
+        if (!window.confirm("Are you sure you want to blast this email to the selected audiences?")) return;
         
         setIsSaving(true);
         try {
@@ -417,12 +457,12 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             
             const res = await fetch('/api/newsletter/send', {
                 method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: saveData.id, target_list: emailTarget })
+                body: JSON.stringify({ id: saveData.id, target_lists: emailTargets })
             });
             const data = await res.json();
             
             if (data.success) {
-                alert(`Success! Email sent to ${data.count} subscribers.`);
+                alert(`Success! Email sent to ${data.count} unique subscribers.`);
                 setActiveCampaignId(null);
                 setEmailSubject('');
                 setEmailBlocks(createNewDraftBlocks());
@@ -482,7 +522,41 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 </p>
             </div>
 
-            {/* --- NEW AUDIENCE TAB --- */}
+            {/* --- NEW: BILLING TAB --- */}
+            {activeTab === 'billing' && (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[60vh]">
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2 mb-2">
+                        <CreditCard className="text-[#9df01c]" size={20} /> Billing & Usage
+                    </h3>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-8">Monitor your monthly email sends and plan limits.</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-black border border-white/10 rounded-2xl p-6 relative overflow-hidden shadow-lg">
+                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#9df01c]/10 blur-[50px] rounded-full pointer-events-none"></div>
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Current Plan</p>
+                                <h4 className="text-2xl font-black text-white mb-4">{billingData?.tier_name || 'Loading...'}</h4>
+                                
+                                <div className="flex justify-between items-end mb-2 mt-8">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Monthly Usage</span>
+                                    <span className="text-sm font-black text-[#9df01c]">{billingData?.sent_this_month?.toLocaleString() || 0} / {billingData?.limit?.toLocaleString() || 0}</span>
+                                </div>
+                                <div className="w-full bg-[#111] border border-white/5 rounded-full h-3 overflow-hidden shadow-inner">
+                                    <div className="bg-[#9df01c] h-full transition-all duration-500 ease-out" style={{ width: `${Math.min(100, ((billingData?.sent_this_month || 0) / (billingData?.limit || 1)) * 100)}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-black border border-white/10 rounded-2xl p-6 shadow-lg flex flex-col">
+                             <h4 className="text-sm font-black text-white mb-4 uppercase tracking-tight">Need more volume?</h4>
+                             <p className="text-xs text-gray-400 mb-6 leading-relaxed">Our volume-based pricing automatically adjusts to give you the best rate. Overages are billed at exactly $1.00 per 1,000 emails so your sends are never interrupted.</p>
+                             <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="mt-auto w-full text-center py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-white/10">Manage Subscription</a>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- UPDATED: AUDIENCE TAB --- */}
             {activeTab === 'audience' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[60vh]">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
@@ -492,17 +566,26 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             </h3>
                             <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Upload CSVs to build targeted audiences.</p>
                         </div>
-                        <button onClick={handleCreateList} disabled={isSaving} className="px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                            <Plus size={14} /> Create New List
-                        </button>
+                        <div className="flex gap-3">
+                            <button onClick={handleSyncUna} disabled={isSyncingUna} className="px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center gap-2 shadow-lg">
+                                {isSyncingUna ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />} 
+                                <span className="hidden sm:inline">{isSyncingUna ? 'Syncing...' : 'Sync UNA Community'}</span>
+                            </button>
+                            <button onClick={handleCreateList} disabled={isSaving} className="px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                                <Plus size={14} /> Create New List
+                            </button>
+                        </div>
                     </div>
+
+                    {csvError && <div className="mb-6 text-xs text-red-500 bg-red-500/10 p-3 rounded-xl font-bold flex items-center gap-2 border border-red-500/20"><X size={16}/> {csvError}</div>}
+                    {csvSuccess && <div className="mb-6 text-xs text-green-500 bg-green-500/10 p-3 rounded-xl font-bold flex items-center gap-2 border border-green-500/20"><CheckCircle2 size={16}/> {csvSuccess}</div>}
 
                     <div className="bg-black border border-white/5 rounded-2xl p-5 mb-8 flex items-center justify-between">
                         <div>
                             <p className="text-sm font-bold text-white mb-1">Subscribers from SC Bridge</p>
                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Auto-syncs from Stripe, PayPal, & Patreon</p>
                         </div>
-                        <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest bg-[#9df01c]/10 px-3 py-1.5 rounded-lg border border-[#9df01c]/20">Native Audience</span>
+                        <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest bg-[#9df01c]/10 px-3 py-1.5 rounded-lg border border-[#9df01c]/20 hidden sm:block">Native Audience</span>
                     </div>
 
                     <div className="space-y-4">
@@ -532,10 +615,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                         </div>
                                     </div>
                                     <div className="text-[9px] text-gray-600 font-medium">
-                                        <strong>CSV Format:</strong> Ensure your file has columns labeled "Email" and "First Name" (or "Name") for automatic mapping and {`{first_name}`} personalization support!
+                                        <strong>CSV Format:</strong> Ensure your file has columns labeled "Email" and "First Name" (or "Name") for automatic mapping and <span className="font-mono text-gray-400 bg-white/5 px-1 rounded">{`{first_name}`}</span> personalization support!
                                     </div>
-                                    {csvError && <div className="mt-3 text-[10px] text-red-500 bg-red-500/10 p-2 rounded-lg font-bold">{csvError}</div>}
-                                    {csvSuccess && <div className="mt-3 text-[10px] text-green-500 bg-green-500/10 p-2 rounded-lg font-bold">{csvSuccess}</div>}
                                 </div>
                             ))
                         )}
@@ -680,36 +761,11 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             {activeTab === 'compose' && (
                 <div className="animate-in fade-in duration-300">
                     
-                    {/* Top Horizontal Bar for Actions */}
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-3 px-2 w-full md:w-auto">
-                            <span className="text-sm font-black uppercase tracking-tighter text-white">Campaign Actions</span>
+                    {/* Top Horizontal Bar */}
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex justify-between items-center gap-4">
+                        <div className="flex items-center gap-3 px-2">
+                            <span className="text-sm font-black uppercase tracking-tighter text-white">Newsletter Editor</span>
                             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest hidden sm:inline">| Auto-saves to drafts</span>
-                        </div>
-                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto border-t border-white/5 md:border-none pt-4 md:pt-0">
-                            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-3 py-1 mr-2 w-full sm:w-auto">
-                                <label className="text-[8px] text-gray-500 font-bold uppercase tracking-widest whitespace-nowrap">Target Audience:</label>
-                                <select 
-                                    value={emailTarget} 
-                                    onChange={e => setEmailTarget(e.target.value)}
-                                    className="bg-transparent text-white text-[10px] font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer py-2"
-                                >
-                                    <option value="bridged">All SC Bridged Users</option>
-                                    {audienceLists.map(list => (
-                                        <option key={list.id} value={`list_${list.id}`}>List: {list.name} ({list.subscriber_count})</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <button onClick={handleSaveDraft} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
-                                {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save Draft
-                            </button>
-                            <button onClick={handleSendTestEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                                <Send size={12}/> Send Test
-                            </button>
-                            <button onClick={handleSendEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-8 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
-                                <Send size={16} /> Send Blast
-                            </button>
                         </div>
                     </div>
 
@@ -744,7 +800,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
                                     <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
                                         {emailBlocks.map((block, i) => {
-                                            // Real-time preview of the {first_name} tag
                                             let displayHtml = block.text;
                                             if (displayHtml && typeof displayHtml === 'string') {
                                                 displayHtml = displayHtml.replace(/{first_name}/gi, '<span class="bg-[#9df01c]/20 text-[#7bb814] px-1 rounded italic">John</span>');
@@ -803,9 +858,43 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             </div>
                         </div>
 
-                        {/* Right: Edit Block */}
+                        {/* Right: Actions & Audience */}
                         <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
-                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col h-full">
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl space-y-4">
+                                <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-2">Target Audience</h3>
+                                <div className="max-h-48 overflow-y-auto custom-scrollbar bg-black border border-white/10 rounded-xl p-2 space-y-1">
+                                    <label className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${emailTargets.includes('bridged') ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                        <input type="checkbox" checked={emailTargets.includes('bridged')} onChange={() => toggleEmailTarget('bridged')} className="hidden" />
+                                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors flex-shrink-0 ${emailTargets.includes('bridged') ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                            {emailTargets.includes('bridged') && <CheckCircle2 size={12} className="text-black" />}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-white flex-1 uppercase tracking-widest leading-tight">SC Bridged Users</span>
+                                    </label>
+                                    {audienceLists.map(list => (
+                                        <label key={list.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${emailTargets.includes(`list_${list.id}`) ? 'bg-[#9df01c]/10' : 'hover:bg-white/5'}`}>
+                                            <input type="checkbox" checked={emailTargets.includes(`list_${list.id}`)} onChange={() => toggleEmailTarget(`list_${list.id}`)} className="hidden" />
+                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors flex-shrink-0 ${emailTargets.includes(`list_${list.id}`) ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                {emailTargets.includes(`list_${list.id}`) && <CheckCircle2 size={12} className="text-black" />}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-white flex-1 uppercase tracking-widest leading-tight">{list.name} <span className="text-gray-500">({list.subscriber_count})</span></span>
+                                        </label>
+                                    ))}
+                                </div>
+                                
+                                <div className="pt-4 border-t border-white/5 space-y-3">
+                                    <button onClick={handleSaveDraft} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
+                                        {isSaving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Save Draft
+                                    </button>
+                                    <button onClick={handleSendTestEmail} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                                        <Send size={12}/> Send Test
+                                    </button>
+                                    <button onClick={handleSendEmail} disabled={isSaving || emailTargets.length === 0} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                                        <Send size={16} /> Send Blast
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col">
                                 <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-4">Edit Block</h3>
                                 {selectedBlockId ? (
                                     emailBlocks.filter(b => b.id === selectedBlockId).map(block => (
