@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -106,7 +106,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 const newSettings = { ...setData.settings, social_links: mergedSocials };
                 setEmailSettings(newSettings);
                 
-                // If the user has no campaigns and loadDraft hasn't run yet, apply their branding defaults to the initial blank canvas
                 if (campData.campaigns && campData.campaigns.length === 0 && !activeCampaignId && emailBlocks.length === 1 && !emailBlocks[0].text) {
                     emailSettingsRef.current = newSettings; 
                     setEmailBlocks(createNewDraftBlocks());
@@ -215,6 +214,36 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 fetchEmailData();
             }
         } catch (e) {} finally { setIsSaving(false); }
+    };
+
+    // NEW: Handle Duplicate Campaign
+    const handleDuplicateCampaign = async (campaign) => {
+        setIsSaving(true);
+        try {
+            const newSubject = `${campaign.subject || 'Untitled'} (Copy)`;
+            const contentStr = typeof campaign.content === 'string' ? campaign.content : JSON.stringify(campaign.content);
+            
+            const res = await fetch('/api/newsletter/save', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    id: null, // Force a brand new record to be created
+                    subject: newSubject, 
+                    content: contentStr, 
+                    html_body: campaign.html_body 
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchEmailData(); // Refresh the list so the copy appears instantly
+            } else {
+                alert("Failed to duplicate campaign.");
+            }
+        } catch (e) {
+            alert("Server error while duplicating.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleSendTestEmail = async () => {
@@ -446,8 +475,9 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                             <td className="py-4 text-xs font-mono text-[#38bdf8]">{camp.status === 'sent' ? `${camp.click_count || 0}` : '-'}</td>
                                             <td className="py-4 text-right">
                                                 <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    {camp.status === 'draft' && <button onClick={() => loadDraft(camp)} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white"><Edit3 size={14}/></button>}
-                                                    <button onClick={() => handleDeleteCampaign(camp.id)} className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded text-red-500"><Trash2 size={14}/></button>
+                                                    <button onClick={() => handleDuplicateCampaign(camp)} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white" title="Duplicate"><Copy size={14}/></button>
+                                                    {camp.status === 'draft' && <button onClick={() => loadDraft(camp)} className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white" title="Edit"><Edit3 size={14}/></button>}
+                                                    <button onClick={() => handleDeleteCampaign(camp.id)} className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded text-red-500" title="Delete"><Trash2 size={14}/></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -527,10 +557,10 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                         block.url ? (
                                                             block.linkUrl ? (
                                                                 <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', width: `${block.width || 100}%` }}>
-                                                                    <img src={block.url} style={{ width: '100%', display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
+                                                                    <img src={block.url} style={{ width: '100%' }} className="h-auto rounded-lg" alt="Block" />
                                                                 </a>
                                                             ) : (
-                                                                <img src={block.url} style={{ width: `${block.width || 100}%`, display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
+                                                                <img src={block.url} style={{ width: `${block.width || 100}%` }} className="h-auto rounded-lg" alt="Block" />
                                                             )
                                                         ) : (
                                                             <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
