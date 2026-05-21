@@ -92,6 +92,7 @@ export async function ensureSchema() {
 
         await sql`CREATE TABLE IF NOT EXISTS wp_oauth_codes (code VARCHAR(255) PRIMARY KEY, user_id INTEGER, profile_link TEXT, redirect_uri TEXT, expires_at TIMESTAMP)`;
         await sql`CREATE TABLE IF NOT EXISTS wp_access_tokens (token VARCHAR(255) PRIMARY KEY, user_id INTEGER, profile_link TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`;
+        
         try { await sql`ALTER TABLE wp_oauth_codes ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         try { await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS profile_link TEXT`; } catch(e){}
         
@@ -181,7 +182,26 @@ export async function ensureSchema() {
                 aws_message_id VARCHAR(255),
                 sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`;
-        } catch(e) {}
+
+            // --- NEW: Audience Lists Tables ---
+            await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_lists (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                name VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_subscribers (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                list_id INTEGER,
+                email VARCHAR(255),
+                first_name VARCHAR(255),
+                last_name VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'subscribed',
+                UNIQUE(list_id, email)
+            )`;
+        } catch(e) { console.error("Newsletter Schema Error:", e.message); }
 
     } catch (e) { console.error("Schema check notice:", e.message); }
 }
@@ -209,7 +229,7 @@ export async function getAuthenticatedUser(token) {
                     }
                     await sql`INSERT INTO bridge_settings (user_id, creator_email) VALUES (${meData.id}, ${meData.email}) ON CONFLICT (user_id) DO UPDATE SET creator_email = EXCLUDED.creator_email`;
                 }
-            } catch (err) {}
+            } catch (err) { console.error("Failed to fetch custom role", err); }
             return meData;
         }
         return null;

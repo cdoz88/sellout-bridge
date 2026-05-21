@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 
 const compileEmailHtml = (blocks) => {
@@ -54,6 +54,13 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const emailSettingsRef = useRef(emailSettings);
     useEffect(() => { emailSettingsRef.current = emailSettings; }, [emailSettings]);
 
+    // NEW: Audience State
+    const [audienceLists, setAudienceLists] = useState([]);
+    const [isParsingCsv, setIsParsingCsv] = useState(false);
+    const [csvError, setCsvError] = useState(null);
+    const [csvSuccess, setCsvSuccess] = useState(null);
+    const [emailTarget, setEmailTarget] = useState('bridged'); // 'bridged' or 'list_123'
+
     const [isLoadingEmail, setIsLoadingEmail] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
@@ -88,13 +95,18 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         if (!session || !canAccess) return;
         setIsLoadingEmail(true);
         try {
-            const [campRes, setRes] = await Promise.all([
+            const [campRes, setRes, listRes] = await Promise.all([
                 fetch('/api/newsletter/campaigns', { headers: { 'Authorization': `Bearer ${session}` } }),
-                fetch('/api/newsletter/settings', { headers: { 'Authorization': `Bearer ${session}` } })
+                fetch('/api/newsletter/settings', { headers: { 'Authorization': `Bearer ${session}` } }),
+                fetch('/api/newsletter/lists', { headers: { 'Authorization': `Bearer ${session}` } })
             ]);
             const campData = await campRes.json();
             const setData = await setRes.json();
+            const listData = await listRes.json();
+            
             if (campData.campaigns) setCampaigns(campData.campaigns);
+            if (listData.lists) setAudienceLists(listData.lists);
+
             if (setData.settings) {
                 let mergedSocials = [...DEFAULT_SOCIAL_LINKS];
                 if (setData.settings.social_links && setData.settings.social_links.length > 0) {
@@ -197,6 +209,121 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         }, 0);
     };
 
+    // --- NEW: AUDIENCE LIST MANAGEMENT ---
+    const handleCreateList = async () => {
+        const listName = window.prompt("Enter a name for your new list (e.g. Website Leads):");
+        if (!listName || !listName.trim()) return;
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/newsletter/lists', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: listName })
+            });
+            if (res.ok) fetchEmailData();
+        } catch (e) { alert("Failed to create list."); }
+        finally { setIsSaving(false); }
+    };
+
+    const handleDeleteList = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this entire list? All subscribers in it will be removed.")) return;
+        setIsSaving(true);
+        try {
+            await fetch('/api/newsletter/lists/delete', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            fetchEmailData();
+        } catch(e) {}
+        finally { setIsSaving(false); }
+    };
+
+    const handleCsvUpload = (e, listId) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsParsingCsv(true);
+        setCsvError(null);
+        setCsvSuccess(null);
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target.result;
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) { setCsvError("CSV file appears to be empty."); setIsParsingCsv(false); return; }
+            
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+            
+            const emailIdx = headers.findIndex(h => h === 'email' || h === 'email address');
+            let fNameIdx = headers.findIndex(h => h === 'first name' || h === 'firstname' || h === 'first_name');
+            let lNameIdx = headers.findIndex(h => h === 'last name' || h === 'lastname' || h === 'last_name');
+            const nameIdx = headers.findIndex(h => h === 'name' || h === 'full name');
+
+            if (emailIdx === -1) {
+                setCsvError("Could not find an 'Email' column in the CSV."); 
+                setIsParsingCsv(false); return;
+            }
+
+            const parsedSubscribers = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+                const cleanRow = row.map(col => col.replace(/^"|"$/g, '').trim());
+                
+                const email = cleanRow[emailIdx];
+                if (!email || !email.includes('@')) continue;
+
+                let firstName = '';
+                let lastName = '';
+
+                if (fNameIdx !== -1) firstName = cleanRow[fNameIdx];
+                if (lNameIdx !== -1) lastName = cleanRow[lNameIdx];
+                
+                // If they just have a "Name" column, split it up
+                if (!firstName && nameIdx !== -1 && cleanRow[nameIdx]) {
+                    const parts = cleanRow[nameIdx].split(/\s+/);
+                    if (parts.length > 1) {
+                        lastName = parts.pop();
+                        firstName = parts.join(' ');
+                    } else {
+                        firstName = cleanRow[nameIdx];
+                    }
+                }
+
+                parsedSubscribers.push({ email, firstName, lastName });
+            }
+
+            if (parsedSubscribers.length === 0) {
+                setCsvError("No valid email addresses found in the CSV.");
+                setIsParsingCsv(false); return;
+            }
+
+            try {
+                const res = await fetch('/api/newsletter/lists/import', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list_id: listId, subscribers: parsedSubscribers })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setCsvSuccess(`Successfully imported ${data.added} subscribers!`);
+                    fetchEmailData();
+                } else {
+                    setCsvError(data.error || "Failed to import subscribers.");
+                }
+            } catch (err) {
+                setCsvError("Network error during import.");
+            } finally {
+                setIsParsingCsv(false);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Reset input
+    };
+
+    // --- END AUDIENCE LOGIC ---
+
     const handleSaveDraft = async () => {
         if (!emailSubject) return alert("Please add a subject line.");
         setIsSaving(true);
@@ -216,7 +343,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         } catch (e) {} finally { setIsSaving(false); }
     };
 
-    // NEW: Handle Duplicate Campaign
     const handleDuplicateCampaign = async (campaign) => {
         setIsSaving(true);
         try {
@@ -227,7 +353,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    id: null, // Force a brand new record to be created
+                    id: null, 
                     subject: newSubject, 
                     content: contentStr, 
                     html_body: campaign.html_body 
@@ -235,7 +361,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             });
             const data = await res.json();
             if (data.success) {
-                fetchEmailData(); // Refresh the list so the copy appears instantly
+                fetchEmailData(); 
             } else {
                 alert("Failed to duplicate campaign.");
             }
@@ -278,7 +404,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const handleSendEmail = async () => {
         if (!emailSettings.sender_name || !emailSettings.reply_to_email) return alert("Please configure your Sender Name and Email in Settings first!");
         if (!emailSubject) return alert("Please add a subject line.");
-        if (!window.confirm("Are you sure you want to blast this email to all your active subscribers?")) return;
+        if (!window.confirm("Are you sure you want to blast this email to the selected audience?")) return;
         
         setIsSaving(true);
         try {
@@ -291,7 +417,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             
             const res = await fetch('/api/newsletter/send', {
                 method: 'POST', headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: saveData.id })
+                body: JSON.stringify({ id: saveData.id, target_list: emailTarget })
             });
             const data = await res.json();
             
@@ -355,6 +481,67 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                     Design and blast rich HTML emails directly to your subscribers.
                 </p>
             </div>
+
+            {/* --- NEW AUDIENCE TAB --- */}
+            {activeTab === 'audience' && (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[60vh]">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                        <div>
+                            <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                                <Users className="text-[#9df01c]" size={20} /> Mailing Lists
+                            </h3>
+                            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-1">Upload CSVs to build targeted audiences.</p>
+                        </div>
+                        <button onClick={handleCreateList} disabled={isSaving} className="px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                            <Plus size={14} /> Create New List
+                        </button>
+                    </div>
+
+                    <div className="bg-black border border-white/5 rounded-2xl p-5 mb-8 flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-white mb-1">Subscribers from SC Bridge</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Auto-syncs from Stripe, PayPal, & Patreon</p>
+                        </div>
+                        <span className="text-[#9df01c] text-[10px] font-black uppercase tracking-widest bg-[#9df01c]/10 px-3 py-1.5 rounded-lg border border-[#9df01c]/20">Native Audience</span>
+                    </div>
+
+                    <div className="space-y-4">
+                        {audienceLists.length === 0 ? (
+                            <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
+                                <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                                <p className="text-sm font-medium">No custom lists created.</p>
+                                <p className="text-[10px] mt-1">Create a list and upload a CSV to start building an audience outside of the Bridge.</p>
+                            </div>
+                        ) : (
+                            audienceLists.map(list => (
+                                <div key={list.id} className="bg-black border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
+                                        <div>
+                                            <h4 className="text-base font-bold text-white">{list.name}</h4>
+                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{list.subscriber_count} Active Subscribers</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className={`px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest cursor-pointer transition-colors flex items-center justify-center gap-1.5 border border-white/5 ${isParsingCsv ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                {isParsingCsv ? <Loader2 size={12} className="animate-spin"/> : <Upload size={12}/>}
+                                                Import CSV
+                                                <input type="file" accept=".csv" className="hidden" onChange={(e) => handleCsvUpload(e, list.id)} />
+                                            </label>
+                                            <button onClick={() => handleDeleteList(list.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors" title="Delete List">
+                                                <Trash2 size={14}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="text-[9px] text-gray-600 font-medium">
+                                        <strong>CSV Format:</strong> Ensure your file has columns labeled "Email" and "First Name" (or "Name") for automatic mapping and {`{first_name}`} personalization support!
+                                    </div>
+                                    {csvError && <div className="mt-3 text-[10px] text-red-500 bg-red-500/10 p-2 rounded-lg font-bold">{csvError}</div>}
+                                    {csvSuccess && <div className="mt-3 text-[10px] text-green-500 bg-green-500/10 p-2 rounded-lg font-bold">{csvSuccess}</div>}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'settings' && (
                 <div className="max-w-2xl bg-[#111] rounded-[2rem] border border-white/5 p-8 shadow-2xl">
@@ -494,12 +681,26 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 <div className="animate-in fade-in duration-300">
                     
                     {/* Top Horizontal Bar for Actions */}
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-3 px-2">
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-3 px-2 w-full md:w-auto">
                             <span className="text-sm font-black uppercase tracking-tighter text-white">Campaign Actions</span>
                             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest hidden sm:inline">| Auto-saves to drafts</span>
                         </div>
-                        <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto border-t border-white/5 md:border-none pt-4 md:pt-0">
+                            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-3 py-1 mr-2 w-full sm:w-auto">
+                                <label className="text-[8px] text-gray-500 font-bold uppercase tracking-widest whitespace-nowrap">Target Audience:</label>
+                                <select 
+                                    value={emailTarget} 
+                                    onChange={e => setEmailTarget(e.target.value)}
+                                    className="bg-transparent text-white text-[10px] font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer py-2"
+                                >
+                                    <option value="bridged">All SC Bridged Users</option>
+                                    {audienceLists.map(list => (
+                                        <option key={list.id} value={`list_${list.id}`}>List: {list.name} ({list.subscriber_count})</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <button onClick={handleSaveDraft} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
                                 {isSaving ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save Draft
                             </button>
@@ -524,6 +725,10 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                     <button onClick={() => addEmailBlock('button')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase"><LinkIcon size={18}/> Button</button>
                                     <button onClick={() => addEmailBlock('divider')} className="bg-black border border-white/10 hover:border-[#9df01c]/50 hover:bg-[#9df01c]/5 rounded-xl py-3 flex flex-col items-center gap-1 transition-colors text-white text-[10px] font-black uppercase col-span-2"><Minus size={18}/> Divider</button>
                                 </div>
+                                <div className="mt-auto border-t border-white/5 pt-4">
+                                    <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-2">Personalization</h3>
+                                    <p className="text-[9px] text-gray-500 font-medium mb-2 leading-relaxed">You can type <span className="font-mono text-white bg-white/10 px-1 rounded">{`{first_name}`}</span> in any text block. It will be automatically replaced with the subscriber's real name when sent!</p>
+                                </div>
                             </div>
                         </div>
 
@@ -538,7 +743,14 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 <div className="bg-gray-300 py-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-400/30">Email Preview</div>
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
                                     <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
-                                        {emailBlocks.map((block, i) => (
+                                        {emailBlocks.map((block, i) => {
+                                            // Real-time preview of the {first_name} tag
+                                            let displayHtml = block.text;
+                                            if (displayHtml && typeof displayHtml === 'string') {
+                                                displayHtml = displayHtml.replace(/{first_name}/gi, '<span class="bg-[#9df01c]/20 text-[#7bb814] px-1 rounded italic">John</span>');
+                                            }
+
+                                            return (
                                             <div 
                                                 key={block.id} 
                                                 onClick={() => setSelectedBlockId(block.id)}
@@ -551,16 +763,16 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                 </div>
 
                                                 <div style={{ textAlign: block.align || 'left' }} className="w-full">
-                                                    {block.type === 'header' && <h2 dangerouslySetInnerHTML={{__html: block.text || 'Heading'}} style={{ fontSize: `${block.fontSize || 24}px` }} className="font-bold text-black m-0" />}
-                                                    {block.type === 'paragraph' && <p dangerouslySetInnerHTML={{__html: block.text || 'Type your message...'}} className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed" />}
+                                                    {block.type === 'header' && <h2 dangerouslySetInnerHTML={{__html: displayHtml || 'Heading'}} style={{ fontSize: `${block.fontSize || 24}px` }} className="font-bold text-black m-0" />}
+                                                    {block.type === 'paragraph' && <p dangerouslySetInnerHTML={{__html: displayHtml || 'Type your message...'}} className="text-base text-gray-800 m-0 whitespace-pre-wrap leading-relaxed" />}
                                                     {block.type === 'image' && (
                                                         block.url ? (
                                                             block.linkUrl ? (
                                                                 <a href={block.linkUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', width: `${block.width || 100}%` }}>
-                                                                    <img src={block.url} style={{ width: '100%' }} className="h-auto rounded-lg" alt="Block" />
+                                                                    <img src={block.url} style={{ width: '100%', display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
                                                                 </a>
                                                             ) : (
-                                                                <img src={block.url} style={{ width: `${block.width || 100}%` }} className="h-auto rounded-lg" alt="Block" />
+                                                                <img src={block.url} style={{ width: `${block.width || 100}%`, display: 'inline-block' }} className="h-auto rounded-lg" alt="Block" />
                                                             )
                                                         ) : (
                                                             <div className="bg-gray-100 p-10 text-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">Image Placeholder</div>
@@ -572,7 +784,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                                     {block.type === 'divider' && <hr style={{ borderTopColor: block.color || '#e5e7eb' }} className="border-t my-4" />}
                                                 </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
                                     <div className="text-center mt-6 text-[10px] text-gray-400">
                                         {emailSettings.social_links && emailSettings.social_links.filter(l => l.url).length > 0 && (
