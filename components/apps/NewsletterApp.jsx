@@ -668,7 +668,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                         </div>
 
                         <button onClick={handleSaveEmailSettings} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
-                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                             {saveSuccess ? 'Saved!' : 'Save Settings'}
                         </button>
                     </div>
@@ -708,7 +708,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                         </div>
 
                         <button onClick={handleSaveEmailSettings} disabled={isSaving} className="w-full py-4 rounded-xl font-black uppercase text-[11px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] disabled:opacity-50 flex items-center justify-center gap-2 mt-4">
-                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                             {saveSuccess ? 'Saved!' : 'Save Footer Settings'}
                         </button>
                     </div>
@@ -769,27 +769,13 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest hidden sm:inline">| Auto-saves to drafts</span>
                         </div>
                         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full md:w-auto border-t border-white/5 md:border-none pt-4 md:pt-0">
-                            <div className="flex items-center gap-2 bg-black border border-white/10 rounded-xl px-3 py-1 mr-2 w-full sm:w-auto">
-                                <label className="text-[8px] text-gray-500 font-bold uppercase tracking-widest whitespace-nowrap">Target Audience:</label>
-                                <select 
-                                    value={emailTarget} 
-                                    onChange={e => setEmailTarget(e.target.value)}
-                                    className="bg-transparent text-white text-[10px] font-bold uppercase tracking-widest outline-none appearance-none cursor-pointer py-2"
-                                >
-                                    <option value="bridged">All SC Bridged Users</option>
-                                    {audienceLists.map(list => (
-                                        <option key={list.id} value={`list_${list.id}`}>List: {list.name} ({list.subscriber_count})</option>
-                                    ))}
-                                </select>
-                            </div>
-
                             <button onClick={handleSaveDraft} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
                                 {isSaving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Save Draft
                             </button>
                             <button onClick={handleSendTestEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-6 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
                                 <Send size={12}/> Send Test
                             </button>
-                            <button onClick={handleSendEmail} disabled={isSaving} className="flex-1 sm:flex-none py-3 px-8 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2">
+                            <button onClick={handleSendEmail} disabled={isSaving || emailTargets.length === 0} className="flex-1 sm:flex-none py-3 px-8 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                                 <Send size={16} /> Send Blast
                             </button>
                         </div>
@@ -906,18 +892,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                             <span className="text-[10px] font-bold text-white flex-1 uppercase tracking-widest leading-tight">{list.name} <span className="text-gray-500">({list.subscriber_count})</span></span>
                                         </label>
                                     ))}
-                                </div>
-                                
-                                <div className="pt-4 border-t border-white/5 space-y-3">
-                                    <button onClick={handleSaveDraft} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-xs bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2">
-                                        {isSaving ? <Loader2 size={14} className="animate-spin"/> : <Save size={14}/>} Save Draft
-                                    </button>
-                                    <button onClick={handleSendTestEmail} disabled={isSaving} className="w-full py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
-                                        <Send size={12}/> Send Test
-                                    </button>
-                                    <button onClick={handleSendEmail} disabled={isSaving || emailTargets.length === 0} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-                                        <Send size={16} /> Send Blast
-                                    </button>
                                 </div>
                             </div>
                             
