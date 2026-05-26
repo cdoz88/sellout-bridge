@@ -62,6 +62,11 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     const [csvSuccess, setCsvSuccess] = useState(null);
     const [emailTargets, setEmailTargets] = useState(['bridged']); 
     
+    // Custom List Viewer State
+    const [viewingList, setViewingList] = useState(null);
+    const [listSubscribers, setListSubscribers] = useState([]);
+    const [isLoadingSubscribers, setIsLoadingSubscribers] = useState(false);
+
     const [billingData, setBillingData] = useState(null);
 
     const [isLoadingEmail, setIsLoadingEmail] = useState(false);
@@ -292,7 +297,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 if (fNameIdx !== -1) firstName = cleanRow[fNameIdx];
                 if (lNameIdx !== -1) lastName = cleanRow[lNameIdx];
                 
-                // If they just have a "Name" column, split it up
                 if (!firstName && nameIdx !== -1 && cleanRow[nameIdx]) {
                     const parts = cleanRow[nameIdx].split(/\s+/);
                     if (parts.length > 1) {
@@ -331,7 +335,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             }
         };
         reader.readAsText(file);
-        e.target.value = ''; // Reset input
+        e.target.value = '';
     };
 
     const handleSyncUna = async () => {
@@ -355,6 +359,32 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         } finally {
             setIsSyncingUna(false);
         }
+    };
+
+    const handleOpenList = async (list) => {
+        setViewingList(list);
+        setIsLoadingSubscribers(true);
+        try {
+            const res = await fetch(`/api/newsletter/lists/${list.id}/subscribers`, {
+                headers: { 'Authorization': `Bearer ${session}` }
+            });
+            const data = await res.json();
+            if (data.subscribers) setListSubscribers(data.subscribers);
+        } catch(e) {}
+        finally { setIsLoadingSubscribers(false); }
+    };
+
+    const handleRemoveSubscriber = async (subId) => {
+        if (!window.confirm("Remove this subscriber from the list?")) return;
+        try {
+            await fetch('/api/newsletter/lists/subscribers/delete', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: subId })
+            });
+            setListSubscribers(prev => prev.filter(s => s.id !== subId));
+            setAudienceLists(prev => prev.map(l => l.id === viewingList.id ? { ...l, subscriber_count: Math.max(0, l.subscriber_count - 1) } : l));
+        } catch(e) { alert("Failed to remove subscriber."); }
     };
 
     const toggleEmailTarget = (targetId) => {
@@ -601,7 +631,9 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 <div key={list.id} className="bg-black border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
                                         <div>
-                                            <h4 className="text-base font-bold text-white">{list.name}</h4>
+                                            <h4 onClick={() => handleOpenList(list)} className="text-base font-bold text-white cursor-pointer hover:text-[#9df01c] transition-colors">
+                                                {list.name} <span className="text-[10px] text-gray-500 ml-2 font-normal">(Click to view)</span>
+                                            </h4>
                                             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{list.subscriber_count} Active Subscribers</p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -622,6 +654,42 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             ))
                         )}
                     </div>
+
+                    {/* Subscriber Modal */}
+                    {viewingList && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setViewingList(null)}>
+                            <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setViewingList(null)} className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors z-10"><X size={20}/></button>
+                                
+                                <div className="p-8 border-b border-white/5 flex-shrink-0 pr-16">
+                                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-1">{viewingList.name}</h3>
+                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">{listSubscribers.length} Subscribers</p>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
+                                    {isLoadingSubscribers ? (
+                                        <div className="flex justify-center items-center h-32"><Loader2 size={32} className="animate-spin text-[#9df01c]" /></div>
+                                    ) : listSubscribers.length === 0 ? (
+                                        <div className="text-center text-gray-500 py-8">No subscribers found in this list.</div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {listSubscribers.map(sub => (
+                                                <div key={sub.id} className="flex items-center justify-between bg-black border border-white/5 p-4 rounded-xl hover:border-white/10 transition-colors">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-bold text-white truncate">{sub.first_name || sub.last_name ? `${sub.first_name || ''} ${sub.last_name || ''}`.trim() : 'Unknown Name'}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{sub.email}</p>
+                                                    </div>
+                                                    <button onClick={() => handleRemoveSubscriber(sub.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0 ml-4" title="Remove Subscriber">
+                                                        <Trash2 size={16}/>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

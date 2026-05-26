@@ -96,6 +96,28 @@ router.post('/api/newsletter/lists/delete', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Failed to delete list." }); }
 });
 
+router.get('/api/newsletter/lists/:id/subscribers', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const listId = req.params.id;
+        const rows = await sql`SELECT id, email, first_name, last_name, status FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${user.id} ORDER BY created_at DESC`;
+        res.json({ subscribers: rows });
+    } catch (err) { res.status(500).json({ error: "Failed to fetch subscribers." }); }
+});
+
+router.post('/api/newsletter/lists/subscribers/delete', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const { id } = req.body;
+        await sql`DELETE FROM bridge_newsletter_subscribers WHERE id = ${id} AND user_id = ${user.id}`;
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Failed to delete subscriber." }); }
+});
+
 router.post('/api/newsletter/lists/import', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -292,7 +314,6 @@ router.post('/api/newsletter/send-test', async (req, res) => {
         const settings = settingsDb.length > 0 ? settingsDb[0] : { sender_name: user.name, reply_to_email: user.email, footer_text: '', social_links: [] };
 
         let finalHtml = buildFinalHtml(campaign, settings, '#');
-        // Parse Merge Tags for Test Email (Replace with static text to show it works)
         if (finalHtml.includes('{first_name}')) {
             finalHtml = finalHtml.replace(/{first_name}/gi, 'Subscriber');
         }
@@ -357,7 +378,7 @@ router.post('/api/newsletter/send', async (req, res) => {
             }
         }
         
-        // Deduplicate emails so people on multiple lists don't get 2 emails
+        // Deduplicate emails
         const uniqueMap = new Map();
         rawAudience.forEach(u => {
             if (u.email && !uniqueMap.has(u.email.toLowerCase())) {
@@ -369,7 +390,6 @@ router.post('/api/newsletter/send', async (req, res) => {
         const unsubDb = await sql`SELECT email FROM bridge_newsletter_unsubscribes WHERE user_id = ${user.id}`;
         const unsubSet = new Set(unsubDb.map(u => u.email.toLowerCase()));
         
-        // Filter out unsubscribed emails
         const validRecipients = deduplicatedAudience.filter(u => !unsubSet.has(u.email.toLowerCase()));
 
         if (validRecipients.length === 0) {
@@ -432,7 +452,6 @@ router.post('/api/newsletter/send', async (req, res) => {
     }
 });
 
-// --- 5. AWS ANALYTICS WEBHOOK ---
 router.post('/api/newsletter/aws-events', express.text({type: '*/*'}), async (req, res) => {
     try {
         const payload = JSON.parse(req.body);
@@ -470,7 +489,6 @@ router.post('/api/newsletter/aws-events', express.text({type: '*/*'}), async (re
     }
 });
 
-// --- 6. FAN UNSUBSCRIBE ROUTE ---
 router.get('/api/newsletter/unsubscribe', async (req, res) => {
     try {
         const { token } = req.query;
@@ -492,7 +510,6 @@ router.get('/api/newsletter/unsubscribe', async (req, res) => {
     }
 });
 
-// --- 7. AUTO-CLEANER CRON JOB ---
 router.get('/api/cron/clean-newsletters', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -500,7 +517,6 @@ router.get('/api/cron/clean-newsletters', async (req, res) => {
             return res.status(401).json({ error: 'Unauthorized.' });
         }
         
-        // Find old campaigns to extract their images before deleting
         const oldCampaigns = await sql`
             SELECT content FROM bridge_newsletters 
             WHERE (status = 'sent' AND sent_at < NOW() - INTERVAL '30 days')
