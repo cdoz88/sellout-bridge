@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, AlertCircle, X, Trash2, UploadCloud, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
 
-// Pre-generate the 5-minute intervals for our strict time picker
+// Pre-generate the 15-minute intervals for our strict time picker
 const TIME_OPTIONS = [];
 for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 5) {
+    for (let m = 0; m < 60; m += 15) {
         const hour = h.toString().padStart(2, '0');
         const min = m.toString().padStart(2, '0');
         TIME_OPTIONS.push(`${hour}:${min}`);
@@ -42,7 +42,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
     tomorrow.setDate(tomorrow.getDate() + 1);
     const [publishDate, setPublishDate] = useState(tomorrow.toISOString().split('T')[0]);
     
-    // Set a default 5-minute interval time (12:00 PM)
+    // Set a default 15-minute interval time (12:00 PM)
     const [publishTime, setPublishTime] = useState('12:00');
     
     const [isSaving, setIsSaving] = useState(false);
