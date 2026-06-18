@@ -21,7 +21,7 @@
     },
     {
       "path": "/api/cron/publish-posts",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/clean-newsletters",
