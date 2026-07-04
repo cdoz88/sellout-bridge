@@ -458,4 +458,25 @@ router.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+router.get('/api/affiliates/stats', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
+        const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
+
+        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({ action: 'get_affiliate_stats', email: creatorEmail })
+        });
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (e) { 
+        res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
+    }
+});
+
 export default router;

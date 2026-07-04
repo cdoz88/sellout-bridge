@@ -1,0 +1,185 @@
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, Users, MousePointerClick, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb } from 'lucide-react';
+
+export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
+    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+    const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
+    
+    // Unlock for Premium accounts (Admin, Commissioner Exempt, All-Star, H.O.F.)
+    const canAccess = isAdmin || [12, 16, 17].includes(Number(unaData?.user?.role));
+
+    const [stats, setStats] = useState({ clicks: 0, joins: 0, commission: 0 });
+    const [referrals, setReferrals] = useState([]);
+    const [refLink, setRefLink] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        if (!session || !canAccess) {
+            setIsLoading(false);
+            return;
+        }
+
+        fetch('/api/affiliates/stats', {
+            headers: { 'Authorization': `Bearer ${session}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                setStats(data.stats);
+                setRefLink(data.link || '');
+                setReferrals(data.referrals || []);
+            }
+        })
+        .catch(err => console.error("Failed to fetch affiliate stats"))
+        .finally(() => setIsLoading(false));
+    }, [session, canAccess]);
+
+    const handleCopy = () => {
+        if (!refLink) return;
+        navigator.clipboard.writeText(refLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    if (!canAccess) {
+        return (
+            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
+                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
+                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                    <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
+                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
+                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
+                        The Affiliate Partner program allows you to refer new users to the platform and earn commissions. This tool is exclusively available to our premium creators.
+                    </p>
+                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
+                        Upgrade to Unlock
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
+    if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
+
+    return (
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+            <div className="mb-10">
+                <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
+                    <TrendingUp className="text-[#9df01c]" size={36} />
+                    Affiliate Partner
+                </h2>
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                    Track your referral link clicks, monitor your downline, and view your earned commissions.
+                </p>
+            </div>
+
+            {/* Link & Masking Section */}
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl mb-8 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5 text-[#9df01c] pointer-events-none">
+                    <Link2 size={120} className="-mt-8 -mr-8" />
+                </div>
+                
+                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Unique Tracking Link</h3>
+                
+                <div className="flex flex-col sm:flex-row gap-3 relative z-10">
+                    <div className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-xs text-[#9df01c] font-mono truncate overflow-hidden">
+                        {refLink || 'Generating your link...'}
+                    </div>
+                    <button 
+                        onClick={handleCopy}
+                        className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm flex-shrink-0"
+                    >
+                        {copied ? <CheckCircle2 size={14} className="text-[#9df01c]"/> : <Copy size={14}/>}
+                        {copied ? 'Copied!' : 'Copy Link'}
+                    </button>
+                </div>
+
+                <div className="mt-6 bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-xl p-4 flex gap-4 items-start relative z-10">
+                    <Lightbulb size={20} className="text-[#9df01c] shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1.5">Pro Tip: Mask Your Link</p>
+                        <p className="text-xs text-gray-300 leading-relaxed mb-3">
+                            Don't want to share that ugly, long tracking link? You can use the Custom Community URL app to mask it behind your own branded domain (e.g. <strong>vip.selloutcrowds.fan</strong>)!
+                        </p>
+                        <button 
+                            onClick={() => handleAppSwitch && handleAppSwitch('community-link', 'setup')}
+                            className="text-[10px] font-black uppercase tracking-widest text-black bg-[#9df01c] hover:bg-[#8ce015] px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                            Mask My Link <ArrowRight size={12} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Top KPI Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
+                        <DollarSign size={24} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Earnings</p>
+                        <p className="text-3xl font-black text-white">${parseFloat(stats.commission || 0).toFixed(2)}</p>
+                    </div>
+                </div>
+                
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10">
+                        <Users size={24} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Signups</p>
+                        <p className="text-3xl font-black text-white">{stats.joins || 0}</p>
+                    </div>
+                </div>
+
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10">
+                        <MousePointerClick size={24} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Link Clicks</p>
+                        <p className="text-3xl font-black text-white">{stats.clicks || 0}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Downline Table */}
+            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[40vh]">
+                <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-6 flex items-center gap-2">
+                    <Users className="text-[#9df01c]" size={20} /> Your Downline
+                </h3>
+                
+                {referrals.length === 0 ? (
+                    <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
+                        <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                        <p className="text-sm font-medium">No referrals yet.</p>
+                        <p className="text-[10px] mt-1">Users who sign up using your link will appear here.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-white/5">
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Subscriber Name</th>
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Email Address</th>
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Join Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {referrals.map((ref, idx) => (
+                                    <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <td className="py-4 text-sm font-bold text-white pr-4">{ref.name}</td>
+                                        <td className="py-4 text-xs font-mono text-gray-400">{ref.email}</td>
+                                        <td className="py-4 text-xs text-gray-400 text-right">{ref.date}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
