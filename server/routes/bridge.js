@@ -1,7 +1,7 @@
 import express from 'express';
 import Stripe from 'stripe'; 
 import crypto from 'crypto'; 
-import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, grantCommunityAccess, revokeCommunityAccess } from '../config.js';
+import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, grantCommunityAccess, revokeCommunityAccess, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
 
@@ -458,11 +458,12 @@ router.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+// --- THE MISSING AFFILIATE ENDPOINT ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
-        
+
         const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
         const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
 
