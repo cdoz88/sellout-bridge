@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp } from 'lucide-react';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
@@ -17,6 +17,7 @@ export default function TopBar({
             case 'assets': return { name: 'SC Brand Assets', icon: <ImageIcon size={20} className="text-[#9df01c]" /> };
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
             case 'onboarding': return { name: 'Getting Started', icon: <ListChecks size={20} className="text-[#9df01c]" /> };
+            case 'affiliate': return { name: 'Affiliate Partner', icon: <TrendingUp size={20} className="text-[#9df01c]" /> };
             default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
@@ -83,6 +84,13 @@ export default function TopBar({
                             <button onClick={() => handleAppSwitch('bridge', 'mappings')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
                                     <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
+                                </div>
+                                {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                            </button>
+
+                            <button onClick={() => handleAppSwitch('affiliate', 'dashboard')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'affiliate' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <TrendingUp size={18} className={currentApp === 'affiliate' ? 'text-[#9df01c]' : ''}/> Affiliate Partner
                                 </div>
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
