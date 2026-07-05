@@ -13,7 +13,6 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
-    // Premium features unlocked for Admin, Commissioner Exempt(12), All-Star(16), HOF(17)
     const canAccessPremium = isAdmin || [12, 16, 17].includes(role);
     const hasBillingAccess = isAdmin || [12, 15, 16, 17].includes(role);
     const hasContentAccess = isAdmin || [12, 15, 16, 17].includes(role);
@@ -30,7 +29,6 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
             .catch(() => setIsLoading(false));
     }, [session]);
 
-    // Fetch the live estimated billing
     useEffect(() => {
         if (!session || !hasBillingAccess) {
             setIsBillingLoading(false);
@@ -56,7 +54,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
         { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: canAccessPremium },
         { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasContentAccess },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessPremium },
-        { id: 'affiliate', tab: 'dashboard', name: 'Affiliate Partner', icon: TrendingUp, desc: 'Track referrals and earn commissions.', canAccess: canAccessPremium },
+        { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: canAccessPremium },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }

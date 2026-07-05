@@ -31,7 +31,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                 setReferrals(data.referrals || []);
             }
         })
-        .catch(err => console.error("Failed to fetch affiliate stats"))
+        .catch(err => console.error("Failed to fetch scouting stats"))
         .finally(() => setIsLoading(false));
     }, [session, canAccess]);
 
@@ -50,7 +50,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                     <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
                     <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
                     <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Affiliate Partner program allows you to refer new users to the platform and earn commissions. This tool is exclusively available to our premium creators.
+                        The Scouting program allows you to recruit new creators to the platform and earn recurring revenue. This tool is exclusively available to our premium creators.
                     </p>
                     <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
                         Upgrade to Unlock
@@ -67,10 +67,10 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             <div className="mb-10">
                 <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
                     <TrendingUp className="text-[#9df01c]" size={36} />
-                    Affiliate Partner
+                    Scouting Dashboard
                 </h2>
                 <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                    Track your referral link clicks, monitor your downline, and view your earned commissions.
+                    Scout Creators. Grow Your Network. Earn Recurring Revenue.
                 </p>
             </div>
 
@@ -80,7 +80,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                     <Link2 size={120} className="-mt-8 -mr-8" />
                 </div>
                 
-                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Unique Tracking Link</h3>
+                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Scout Link</h3>
                 
                 <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                     <div className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-xs text-[#9df01c] font-mono truncate overflow-hidden">
@@ -98,15 +98,15 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                 <div className="mt-6 bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-xl p-4 flex gap-4 items-start relative z-10">
                     <Lightbulb size={20} className="text-[#9df01c] shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1.5">Pro Tip: Mask Your Link</p>
+                        <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1.5">Pro Tip: Use Your Link In Bio</p>
                         <p className="text-xs text-gray-300 leading-relaxed mb-3">
-                            Don't want to share that ugly, long tracking link? You can use the Custom Community URL app to mask it behind your own branded domain (e.g. <strong>vip.selloutcrowds.fan</strong>)!
+                            The easiest way to recruit new creators is to add your Scout Link directly to your Link In Bio page with a button that says <strong>"Join My Network"</strong>!
                         </p>
                         <button 
-                            onClick={() => handleAppSwitch && handleAppSwitch('community-link', 'setup')}
+                            onClick={() => handleAppSwitch && handleAppSwitch('linktree', 'links')}
                             className="text-[10px] font-black uppercase tracking-widest text-black bg-[#9df01c] hover:bg-[#8ce015] px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5"
                         >
-                            Mask My Link <ArrowRight size={12} />
+                            Edit My Bio Page <ArrowRight size={12} />
                         </button>
                     </div>
                 </div>
@@ -119,7 +119,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                         <DollarSign size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Earnings</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Scouting Revenue</p>
                         <p className="text-3xl font-black text-white">${parseFloat(stats.commission || 0).toFixed(2)}</p>
                     </div>
                 </div>
@@ -129,7 +129,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                         <Users size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Signups</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Recruits</p>
                         <p className="text-3xl font-black text-white">{stats.joins || 0}</p>
                     </div>
                 </div>
@@ -139,7 +139,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                         <MousePointerClick size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Link Clicks</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Scout Link Clicks</p>
                         <p className="text-3xl font-black text-white">{stats.clicks || 0}</p>
                     </div>
                 </div>
@@ -148,21 +148,21 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             {/* Downline Table */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[40vh]">
                 <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-6 flex items-center gap-2">
-                    <Users className="text-[#9df01c]" size={20} /> Your Downline
+                    <Users className="text-[#9df01c]" size={20} /> Your Network
                 </h3>
                 
                 {referrals.length === 0 ? (
                     <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
                         <Users size={32} className="mx-auto mb-3 opacity-20"/>
-                        <p className="text-sm font-medium">No referrals yet.</p>
-                        <p className="text-[10px] mt-1">Users who sign up using your link will appear here.</p>
+                        <p className="text-sm font-medium">Your network is empty.</p>
+                        <p className="text-[10px] mt-1">Creators who sign up using your Scout Link will appear here.</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="border-b border-white/5">
-                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Subscriber Name</th>
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Recruit Name</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Email Address</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Join Date</th>
                                 </tr>

@@ -237,7 +237,7 @@ export default function Sidebar({
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
                             <div className="space-y-1">
                                 <button onClick={() => handleNavClick('dashboard')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'dashboard' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                                    <TrendingUp size={16} /> Partner Dashboard
+                                    <TrendingUp size={16} /> Scouting Dashboard
                                 </button>
                             </div>
                         </div>
