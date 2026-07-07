@@ -237,10 +237,11 @@ export default function App() {
           }
       }
 
-      // 3. SCOUT LINK ROUTING LOGIC - Redirects to studio to set the cookie
+      // 3. SCOUT LINK ROUTING LOGIC - Direct Client-Side Redirect
       if (hostname === 'scout.selloutcrowds.com') {
         const username = pathname.substring(1); 
         if (username && username !== '') {
+            // Direct the browser to the UNA script
             window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
         } else {
             window.location.href = 'https://selloutcrowds.com';
@@ -248,11 +249,12 @@ export default function App() {
         return;
     }
 
-    // 4. CUSTOM DOMAIN FALLBACK
+    // 4. CUSTOM DOMAIN FALLBACK - Direct Client-Side Redirect
     const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
     if (!isKnownDomain && pathname.length > 1) {
         const username = pathname.substring(1);
         if (username && username !== '') {
+             // Direct the browser to the UNA script
             window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
         } else {
             window.location.href = 'https://selloutcrowds.com';
