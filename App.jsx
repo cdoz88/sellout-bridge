@@ -237,38 +237,28 @@ export default function App() {
           }
       }
 
-      // 3. SCOUT LINK ROUTING LOGIC - Silently fetches ugly URL and redirects there!
+      // 3. SCOUT LINK ROUTING LOGIC - Redirects to studio to set the cookie
       if (hostname === 'scout.selloutcrowds.com') {
-          const username = pathname.substring(1); 
-          if (username && username !== '') {
-              fetch(`https://studio.selloutcrowds.com/get_scout.php?u=${encodeURIComponent(username)}`)
-                  .then(res => res.json())
-                  .then(data => {
-                      window.location.href = data.url || 'https://www.selloutcrowds.com';
-                  })
-                  .catch(() => {
-                      window.location.href = 'https://www.selloutcrowds.com';
-                  });
-          } else {
-              window.location.href = 'https://selloutcrowds.com';
-          }
-          return;
-      }
+        const username = pathname.substring(1); 
+        if (username && username !== '') {
+            window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
+        } else {
+            window.location.href = 'https://selloutcrowds.com';
+        }
+        return;
+    }
 
-      // 4. CUSTOM DOMAIN FALLBACK
-      const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
-      if (!isKnownDomain && pathname.length > 1) {
-          const username = pathname.substring(1);
-          if (username && username !== '') {
-              fetch(`https://studio.selloutcrowds.com/get_scout.php?u=${encodeURIComponent(username)}`)
-                  .then(res => res.json())
-                  .then(data => window.location.href = data.url || 'https://www.selloutcrowds.com')
-                  .catch(() => window.location.href = 'https://www.selloutcrowds.com');
-          } else {
-              window.location.href = 'https://selloutcrowds.com';
-          }
-          return;
-      }
+    // 4. CUSTOM DOMAIN FALLBACK
+    const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
+    if (!isKnownDomain && pathname.length > 1) {
+        const username = pathname.substring(1);
+        if (username && username !== '') {
+            window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
+        } else {
+            window.location.href = 'https://selloutcrowds.com';
+        }
+        return;
+    }
   }, []);
 
   useEffect(() => {
