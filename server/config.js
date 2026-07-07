@@ -83,6 +83,7 @@ export async function ensureSchema() {
         await sql`CREATE TABLE IF NOT EXISTS bridge_settings (user_id INTEGER PRIMARY KEY, stripe_account_id TEXT, paypal_client_id TEXT, paypal_secret_key TEXT)`;
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS creator_email VARCHAR(255)`; } catch(e){}
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS platform_customer_id VARCHAR(255)`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS lifetime_credited DECIMAL(10,2) DEFAULT 0.00`; } catch(e){}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
@@ -183,7 +184,6 @@ export async function ensureSchema() {
                 sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`;
 
-            // --- NEW: Audience Lists Tables ---
             await sql`CREATE TABLE IF NOT EXISTS bridge_newsletter_lists (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER,

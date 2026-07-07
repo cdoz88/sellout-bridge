@@ -26,6 +26,10 @@
     {
       "path": "/api/cron/clean-newsletters",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/issue-credits",
+      "schedule": "0 0 1 * *"
     }
   ]
 }

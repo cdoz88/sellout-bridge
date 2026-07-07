@@ -1,6 +1,6 @@
 import express from 'express';
 import Stripe from 'stripe'; 
-import { sql, getAuthenticatedUser, ensureSchema, grantCommunityAccess, revokeCommunityAccess } from '../config.js';
+import { sql, getAuthenticatedUser, ensureSchema, grantCommunityAccess, revokeCommunityAccess, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
 
@@ -56,6 +56,78 @@ router.get('/api/cron/sync-meters', async (req, res) => {
         }
         res.json({ success: true, eventsSent });
     } catch (error) { res.status(500).json({ error: "Cron Failed" }); }
+});
+
+// --- NEW: THE AUTOMATED AFFILIATE PAYOUT CRON JOB ---
+router.get('/api/cron/issue-credits', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+            return res.status(401).json({ error: 'Unauthorized. Invalid CRON_SECRET.' });
+        }
+
+        if (!process.env.STRIPE_SECRET_KEY) throw new Error("Stripe Key Missing");
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        await ensureSchema();
+        
+        // Find all creators who have a billing relationship with Sellout Crowds
+        const settings = await sql`SELECT user_id, creator_email, platform_customer_id, lifetime_credited FROM bridge_settings WHERE platform_customer_id IS NOT NULL`;
+        
+        let creditsIssued = 0;
+        let totalValueIssued = 0;
+        let logs = [];
+
+        for (const s of settings) {
+            if (!s.creator_email) continue;
+
+            try {
+                // 1. Fetch their Lifetime Commission straight from UNA
+                const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                    body: JSON.stringify({ action: 'get_affiliate_stats', email: s.creator_email })
+                });
+                
+                const data = await response.json();
+                if (!data || !data.success || !data.stats) continue;
+
+                const lifetimeEarned = parseFloat(data.stats.commission || 0);
+                const lifetimeCredited = parseFloat(s.lifetime_credited || 0);
+                
+                // 2. Calculate if they are owed money for this month
+                const newCreditOwed = lifetimeEarned - lifetimeCredited;
+
+                // 3. If they earned more than $0.01 this month, automate the credit!
+                if (newCreditOwed >= 0.01) {
+                    // In Stripe, applying a credit to a customer balance is a NEGATIVE amount
+                    const amountInCents = Math.round(newCreditOwed * 100);
+                    
+                    await stripe.customers.createBalanceTransaction(
+                        s.platform_customer_id,
+                        {
+                            amount: -amountInCents, // Negative = applying a credit!
+                            currency: 'usd',
+                            description: `Scouting Revenue Credit (${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })})`
+                        }
+                    );
+
+                    // 4. Update the DB so we don't double-pay them next month
+                    await sql`UPDATE bridge_settings SET lifetime_credited = lifetime_credited + ${newCreditOwed} WHERE user_id = ${s.user_id}`;
+                    
+                    creditsIssued++;
+                    totalValueIssued += newCreditOwed;
+                    logs.push(`Issued $${newCreditOwed.toFixed(2)} to ${s.creator_email}`);
+                }
+
+            } catch (innerErr) {
+                logs.push(`Failed to process ${s.creator_email}: ${innerErr.message}`);
+            }
+        }
+
+        res.json({ success: true, creditsIssued, totalValueIssued, logs });
+    } catch (error) { 
+        res.status(500).json({ error: "Credit Cron Failed: " + error.message }); 
+    }
 });
 
 router.get('/api/billing-estimate', async (req, res) => {

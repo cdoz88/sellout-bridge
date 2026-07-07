@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, MousePointerClick, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, CreditCard, AlertCircle } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock } from 'lucide-react';
 
 export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -14,20 +14,12 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
-    // Stripe Payout State
-    const [stripeAccountId, setStripeAccountId] = useState(null);
-    const [isLoadingOAuth, setIsLoadingOAuth] = useState(false);
-    const [oauthError, setOauthError] = useState(null);
-
-    const STRIPE_CLIENT_ID = 'ca_UAUckMTFQOG8rW8CajO6ZOB2mTzVXo42'; // Your Stripe Connect Client ID
-
     useEffect(() => {
         if (!session || !canAccess) {
             setIsLoading(false);
             return;
         }
 
-        // 1. Fetch Affiliate Stats
         fetch('/api/affiliates/stats', {
             headers: { 'Authorization': `Bearer ${session}` }
         })
@@ -39,67 +31,21 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                 setReferrals(data.referrals || []);
             }
         })
-        .catch(err => console.error("Failed to fetch scouting stats"));
-
-        // 2. Fetch User Settings (To check if Stripe is connected)
-        fetch('/api/get-settings', {
-            headers: { 'Authorization': `Bearer ${session}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.settings && data.settings.stripe_account_id) {
-                setStripeAccountId(data.settings.stripe_account_id);
-            }
-        })
-        .catch(err => console.error("Failed to fetch settings"))
+        .catch(err => console.error("Failed to fetch scouting stats"))
         .finally(() => setIsLoading(false));
-
     }, [session, canAccess]);
-
-    // Handle Stripe OAuth Redirect
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
-        
-        if (code && session && state === 'stripe_payouts') {
-            setIsLoadingOAuth(true);
-            fetch('/api/stripe/oauth/callback', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    setStripeAccountId(data.accountId);
-                } else {
-                    setOauthError(data.error || "Failed to connect Stripe.");
-                }
-                cleanUrl();
-            })
-            .catch(() => { setOauthError("Network error during Stripe connection."); cleanUrl(); });
-        }
-    }, [session]);
-
-    const cleanUrl = () => {
-        const newUrl = new URL(window.location);
-        newUrl.searchParams.delete('code');
-        newUrl.searchParams.delete('state');
-        window.history.replaceState({}, '', newUrl);
-        setIsLoadingOAuth(false);
-    };
-
-    const startStripeOAuth = () => {
-        const redirectUri = encodeURIComponent(window.location.origin + '/?app=affiliate');
-        window.location.href = `https://connect.stripe.com/oauth/authorize?response_type=code&client_id=${STRIPE_CLIENT_ID}&scope=read_write&redirect_uri=${redirectUri}&state=stripe_payouts`;
-    };
 
     const handleCopy = () => {
         if (!refLink) return;
         navigator.clipboard.writeText(refLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const getNextCreditDate = () => {
+        const today = new Date();
+        const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        return nextMonth.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     };
 
     if (!canAccess) {
@@ -120,16 +66,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
         );
     }
 
-    if (isLoading || isLoadingOAuth) {
-        return (
-            <div className="p-12 text-center flex flex-col items-center justify-center min-h-[50vh]">
-                <Loader2 className="w-12 h-12 animate-spin text-[#9df01c] mb-4" />
-                <p className="text-white font-bold tracking-widest uppercase text-xs">
-                    {isLoadingOAuth ? 'Connecting Bank...' : 'Loading Dashboard...'}
-                </p>
-            </div>
-        );
-    }
+    if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
@@ -139,39 +76,22 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                     Scouting Dashboard
                 </h2>
                 <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                    Scout Creators. Grow Your Network. Earn Recurring Revenue.
+                    Scout Creators. Grow Your Network. Earn Recurring Platform Credits.
                 </p>
             </div>
 
-            {/* --- NEW: STRIPE PAYOUT CONNECTION BANNER --- */}
-            {oauthError && (
-                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 flex items-center gap-2 text-xs font-bold">
-                    <AlertCircle size={16} /> {oauthError}
-                </div>
-            )}
-            
-            {!stripeAccountId && (
-                <div className="bg-[#111] rounded-[2rem] border border-orange-500/30 p-6 sm:p-8 shadow-2xl mb-8 relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-6 group">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] rounded-full pointer-events-none"></div>
-                    <div className="relative z-10 flex-1 text-center sm:text-left">
-                        <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2 flex items-center justify-center sm:justify-start gap-2">
-                            <AlertCircle size={20} className="text-orange-500" />
-                            Payout Account Required
-                        </h3>
-                        <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-2xl">
-                            In order to receive your automated monthly commission payouts, you must connect a Stripe Express account to link your bank. 
+            {/* How Payouts Work Banner */}
+            <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-2xl p-5 sm:p-6 mb-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                <div className="flex items-start gap-3">
+                    <Info size={20} className="text-[#9df01c] flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="text-white font-bold text-sm mb-1">How do I get paid?</h4>
+                        <p className="text-xs text-gray-400 leading-relaxed max-w-3xl">
+                            You earn a recurring <strong className="text-[#9df01c]">10% of the Net Revenue</strong> generated by any creator who signs up using your link. At the end of each month, your earnings are automatically applied as a credit to your Sellout Crowds account to seamlessly cover the cost of your premium features, teammates, and add-ons!
                         </p>
                     </div>
-                    <div className="relative z-10 w-full sm:w-auto flex-shrink-0">
-                        <button 
-                            onClick={startStripeOAuth}
-                            className="w-full sm:w-auto bg-[#635BFF] hover:bg-[#7A73FF] text-white font-black py-4 px-8 rounded-xl uppercase text-[11px] tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#635BFF]/20"
-                        >
-                            <CreditCard size={16} /> Connect Stripe
-                        </button>
-                    </div>
                 </div>
-            )}
+            </div>
 
             {/* Link & Masking Section */}
             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl mb-8 relative overflow-hidden">
@@ -179,9 +99,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                     <Link2 size={120} className="-mt-8 -mr-8" />
                 </div>
                 
-                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10 flex items-center gap-2">
-                    Your Scout Link
-                </h3>
+                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Scout Link</h3>
                 
                 <div className="flex flex-col sm:flex-row gap-3 relative z-10">
                     <div className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-xs text-[#9df01c] font-mono truncate overflow-hidden">
@@ -214,24 +132,16 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             </div>
 
             {/* Top KPI Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
-                            <DollarSign size={24} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Earnings</p>
-                            <p className="text-3xl font-black text-white">${parseFloat(stats.commission || 0).toFixed(2)}</p>
-                        </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
+                        <DollarSign size={24} />
                     </div>
-                    {stripeAccountId && (
-                        <div className="text-right">
-                            <span className="inline-flex items-center gap-1.5 bg-green-500/10 text-green-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-green-500/20">
-                                <CheckCircle2 size={12} /> Payouts Active
-                            </span>
-                        </div>
-                    )}
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-0.5">Lifetime Earnings</p>
+                        <p className="text-3xl font-black text-white leading-none">${parseFloat(stats.commission || 0).toFixed(2)}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-[#9df01c] mt-1.5">10% of Net Revenue</p>
+                    </div>
                 </div>
                 
                 <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
@@ -240,7 +150,19 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                     </div>
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Recruits</p>
-                        <p className="text-3xl font-black text-white">{stats.joins || 0}</p>
+                        <p className="text-3xl font-black text-white leading-none">{stats.joins || 0}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-1.5">Active Network</p>
+                    </div>
+                </div>
+
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20">
+                        <CalendarClock size={24} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Next Credit Date</p>
+                        <p className="text-xl font-black text-white leading-none mt-2">{getNextCreditDate()}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500 mt-2">Automated Payout</p>
                     </div>
                 </div>
             </div>
@@ -265,7 +187,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Recruit Name</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Email Address</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Join Date</th>
-                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right pl-4">Revenue</th>
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right pl-4">Credits Generated</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -274,7 +196,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                                         <td className="py-4 text-sm font-bold text-white pr-4">{ref.name}</td>
                                         <td className="py-4 text-xs font-mono text-gray-400">{ref.email}</td>
                                         <td className="py-4 text-xs text-gray-400 text-right">{ref.date}</td>
-                                        <td className="py-4 text-sm font-black text-[#9df01c] text-right pl-4">${ref.revenue}</td>
+                                        <td className="py-4 text-sm font-black text-[#9df01c] text-right pl-4">+${ref.revenue}</td>
                                     </tr>
                                 ))}
                             </tbody>
