@@ -155,8 +155,7 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           setOauthParams({
               client_id: params.get('client_id'),
-              redirect_uri: params.get('redirect_uri'),
-              response_type: params.get('response_type'),
+              redirect_uri: params.get('response_type'),
               state: params.get('state')
           });
       }
@@ -238,11 +237,18 @@ export default function App() {
           }
       }
 
-      // 3. SCOUT LINK ROUTING LOGIC
+      // 3. SCOUT LINK ROUTING LOGIC - Silently fetches ugly URL and redirects there!
       if (hostname === 'scout.selloutcrowds.com') {
-          const username = pathname.substring(1); // Remove leading slash
+          const username = pathname.substring(1); 
           if (username && username !== '') {
-              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${username}`;
+              fetch(`https://studio.selloutcrowds.com/get_scout.php?u=${encodeURIComponent(username)}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      window.location.href = data.url || 'https://www.selloutcrowds.com';
+                  })
+                  .catch(() => {
+                      window.location.href = 'https://www.selloutcrowds.com';
+                  });
           } else {
               window.location.href = 'https://selloutcrowds.com';
           }
@@ -254,7 +260,10 @@ export default function App() {
       if (!isKnownDomain && pathname.length > 1) {
           const username = pathname.substring(1);
           if (username && username !== '') {
-              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${username}`;
+              fetch(`https://studio.selloutcrowds.com/get_scout.php?u=${encodeURIComponent(username)}`)
+                  .then(res => res.json())
+                  .then(data => window.location.href = data.url || 'https://www.selloutcrowds.com')
+                  .catch(() => window.location.href = 'https://www.selloutcrowds.com');
           } else {
               window.location.href = 'https://selloutcrowds.com';
           }
@@ -446,7 +455,12 @@ export default function App() {
   };
 
   if (isRedirecting) {
-      return <div className="min-h-screen bg-[#050505]"></div>;
+      return (
+         <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
+            <Loader2 className="w-12 h-12 animate-spin mb-4" />
+            <span className="font-black uppercase tracking-[0.3em] text-[10px]">Verifying...</span>
+         </div>
+      );
   }
 
   if (isPublicBio) {
