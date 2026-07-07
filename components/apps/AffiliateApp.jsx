@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet } from 'lucide-react';
 
 export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -11,6 +11,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
     const [stats, setStats] = useState({ clicks: 0, joins: 0, commission: 0 });
     const [referrals, setReferrals] = useState([]);
     const [refLink, setRefLink] = useState('');
+    const [lifetimeCredited, setLifetimeCredited] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
 
@@ -20,6 +21,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             return;
         }
 
+        // 1. Fetch Affiliate Stats from UNA
         fetch('/api/affiliates/stats', {
             headers: { 'Authorization': `Bearer ${session}` }
         })
@@ -31,8 +33,21 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                 setReferrals(data.referrals || []);
             }
         })
-        .catch(err => console.error("Failed to fetch scouting stats"))
+        .catch(err => console.error("Failed to fetch scouting stats"));
+
+        // 2. Fetch User Settings (To get the amount they have already been credited)
+        fetch('/api/get-settings', {
+            headers: { 'Authorization': `Bearer ${session}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.settings) {
+                setLifetimeCredited(data.settings.lifetime_credited || 0);
+            }
+        })
+        .catch(err => console.error("Failed to fetch settings"))
         .finally(() => setIsLoading(false));
+
     }, [session, canAccess]);
 
     const handleCopy = () => {
@@ -47,6 +62,9 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
         const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
         return nextMonth.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     };
+
+    // Calculate the Pending Credit for the current period
+    const pendingCredit = Math.max(0, parseFloat(stats.commission || 0) - parseFloat(lifetimeCredited || 0));
 
     if (!canAccess) {
         return (
@@ -132,37 +150,52 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             </div>
 
             {/* Top KPI Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+                {/* 1. Total Recruits */}
                 <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
-                        <DollarSign size={24} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-0.5">Lifetime Earnings</p>
-                        <p className="text-3xl font-black text-white leading-none">${parseFloat(stats.commission || 0).toFixed(2)}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-[#9df01c] mt-1.5">10% of Net Revenue</p>
-                    </div>
-                </div>
-                
-                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10">
-                        <Users size={24} />
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10">
+                        <Users size={20} />
                     </div>
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Recruits</p>
-                        <p className="text-3xl font-black text-white leading-none">{stats.joins || 0}</p>
+                        <p className="text-2xl font-black text-white leading-none">{stats.joins || 0}</p>
                         <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-1.5">Active Network</p>
                     </div>
                 </div>
 
+                {/* 2. Pending Credit */}
                 <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20">
-                        <CalendarClock size={24} />
+                    <div className="w-12 h-12 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
+                        <Wallet size={20} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Next Credit Date</p>
-                        <p className="text-xl font-black text-white leading-none mt-2">{getNextCreditDate()}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500 mt-2">Automated Payout</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Pending Credit</p>
+                        <p className="text-2xl font-black text-white leading-none">${pendingCredit.toFixed(2)}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-[#9df01c] mt-1.5">Current Period</p>
+                    </div>
+                </div>
+
+                {/* 3. Next Credit Date */}
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20">
+                        <CalendarClock size={20} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Next Payout</p>
+                        <p className="text-lg font-black text-white leading-none">{getNextCreditDate()}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500 mt-1.5">Automated</p>
+                    </div>
+                </div>
+
+                {/* 4. Lifetime Earnings */}
+                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 text-gray-400 flex items-center justify-center shrink-0 border border-white/10">
+                        <DollarSign size={20} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Lifetime Earned</p>
+                        <p className="text-2xl font-black text-white leading-none">${parseFloat(stats.commission || 0).toFixed(2)}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-1.5">10% of Net Rev</p>
                     </div>
                 </div>
             </div>
