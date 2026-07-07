@@ -155,6 +155,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Recruit Name</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Email Address</th>
                                     <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Join Date</th>
+                                    <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right pl-4">Revenue</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -163,6 +164,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                                         <td className="py-4 text-sm font-bold text-white pr-4">{ref.name}</td>
                                         <td className="py-4 text-xs font-mono text-gray-400">{ref.email}</td>
                                         <td className="py-4 text-xs text-gray-400 text-right">{ref.date}</td>
+                                        <td className="py-4 text-sm font-black text-[#9df01c] text-right pl-4">${ref.revenue}</td>
                                     </tr>
                                 ))}
                             </tbody>
