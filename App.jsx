@@ -31,23 +31,32 @@ const WordPressIcon = ({ className }) => (
 );
 
 export default function App() {
-  // Sync check: If this is a redirect domain, freeze the UI on a blank screen instantly
   const [isRedirecting, setIsRedirecting] = useState(() => {
       try {
           if (typeof window !== 'undefined') {
-              return window.location.hostname.endsWith('.selloutcrowds.fan') && !window.location.hostname.includes('localhost');
+              const host = window.location.hostname;
+              const path = window.location.pathname;
+              
+              // 1. Scouting URLs (scout.selloutcrowds.com)
+              if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
+
+              // 2. Community Links (*.selloutcrowds.fan)
+              if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
+              
+              // 3. Custom Domain Fallback
+              const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com');
+              if (!isKnownDomain && path.length > 1) return true;
           }
       } catch(e) {}
       return false;
   });
 
-  // Sync check: If this is a bio page, know instantly to prevent login screen flash
   const [isPublicBio, setIsPublicBio] = useState(() => {
       try {
           if (typeof window !== 'undefined') {
               const host = window.location.hostname;
               const path = window.location.pathname;
-              return host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth'));
+              return host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth') && !path.startsWith('/scout/'));
           }
       } catch(e) {}
       return false;
@@ -74,8 +83,7 @@ export default function App() {
           if (typeof window !== 'undefined') {
               const host = window.location.hostname;
               const path = window.location.pathname;
-              // Start loading instantly if it's a bio page to prevent layout shift
-              if (host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth'))) return true;
+              if (host.includes('crowds.bio') || (host.includes('localhost') && path.length > 1 && !path.startsWith('/oauth') && !path.startsWith('/scout/'))) return true;
           }
       } catch(e) {}
       return false;
@@ -119,7 +127,6 @@ export default function App() {
   const hasAttemptedLogin = useRef(false);
   const hasUser = useRef(false);
 
-  const brandColor = '#9df01c';
   const logoUrl = "https://admin.beasellout.com/wp-content/uploads/2025/04/Logo.webp";
   const UNA_STUDIO_URL = "https://studio.selloutcrowds.com";
   const UNA_AUTH_URL = `${UNA_STUDIO_URL}/modules/?r=oauth2/auth`;
@@ -176,7 +183,6 @@ export default function App() {
       }
   }, [isPublicBio, publicCardData, isOAuthFlow, isRedirecting]);
 
-  // --- ROUTING LOGIC ---
   useEffect(() => {
       const hostname = window.location.hostname;
       const pathname = window.location.pathname;
@@ -184,7 +190,7 @@ export default function App() {
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
       // 1. LINK IN BIO & BUSINESS CARD ROUTING
-      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth'))) {
+      if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth') && !pathname.startsWith('/scout/'))) {
           if (pathname.startsWith('/c/')) {
               const pathSlug = pathname.replace('/c/', '');
               if (pathSlug && pathSlug !== '') {
@@ -217,25 +223,42 @@ export default function App() {
           return; 
       }
 
-      // 2. NEW COMMUNITY LINK ROUTING LOGIC (.fan)
+      // 2. COMMUNITY LINK ROUTING LOGIC (.fan)
       if (hostname.endsWith('.selloutcrowds.fan') && !hostname.includes('localhost')) {
           const subdomain = hostname.replace('.selloutcrowds.fan', '');
-          
           if (subdomain && subdomain !== '') {
-              // The isRedirecting state already froze the UI, so we just run the fetch in the background
               fetch(`/api/resolve-domain/${subdomain}`)
                   .then(res => res.json())
                   .then(data => {
-                      if (data.success && data.url) {
-                          window.location.href = data.url; 
-                      } else {
-                          window.location.href = 'https://selloutcrowds.com';
-                      }
+                      if (data.success && data.url) window.location.href = data.url; 
+                      else window.location.href = 'https://selloutcrowds.com';
                   })
                   .catch(() => { window.location.href = 'https://selloutcrowds.com'; });
-                  
               return; 
           }
+      }
+
+      // 3. SCOUT LINK ROUTING LOGIC
+      if (hostname === 'scout.selloutcrowds.com') {
+          const username = pathname.substring(1); // Remove leading slash
+          if (username && username !== '') {
+              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${username}`;
+          } else {
+              window.location.href = 'https://selloutcrowds.com';
+          }
+          return;
+      }
+
+      // 4. CUSTOM DOMAIN FALLBACK
+      const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
+      if (!isKnownDomain && pathname.length > 1) {
+          const username = pathname.substring(1);
+          if (username && username !== '') {
+              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${username}`;
+          } else {
+              window.location.href = 'https://selloutcrowds.com';
+          }
+          return;
       }
   }, []);
 
@@ -422,14 +445,10 @@ export default function App() {
       }
   };
 
-  // --- RENDER LOGIC ---
-
-  // 1. If this is a redirect link, freeze the UI to a completely dark, seamless screen
   if (isRedirecting) {
       return <div className="min-h-screen bg-[#050505]"></div>;
   }
 
-  // 2. Public Link in Bio / Business Card
   if (isPublicBio) {
       if (isLoading) {
           return (
@@ -469,7 +488,6 @@ export default function App() {
       );
   }
 
-  // 3. User Login Screen
   if (!session) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
@@ -496,7 +514,6 @@ export default function App() {
     );
   }
 
-  // 4. OAuth Flow Check
   if (isOAuthFlow && session && unaData.user) {
       const role = Number(unaData.user.role);
       if ([1, 2, 15, 18].includes(role)) {
