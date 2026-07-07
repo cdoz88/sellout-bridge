@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, MousePointerClick, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb } from 'lucide-react';
 
 export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -113,7 +113,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
             </div>
 
             {/* Top KPI Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                 <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center shrink-0 border border-[#9df01c]/20">
                         <DollarSign size={24} />
@@ -129,18 +129,8 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch }) {
                         <Users size={24} />
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Recruits</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Total Recruits</p>
                         <p className="text-3xl font-black text-white">{stats.joins || 0}</p>
-                    </div>
-                </div>
-
-                <div className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10">
-                        <MousePointerClick size={24} />
-                    </div>
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Scout Link Clicks</p>
-                        <p className="text-3xl font-black text-white">{stats.clicks || 0}</p>
                     </div>
                 </div>
             </div>
