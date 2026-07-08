@@ -85,6 +85,9 @@ export async function ensureSchema() {
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS platform_customer_id VARCHAR(255)`; } catch(e){}
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS lifetime_credited DECIMAL(10,2) DEFAULT 0.00`; } catch(e){}
 
+        // NEW: Scout Links Table
+        try { await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e){}
+
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
 

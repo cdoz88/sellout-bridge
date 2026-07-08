@@ -37,13 +37,9 @@ export default function App() {
               const host = window.location.hostname;
               const path = window.location.pathname;
               
-              // 1. Scouting URLs (scout.selloutcrowds.com)
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
-
-              // 2. Community Links (*.selloutcrowds.fan)
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
-              // 3. Custom Domain Fallback
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -188,7 +184,6 @@ export default function App() {
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
-      // 1. LINK IN BIO & BUSINESS CARD ROUTING
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth') && !pathname.startsWith('/scout/'))) {
           if (pathname.startsWith('/c/')) {
               const pathSlug = pathname.replace('/c/', '');
@@ -222,7 +217,6 @@ export default function App() {
           return; 
       }
 
-      // 2. COMMUNITY LINK ROUTING LOGIC (.fan)
       if (hostname.endsWith('.selloutcrowds.fan') && !hostname.includes('localhost')) {
           const subdomain = hostname.replace('.selloutcrowds.fan', '');
           if (subdomain && subdomain !== '') {
@@ -237,27 +231,46 @@ export default function App() {
           }
       }
 
-      // 3. SCOUT LINK ROUTING LOGIC - Direct Client-Side Redirect
+      // --- TRANSLATOR REDIRECT LOGIC ---
       if (hostname === 'scout.selloutcrowds.com') {
           const rawPath = pathname.substring(1); 
           if (rawPath && rawPath !== '') {
-              // Decode the URL so spaces don't get double encoded!
-              const username = decodeURIComponent(rawPath); 
-              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
+              const decodedPath = decodeURIComponent(rawPath); 
+              fetch(`/api/resolve-scout/${encodeURIComponent(decodedPath)}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.success && data.username) {
+                          window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(data.username)}`;
+                      } else {
+                          window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(decodedPath)}`;
+                      }
+                  })
+                  .catch(() => {
+                      window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(decodedPath)}`;
+                  });
           } else {
               window.location.href = 'https://selloutcrowds.com';
           }
           return;
       }
 
-      // 4. CUSTOM DOMAIN FALLBACK - Direct Client-Side Redirect
       const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
           if (rawPath && rawPath !== '') {
-              // Decode the URL so spaces don't get double encoded!
-              const username = decodeURIComponent(rawPath);
-              window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(username)}`;
+              const decodedPath = decodeURIComponent(rawPath);
+              fetch(`/api/resolve-scout/${encodeURIComponent(decodedPath)}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data.success && data.username) {
+                          window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(data.username)}`;
+                      } else {
+                          window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(decodedPath)}`;
+                      }
+                  })
+                  .catch(() => {
+                      window.location.href = `https://studio.selloutcrowds.com/scout.php?u=${encodeURIComponent(decodedPath)}`;
+                  });
           } else {
               window.location.href = 'https://selloutcrowds.com';
           }

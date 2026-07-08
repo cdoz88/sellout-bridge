@@ -58,7 +58,6 @@ router.get('/api/cron/sync-meters', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Cron Failed" }); }
 });
 
-// --- NEW: THE AUTOMATED AFFILIATE PAYOUT CRON JOB ---
 router.get('/api/cron/issue-credits', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -70,7 +69,6 @@ router.get('/api/cron/issue-credits', async (req, res) => {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         await ensureSchema();
         
-        // Find all creators who have a billing relationship with Sellout Crowds
         const settings = await sql`SELECT user_id, creator_email, platform_customer_id, lifetime_credited FROM bridge_settings WHERE platform_customer_id IS NOT NULL`;
         
         let creditsIssued = 0;
@@ -81,7 +79,6 @@ router.get('/api/cron/issue-credits', async (req, res) => {
             if (!s.creator_email) continue;
 
             try {
-                // 1. Fetch their Lifetime Commission straight from UNA
                 const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
@@ -93,42 +90,95 @@ router.get('/api/cron/issue-credits', async (req, res) => {
 
                 const lifetimeEarned = parseFloat(data.stats.commission || 0);
                 const lifetimeCredited = parseFloat(s.lifetime_credited || 0);
-                
-                // 2. Calculate if they are owed money for this month
                 const newCreditOwed = lifetimeEarned - lifetimeCredited;
 
-                // 3. If they earned more than $0.01 this month, automate the credit!
                 if (newCreditOwed >= 0.01) {
-                    // In Stripe, applying a credit to a customer balance is a NEGATIVE amount
                     const amountInCents = Math.round(newCreditOwed * 100);
-                    
                     await stripe.customers.createBalanceTransaction(
                         s.platform_customer_id,
                         {
-                            amount: -amountInCents, // Negative = applying a credit!
+                            amount: -amountInCents,
                             currency: 'usd',
                             description: `Scouting Revenue Credit (${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })})`
                         }
                     );
-
-                    // 4. Update the DB so we don't double-pay them next month
                     await sql`UPDATE bridge_settings SET lifetime_credited = lifetime_credited + ${newCreditOwed} WHERE user_id = ${s.user_id}`;
-                    
                     creditsIssued++;
                     totalValueIssued += newCreditOwed;
                     logs.push(`Issued $${newCreditOwed.toFixed(2)} to ${s.creator_email}`);
                 }
-
             } catch (innerErr) {
                 logs.push(`Failed to process ${s.creator_email}: ${innerErr.message}`);
             }
         }
-
         res.json({ success: true, creditsIssued, totalValueIssued, logs });
     } catch (error) { 
         res.status(500).json({ error: "Credit Cron Failed: " + error.message }); 
     }
 });
+
+// --- NEW: Custom Scout Link APIs ---
+
+router.post('/api/scout/custom-link', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+        
+        const { customSlug, unaUsername } = req.body;
+        if (!customSlug || !unaUsername) return res.status(400).json({ error: "Missing parameters" });
+        
+        // Strip everything but letters, numbers, and dashes to ensure clean URLs
+        const cleanSlug = customSlug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        
+        // Ensure no one else has claimed this slug
+        const existing = await sql`SELECT user_id FROM bridge_scout_links WHERE custom_slug = ${cleanSlug} AND user_id != ${user.id}`;
+        if (existing.length > 0) {
+            return res.status(400).json({ error: "That custom link is already taken!" });
+        }
+        
+        await sql`INSERT INTO bridge_scout_links (user_id, custom_slug, una_username) VALUES (${user.id}, ${cleanSlug}, ${unaUsername}) ON CONFLICT (user_id) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username`;
+        res.json({ success: true, slug: cleanSlug });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to save custom link" });
+    }
+});
+
+router.get('/api/scout/custom-link', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+        
+        const rows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
+        if (rows.length > 0) {
+            res.json({ success: true, slug: rows[0].custom_slug });
+        } else {
+            res.json({ success: true, slug: null });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch custom link" });
+    }
+});
+
+router.get('/api/resolve-scout/:slug', async (req, res) => {
+    try {
+        await ensureSchema();
+        const { slug } = req.params;
+        const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        const rows = await sql`SELECT una_username FROM bridge_scout_links WHERE custom_slug = ${cleanSlug}`;
+        
+        if (rows.length > 0) {
+            res.json({ success: true, username: rows[0].una_username });
+        } else {
+            res.json({ success: false, error: "Not found" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Failed to resolve link" });
+    }
+});
+
+// -----------------------------------
 
 router.get('/api/billing-estimate', async (req, res) => {
     try {

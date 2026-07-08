@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil } from 'lucide-react';
 
 export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -11,12 +11,19 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
     // Data State
     const [stats, setStats] = useState({ clicks: 0, joins: 0, commission: 0 });
     const [referrals, setReferrals] = useState([]);
-    const [payouts, setPayouts] = useState([]); // Ledger data to be wired up later
+    const [payouts, setPayouts] = useState([]); 
     const [refLink, setRefLink] = useState('');
     const [lifetimeCredited, setLifetimeCredited] = useState(0);
     
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+
+    // Editing State
+    const [isEditingLink, setIsEditingLink] = useState(false);
+    const [customSlug, setCustomSlug] = useState('');
+    const [isSavingLink, setIsSavingLink] = useState(false);
+    const [linkError, setLinkError] = useState('');
+    const [unaUsername, setUnaUsername] = useState(''); 
 
     useEffect(() => {
         if (!session || !canAccess) {
@@ -32,13 +39,33 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
         .then(data => {
             if (data.success) {
                 setStats(data.stats);
-                setRefLink(data.link || '');
                 setReferrals(data.referrals || []);
+
+                if (data.link) {
+                    const urlObj = new URL(data.link);
+                    const pathParts = urlObj.pathname.split('/');
+                    const username = pathParts[pathParts.length - 1];
+                    setUnaUsername(username);
+                    
+                    // Check if they already have a custom slug mapped
+                    fetch('/api/scout/custom-link', { headers: { 'Authorization': `Bearer ${session}` } })
+                        .then(r => r.json())
+                        .then(linkData => {
+                            if (linkData.success && linkData.slug) {
+                                setCustomSlug(linkData.slug);
+                                setRefLink(`https://scout.selloutcrowds.com/${linkData.slug}`);
+                            } else {
+                                setCustomSlug(username);
+                                setRefLink(data.link);
+                            }
+                        })
+                        .catch(() => setRefLink(data.link));
+                }
             }
         })
         .catch(err => console.error("Failed to fetch scouting stats"));
 
-        // 2. Fetch User Settings (To get the amount they have already been credited)
+        // 2. Fetch User Settings 
         fetch('/api/get-settings', {
             headers: { 'Authorization': `Bearer ${session}` }
         })
@@ -60,13 +87,38 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleSaveCustomLink = async () => {
+        if (!customSlug) return;
+        setIsSavingLink(true);
+        setLinkError('');
+        
+        try {
+            const res = await fetch('/api/scout/custom-link', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customSlug, unaUsername })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                setRefLink(`https://scout.selloutcrowds.com/${data.slug}`);
+                setIsEditingLink(false);
+            } else {
+                setLinkError(data.error || "Failed to save link");
+            }
+        } catch (err) {
+            setLinkError("Server error. Please try again.");
+        } finally {
+            setIsSavingLink(false);
+        }
+    };
+
     const getNextCreditDate = () => {
         const today = new Date();
         const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
         return nextMonth.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     };
 
-    // Calculate the Pending Credit for the current period
     const pendingCredit = Math.max(0, parseFloat(stats.commission || 0) - parseFloat(lifetimeCredited || 0));
 
     if (!canAccess) {
@@ -131,17 +183,63 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                         <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Scout Link</h3>
                         
                         <div className="flex flex-col sm:flex-row gap-3 relative z-10">
-                            <div className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-xs text-[#9df01c] font-mono truncate overflow-hidden">
-                                {refLink || 'Generating your link...'}
-                            </div>
-                            <button 
-                                onClick={handleCopy}
-                                className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm flex-shrink-0"
-                            >
-                                {copied ? <CheckCircle2 size={14} className="text-[#9df01c]"/> : <Copy size={14}/>}
-                                {copied ? 'Copied!' : 'Copy Link'}
-                            </button>
+                            {isEditingLink ? (
+                                <div className="flex-1 flex items-center bg-black border border-[#9df01c] rounded-xl px-4 py-2">
+                                    <span className="text-gray-500 text-xs font-mono">scout.selloutcrowds.com/</span>
+                                    <input 
+                                        type="text" 
+                                        value={customSlug} 
+                                        onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                        className="bg-transparent border-none outline-none text-[#9df01c] text-xs font-mono w-full"
+                                        placeholder="your-custom-name"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-xs text-[#9df01c] font-mono truncate overflow-hidden">
+                                    {refLink || 'Generating your link...'}
+                                </div>
+                            )}
+
+                            {isEditingLink ? (
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setIsEditingLink(false)}
+                                        className="px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        onClick={handleSaveCustomLink}
+                                        disabled={isSavingLink || !customSlug}
+                                        className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 flex-shrink-0"
+                                    >
+                                        {isSavingLink ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => {
+                                            setCustomSlug(refLink.split('/').pop());
+                                            setIsEditingLink(true);
+                                            setLinkError('');
+                                        }}
+                                        className="px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
+                                    >
+                                        <Pencil size={14} /> Edit
+                                    </button>
+                                    <button 
+                                        onClick={handleCopy}
+                                        className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm flex-shrink-0"
+                                    >
+                                        {copied ? <CheckCircle2 size={14} className="text-[#9df01c]"/> : <Copy size={14}/>}
+                                        {copied ? 'Copied!' : 'Copy Link'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
+
+                        {linkError && <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-widest relative z-10">{linkError}</p>}
 
                         <div className="mt-6 bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-xl p-4 flex gap-4 items-start relative z-10">
                             <Lightbulb size={20} className="text-[#9df01c] shrink-0 mt-0.5" />
