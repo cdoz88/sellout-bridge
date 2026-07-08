@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw } from 'lucide-react';
 
 export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -113,6 +113,30 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
         }
     };
 
+    const handleResetCustomLink = async () => {
+        if (!window.confirm("Are you sure you want to remove your custom link? It will immediately revert to your default username.")) return;
+        setIsSavingLink(true);
+        setLinkError('');
+
+        try {
+            const res = await fetch('/api/scout/custom-link/delete', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+                setCustomSlug(unaUsername);
+                setRefLink(`https://scout.selloutcrowds.com/${unaUsername}`);
+                setIsEditingLink(false);
+            } else {
+                setLinkError("Failed to reset link.");
+            }
+        } catch (err) {
+            setLinkError("Server error. Please try again.");
+        } finally {
+            setIsSavingLink(false);
+        }
+    };
+
     const getNextCreditDate = () => {
         const today = new Date();
         const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
@@ -182,7 +206,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                         
                         <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-4 relative z-10">Your Scout Link</h3>
                         
-                        <div className="flex flex-col sm:flex-row gap-3 relative z-10">
+                        <div className="flex flex-col xl:flex-row gap-3 relative z-10">
                             {isEditingLink ? (
                                 <div className="flex-1 flex items-center bg-black border border-[#9df01c] rounded-xl px-4 py-2">
                                     <span className="text-gray-500 text-xs font-mono">scout.selloutcrowds.com/</span>
@@ -201,17 +225,25 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                             )}
 
                             {isEditingLink ? (
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                                    <button 
+                                        onClick={handleResetCustomLink}
+                                        disabled={isSavingLink}
+                                        className="flex-1 sm:flex-none px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center flex-shrink-0"
+                                        title="Revert to Default Username"
+                                    >
+                                        <RotateCcw size={14} className="sm:mr-1" /> <span className="hidden sm:inline">Reset</span>
+                                    </button>
                                     <button 
                                         onClick={() => setIsEditingLink(false)}
-                                        className="px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
+                                        className="flex-1 sm:flex-none px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
                                     >
                                         Cancel
                                     </button>
                                     <button 
                                         onClick={handleSaveCustomLink}
                                         disabled={isSavingLink || !customSlug}
-                                        className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 flex-shrink-0"
+                                        className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 flex-shrink-0"
                                     >
                                         {isSavingLink ? <Loader2 size={14} className="animate-spin"/> : <CheckCircle2 size={14}/>} Save
                                     </button>
@@ -224,13 +256,13 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                             setIsEditingLink(true);
                                             setLinkError('');
                                         }}
-                                        className="px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
+                                        className="flex-1 sm:flex-none px-4 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/5 text-white hover:bg-white/10 transition-colors flex items-center justify-center flex-shrink-0"
                                     >
-                                        <Pencil size={14} /> Edit
+                                        <Pencil size={14} /> <span className="hidden sm:inline ml-1">Edit Link</span>
                                     </button>
                                     <button 
                                         onClick={handleCopy}
-                                        className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm flex-shrink-0"
+                                        className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 shadow-sm flex-shrink-0"
                                     >
                                         {copied ? <CheckCircle2 size={14} className="text-[#9df01c]"/> : <Copy size={14}/>}
                                         {copied ? 'Copied!' : 'Copy Link'}

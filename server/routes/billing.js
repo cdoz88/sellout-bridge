@@ -117,7 +117,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- NEW: Custom Scout Link APIs ---
+// --- Custom Scout Link APIs ---
 
 router.post('/api/scout/custom-link', async (req, res) => {
     try {
@@ -141,6 +141,19 @@ router.post('/api/scout/custom-link', async (req, res) => {
         res.json({ success: true, slug: cleanSlug });
     } catch (error) {
         res.status(500).json({ error: "Failed to save custom link" });
+    }
+});
+
+router.post('/api/scout/custom-link/delete', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+        
+        await sql`DELETE FROM bridge_scout_links WHERE user_id = ${user.id}`;
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to reset custom link" });
     }
 });
 
