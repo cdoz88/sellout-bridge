@@ -686,7 +686,7 @@ export default function App() {
           case 'newsletter':
               return <NewsletterApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'affiliate':
-              return <AffiliateApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} />;
+              return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }

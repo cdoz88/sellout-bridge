@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft } from 'lucide-react';
 
-export default function AffiliateApp({ session, unaData, handleAppSwitch, currentTab = 'dashboard' }) {
+export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
     
     // Unlock for Premium accounts (Admin, Commissioner Exempt, All-Star, H.O.F.)
     const canAccess = isAdmin || [12, 16, 17].includes(Number(unaData?.user?.role));
-
-    // UI State
-    const [activeView, setActiveView] = useState(currentTab);
 
     // Data State
     const [stats, setStats] = useState({ clicks: 0, joins: 0, commission: 0 });
@@ -20,11 +17,6 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
     
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
-
-    // Sync active view if parent sidebar changes the tab
-    useEffect(() => {
-        if (currentTab) setActiveView(currentTab);
-    }, [currentTab]);
 
     useEffect(() => {
         if (!session || !canAccess) {
@@ -114,7 +106,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
             {/* ========================================== */}
             {/* VIEW: DASHBOARD                            */}
             {/* ========================================== */}
-            {activeView === 'dashboard' && (
+            {activeTab === 'dashboard' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     
                     {/* How Payouts Work Banner */}
@@ -173,7 +165,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
                         
                         {/* 1. Total Recruits (CLICKABLE) */}
                         <div 
-                            onClick={() => setActiveView('network')}
+                            onClick={() => setActiveTab('network')}
                             className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 hover:border-white/10 transition-all group"
                         >
                             <div className="w-12 h-12 rounded-2xl bg-white/5 text-white flex items-center justify-center shrink-0 border border-white/10 group-hover:scale-110 transition-transform">
@@ -202,7 +194,7 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
 
                         {/* 3. Next Credit Date (CLICKABLE) */}
                         <div 
-                            onClick={() => setActiveView('payouts')}
+                            onClick={() => setActiveTab('payouts')}
                             className="bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4 cursor-pointer hover:bg-white/5 hover:border-white/10 transition-all group"
                         >
                             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover:scale-110 transition-transform">
@@ -236,11 +228,11 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
             {/* ========================================== */}
             {/* VIEW: MY NETWORK                           */}
             {/* ========================================== */}
-            {activeView === 'network' && (
+            {activeTab === 'network' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center gap-4 mb-8">
                         <button 
-                            onClick={() => setActiveView('dashboard')}
+                            onClick={() => setActiveTab('dashboard')}
                             className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-white"
                         >
                             <ArrowLeft size={18} />
@@ -291,11 +283,11 @@ export default function AffiliateApp({ session, unaData, handleAppSwitch, curren
             {/* ========================================== */}
             {/* VIEW: PAYOUT HISTORY                       */}
             {/* ========================================== */}
-            {activeView === 'payouts' && (
+            {activeTab === 'payouts' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex items-center gap-4 mb-8">
                         <button 
-                            onClick={() => setActiveView('dashboard')}
+                            onClick={() => setActiveTab('dashboard')}
                             className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-white"
                         >
                             <ArrowLeft size={18} />
