@@ -3,7 +3,6 @@ import { sql, getAuthenticatedUser, ensureSchema } from '../config.js';
 
 const router = express.Router();
 
-// Helper to ensure our new multi-link table exists safely without breaking old code
 const ensureLinksSchema = async () => {
     await ensureSchema();
     await sql`CREATE TABLE IF NOT EXISTS bridge_community_links (
@@ -21,14 +20,25 @@ router.get('/api/resolve-domain/:subdomain', async (req, res) => {
         const { subdomain } = req.params;
         await ensureLinksSchema();
         
-        let rows = await sql`SELECT target_url FROM bridge_community_links WHERE subdomain = ${subdomain.toLowerCase()}`;
+        // NEW: We join with bridge_settings to pull their creator_email for the Smart Router
+        let rows = await sql`
+            SELECT c.target_url, s.creator_email 
+            FROM bridge_community_links c
+            LEFT JOIN bridge_settings s ON c.user_id = s.user_id
+            WHERE c.subdomain = ${subdomain.toLowerCase()}
+        `;
         
         if (rows.length === 0) {
-            rows = await sql`SELECT target_url FROM bridge_custom_domains WHERE subdomain = ${subdomain.toLowerCase()}`;
+            rows = await sql`
+                SELECT c.target_url, s.creator_email 
+                FROM bridge_custom_domains c
+                LEFT JOIN bridge_settings s ON c.user_id = s.user_id
+                WHERE c.subdomain = ${subdomain.toLowerCase()}
+            `;
         }
         
         if (rows.length > 0 && rows[0].target_url) {
-            res.json({ success: true, url: rows[0].target_url });
+            res.json({ success: true, url: rows[0].target_url, email: rows[0].creator_email });
         } else {
             res.json({ success: false });
         }
@@ -60,13 +70,11 @@ router.post('/api/save-domain', async (req, res) => {
         let { subdomain, target_url } = req.body;
         if (!subdomain || !target_url) return res.status(400).json({ error: "Missing fields" });
 
-        // Clean the inputs
         subdomain = subdomain.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase().trim();
         if (!target_url.startsWith('http')) target_url = `https://${target_url}`;
 
         await ensureLinksSchema();
 
-        // 1. Determine User Limit (12 gets 1)
         const role = Number(user.role);
         const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
         const isAdmin = role === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
@@ -76,7 +84,6 @@ router.post('/api/save-domain', async (req, res) => {
         else if (role === 17) maxLinks = 3;
         else if (role === 16 || role === 12) maxLinks = 1;
 
-        // 2. Check current usage if not admin
         if (maxLinks !== Infinity) {
             const currentNew = await sql`SELECT count(*) FROM bridge_community_links WHERE user_id = ${user.id}`;
             const currentOld = await sql`SELECT count(*) FROM bridge_custom_domains WHERE user_id = ${user.id}`;
@@ -87,7 +94,6 @@ router.post('/api/save-domain', async (req, res) => {
             }
         }
 
-        // 3. Check if someone else already took this subdomain in either table
         const existNew = await sql`SELECT id FROM bridge_community_links WHERE subdomain = ${subdomain}`;
         const existOld = await sql`SELECT user_id FROM bridge_custom_domains WHERE subdomain = ${subdomain}`;
         
@@ -132,7 +138,6 @@ router.post('/api/save-domains-bulk', async (req, res) => {
             if (!sub || !target) continue;
             if (!target.startsWith('http')) target = `https://${target}`;
 
-            // Check if taken
             const existNew = await sql`SELECT id FROM bridge_community_links WHERE subdomain = ${sub}`;
             const existOld = await sql`SELECT user_id FROM bridge_custom_domains WHERE subdomain = ${sub}`;
             

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, LayoutDashboard, Link2, Image as ImageIcon, FileText, Menu, X, QrCode, UserPlus, CheckCircle2, ListChecks, Lock, ArrowRight, Zap, Globe, CalendarClock } from 'lucide-react';
+import { Loader2, AlertCircle, LayoutDashboard, Menu, X, QrCode, UserPlus } from 'lucide-react';
 
 import TopBar from './components/layout/TopBar';
 import Sidebar from './components/layout/Sidebar';
@@ -18,17 +18,11 @@ import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
 
-const WordPressIcon = ({ className }) => (
-    <svg viewBox="0 0 447.674 447.674" className={className}>
-        <g>
-            <path d="M134.289,138.16h-24.722l67.399,190.521l37.732-107.825l-29.254-82.696H159.36v-18.154h115.508v18.154h-27.049l67.398,190.521l24.227-69.234c31.781-88.702-26.048-116.333-26.048-136.129s16.048-35.843,35.843-35.843c1.071,0,2.111,0.058,3.13,0.153c-33.541-31.663-78.768-51.08-128.534-51.08c-65.027,0-122.306,33.146-155.884,83.458h66.336v18.154L134.289,138.16L134.289,138.16z" fill="currentColor"/>
-            <path d="M36.548,223.837c0,71.704,40.302,133.986,99.483,165.458l-84.52-238.919C41.883,172.932,36.548,197.761,36.548,223.837z" fill="currentColor"/>
-            <path d="M386.833,131.547c2.679,15.774,1.868,33.503-2.243,51.301h0.745l-2.832,8.092l0,0c-1.678,5.843-3.791,11.82-6.191,17.693l-64.444,180.541c59.057-31.51,99.256-93.725,99.256-165.338C411.124,190.279,402.29,158.788,386.833,131.547z" fill="currentColor"/>
-            <path d="M166.075,402.033c18.195,5.894,37.603,9.091,57.762,9.091c19.228,0,37.777-2.902,55.239-8.285l-54.784-154.862L166.075,402.033z" fill="currentColor"/>
-            <path d="M382.113,65.56C339.836,23.283,283.625,0,223.836,0S107.837,23.283,65.56,65.56S0,164.047,0,223.837c0,59.789,23.283,115.999,65.56,158.276s98.488,65.56,158.277,65.56s115.999-23.283,158.277-65.56c42.277-42.277,65.56-98.488,65.56-158.276C447.673,164.047,424.39,107.837,382.113,65.56z M223.836,431.883c-114.717,0-208.046-93.329-208.046-208.046S109.119,15.79,223.836,15.79s208.046,93.33,208.046,208.047S338.554,431.883,223.836,431.883z" fill="currentColor"/>
-        </g>
-    </svg>
-);
+// New Extracted Auth Components
+import LoginScreen from './components/auth/LoginScreen';
+import OAuthScreen from './components/auth/OAuthScreen';
+import UpgradeScreen from './components/auth/UpgradeScreen';
+import SessionExpiredModal from './components/auth/SessionExpiredModal';
 
 export default function App() {
   const [isRedirecting, setIsRedirecting] = useState(() => {
@@ -223,15 +217,21 @@ export default function App() {
               fetch(`/api/resolve-domain/${subdomain}`)
                   .then(res => res.json())
                   .then(data => {
-                      if (data.success && data.url) window.location.href = data.url; 
-                      else window.location.href = 'https://selloutcrowds.com';
+                      if (data.success && data.url) {
+                          if (data.email) {
+                              window.location.href = `https://studio.selloutcrowds.com/smart-scout.php?email=${encodeURIComponent(data.email)}&dest=${encodeURIComponent(data.url)}`;
+                          } else {
+                              window.location.href = data.url; 
+                          }
+                      } else {
+                          window.location.href = 'https://selloutcrowds.com';
+                      }
                   })
                   .catch(() => { window.location.href = 'https://selloutcrowds.com'; });
               return; 
           }
       }
 
-      // --- TRANSLATOR REDIRECT LOGIC ---
       if (hostname === 'scout.selloutcrowds.com') {
           const rawPath = pathname.substring(1); 
           if (rawPath && rawPath !== '') {
@@ -510,119 +510,19 @@ export default function App() {
   }
 
   if (!session) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-center px-4 font-sans text-white">
-        <img src={logoUrl} alt="Sellout Crowds" className="max-w-[300px] w-full mb-10 relative z-10" />
-        <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 leading-none text-white">Creator Hub</h1>
-        <p className="text-gray-400 max-w-md mx-auto mb-10 text-sm font-medium leading-relaxed">
-            Login with your Sellout Crowds credentials to access your business tools, integrations, and guides.
-        </p>
-        
-        {error && (
-          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 flex items-center gap-2 text-xs font-bold justify-center">
-            <AlertCircle size={16} /> {error}
-          </div>
-        )}
-
-        <button 
-          onClick={startLogin}
-          disabled={isLoading}
-          className="bg-[#9df01c] hover:bg-[#8ce015] text-black font-black uppercase text-[11px] tracking-widest py-3.5 px-8 rounded-xl transition-all flex items-center justify-center min-w-[200px] shadow-lg shadow-[#9df01c]/10"
-        >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login to Hub"}
-        </button>
-      </div>
-    );
+      return <LoginScreen logoUrl={logoUrl} error={error} isLoading={isLoading} startLogin={startLogin} />;
   }
 
   if (isOAuthFlow && session && unaData.user) {
-      const role = Number(unaData.user.role);
-      if ([1, 2, 15, 18].includes(role)) {
-          return (
-              <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-                  <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-                      <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-                      <Lock size={56} className="text-gray-500 mb-6 relative z-10 mx-auto" />
-                      <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
-                      <p className="text-sm font-medium text-gray-400 mb-8 leading-relaxed relative z-10">
-                          The WordPress integration is exclusively available to All-Star, H.O.F. and Commissioner Exempt subscribers.
-                      </p>
-                      <a 
-                          href="https://www.selloutcrowds.com/plans" 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-[#9df01c] text-black block w-full font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10 mb-3"
-                      >
-                          Upgrade Account
-                      </a>
-                      <button 
-                          onClick={() => {
-                              if (oauthParams?.redirect_uri) {
-                                  const redirectUrl = new URL(oauthParams.redirect_uri);
-                                  redirectUrl.searchParams.set('soc_error', 'access_denied');
-                                  window.location.href = redirectUrl.toString();
-                              } else {
-                                  window.location.href = "https://selloutcrowds.com";
-                              }
-                          }}
-                          className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors"
-                      >
-                          Return to WordPress
-                      </button>
-                  </div>
-              </div>
-          );
-      }
-
       return (
-          <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-              <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/10 blur-[100px] rounded-full"></div>
-                  
-                  <div className="flex justify-center mb-6 relative z-10">
-                      <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
-                          <img src={logoUrl} alt="SC" className="w-10 h-10 object-contain" />
-                      </div>
-                      <div className="w-8 h-0.5 bg-white/10 self-center -mx-2 z-0"></div>
-                      <div className="w-16 h-16 bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center z-10 shadow-lg">
-                          <WordPressIcon className="w-8 h-8 text-[#00769d]" />
-                      </div>
-                  </div>
-
-                  <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Connect WordPress</h2>
-                  <p className="text-gray-400 mb-8 text-sm font-medium leading-relaxed relative z-10">
-                      Do you want to allow this WordPress site to view your communities and publish posts on your behalf?
-                  </p>
-
-                  {oauthError && (
-                      <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold relative z-10">
-                          {oauthError}
-                      </div>
-                  )}
-
-                  <div className="space-y-3 relative z-10">
-                      <button 
-                          onClick={handleApproveOAuth}
-                          disabled={oauthApproving}
-                          className="w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2">
-                          {oauthApproving ? <Loader2 className="w-4 h-4 animate-spin"/> : <CheckCircle2 className="w-4 h-4"/>}
-                          {oauthApproving ? 'Approving...' : 'Approve Connection'}
-                      </button>
-                      
-                      <button 
-                          onClick={() => {
-                              if (oauthParams?.redirect_uri) {
-                                  const redirectUrl = new URL(oauthParams.redirect_uri);
-                                  redirectUrl.searchParams.set('soc_error', 'access_denied');
-                                  window.location.href = redirectUrl.toString();
-                              }
-                          }}
-                          className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors">
-                          Cancel & Return
-                      </button>
-                  </div>
-              </div>
-          </div>
+          <OAuthScreen 
+              logoUrl={logoUrl} 
+              unaData={unaData} 
+              oauthParams={oauthParams} 
+              oauthError={oauthError} 
+              oauthApproving={oauthApproving} 
+              handleApproveOAuth={handleApproveOAuth} 
+          />
       );
   }
 
@@ -636,40 +536,7 @@ export default function App() {
   }
 
   if (unaData.user && (unaData.user.role === 1 || unaData.user.role === 2)) {
-      return (
-          <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 font-sans text-white">
-              <div className="max-w-md w-full bg-[#111] rounded-[2.5rem] p-10 text-center border border-white/5 shadow-2xl relative overflow-hidden">
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 blur-[100px] rounded-full"></div>
-                  
-                  <div className="flex justify-center mb-6 relative z-10">
-                      <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center z-10 shadow-lg">
-                          <AlertCircle className="w-8 h-8 text-red-500" />
-                      </div>
-                  </div>
-
-                  <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-2 relative z-10">Creators Only</h2>
-                  <p className="text-gray-400 mb-8 text-sm font-medium leading-relaxed relative z-10">
-                      The Creator Hub is exclusively for premium Sellout Crowds members. Upgrade your plan to access these business tools!
-                  </p>
-
-                  <div className="space-y-3 relative z-10">
-                      <a 
-                          href="https://www.selloutcrowds.com/plans" 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2">
-                          Upgrade Account
-                      </a>
-                      
-                      <button 
-                          onClick={handleLogout}
-                          className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors">
-                          Log Out
-                      </button>
-                  </div>
-              </div>
-          </div>
-      );
+      return <UpgradeScreen handleLogout={handleLogout} />;
   }
 
   const renderApp = () => {
@@ -759,43 +626,13 @@ export default function App() {
             </button>
         </div>
 
-        {/* SESSION EXPIRED SAFETY NET */}
         {sessionExpired && (
-            <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                <div className="bg-[#111] p-8 rounded-[2rem] border border-red-500/30 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-                    <AlertCircle size={48} className="text-red-500 mx-auto mb-4 relative z-10" />
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 relative z-10">Session Expired</h3>
-                    <p className="text-sm font-medium text-gray-400 mb-6 relative z-10 leading-relaxed">
-                        For your security, your session has timed out. To save your work without losing it, <strong>open the Hub in a new tab</strong>, log in, then come back here and click the button below.
-                    </p>
-                    <div className="space-y-3 relative z-10">
-                        <button 
-                            onClick={() => window.open(window.location.origin, '_blank')}
-                            className="w-full bg-white/5 text-white hover:bg-white/10 border border-white/10 font-bold py-4 rounded-xl text-[11px] uppercase tracking-widest transition-colors"
-                        >
-                            1. Open Hub in New Tab
-                        </button>
-                        <button 
-                            onClick={() => {
-                                const newToken = localStorage.getItem('bridge_session');
-                                if (newToken && newToken !== session) {
-                                    setSession(newToken);
-                                    setSessionExpired(false);
-                                } else {
-                                    alert("We couldn't detect a new session. Please make sure you logged in on the new tab!");
-                                }
-                            }}
-                            className="w-full bg-[#9df01c] text-black font-black py-4 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20"
-                        >
-                            2. I've Logged In, Resume Work
-                        </button>
-                    </div>
-                    <button onClick={() => { setSessionExpired(false); handleLogout(); }} className="mt-6 text-[9px] text-gray-500 hover:text-white font-bold uppercase tracking-widest relative z-10 transition-colors">
-                        Discard work and log out
-                    </button>
-                </div>
-            </div>
+            <SessionExpiredModal 
+                session={session} 
+                setSession={setSession} 
+                setSessionExpired={setSessionExpired} 
+                handleLogout={handleLogout} 
+            />
         )}
     </div>
   );
