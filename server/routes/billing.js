@@ -79,18 +79,40 @@ router.get('/api/cron/issue-credits', async (req, res) => {
             if (!s.creator_email) continue;
 
             try {
-                const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                let totalEarned = 0;
+
+                // 1. Get Owner's direct stats
+                const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
                     body: JSON.stringify({ action: 'get_affiliate_stats', email: s.creator_email })
                 });
-                
-                const data = await response.json();
-                if (!data || !data.success || !data.stats) continue;
+                const ownerData = await ownerRes.json();
+                if (ownerData && ownerData.success && ownerData.stats) {
+                    totalEarned += parseFloat(ownerData.stats.commission || 0);
+                }
 
-                const lifetimeEarned = parseFloat(data.stats.commission || 0);
+                // 2. Get Teammate Auto-Pool Stats
+                const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id} AND status = 'active'`;
+                for (const tm of teammates) {
+                    try {
+                        const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                            body: JSON.stringify({ action: 'get_affiliate_stats', email: tm.teammate_email })
+                        });
+                        const tmData = await tmRes.json();
+                        if (tmData && tmData.success && tmData.stats) {
+                            totalEarned += parseFloat(tmData.stats.commission || 0);
+                        }
+                    } catch (e) {
+                        logs.push(`Failed teammate fetch for ${tm.teammate_email}`);
+                    }
+                }
+
+                // 3. Calculate and Issue
                 const lifetimeCredited = parseFloat(s.lifetime_credited || 0);
-                const newCreditOwed = lifetimeEarned - lifetimeCredited;
+                const newCreditOwed = totalEarned - lifetimeCredited;
 
                 if (newCreditOwed >= 0.01) {
                     const amountInCents = Math.round(newCreditOwed * 100);
@@ -117,6 +139,84 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
+// --- Affiliate Stats API (With Auto-Pooling) ---
+router.get('/api/affiliates/stats', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+
+        let totalStats = { clicks: 0, joins: 0, commission: 0.00 };
+        let allReferrals = [];
+        let link = '';
+        let teamBreakdown = [];
+
+        // 1. Get Owner Stats
+        const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({ action: 'get_affiliate_stats', email: user.email })
+        });
+        const ownerData = await ownerRes.json();
+        
+        if (ownerData.success && ownerData.stats) {
+            totalStats.clicks += parseInt(ownerData.stats.clicks || 0);
+            totalStats.joins += parseInt(ownerData.stats.joins || 0);
+            totalStats.commission += parseFloat(ownerData.stats.commission || 0);
+            allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
+            link = ownerData.link || '';
+        }
+
+        // 2. Get Teammate Stats (Auto-Pooling)
+        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id} AND status = 'active'`;
+
+        if (teammates.length > 0) {
+            for (const tm of teammates) {
+                try {
+                    const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                        body: JSON.stringify({ action: 'get_affiliate_stats', email: tm.teammate_email })
+                    });
+                    const tmData = await tmRes.json();
+                    if (tmData.success && tmData.stats) {
+                        const tClicks = parseInt(tmData.stats.clicks || 0);
+                        const tJoins = parseInt(tmData.stats.joins || 0);
+                        const tComm = parseFloat(tmData.stats.commission || 0);
+                        
+                        totalStats.clicks += tClicks;
+                        totalStats.joins += tJoins;
+                        totalStats.commission += tComm;
+                        
+                        const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
+                        allReferrals = [...allReferrals, ...tmRefs];
+
+                        if (tClicks > 0 || tJoins > 0 || tComm > 0) {
+                            teamBreakdown.push({
+                                email: tm.teammate_email,
+                                clicks: tClicks,
+                                joins: tJoins,
+                                commission: tComm
+                            });
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+        
+        res.json({
+            success: true,
+            stats: totalStats,
+            link: link,
+            referrals: allReferrals,
+            teamBreakdown: teamBreakdown
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch stats" });
+    }
+});
+
 // --- Custom Scout Link APIs ---
 
 router.post('/api/scout/custom-link', async (req, res) => {
@@ -128,10 +228,8 @@ router.post('/api/scout/custom-link', async (req, res) => {
         const { customSlug, unaUsername } = req.body;
         if (!customSlug || !unaUsername) return res.status(400).json({ error: "Missing parameters" });
         
-        // Strip everything but letters, numbers, and dashes to ensure clean URLs
         const cleanSlug = customSlug.toLowerCase().replace(/[^a-z0-9-]/g, '');
         
-        // Ensure no one else has claimed this slug
         const existing = await sql`SELECT user_id FROM bridge_scout_links WHERE custom_slug = ${cleanSlug} AND user_id != ${user.id}`;
         if (existing.length > 0) {
             return res.status(400).json({ error: "That custom link is already taken!" });
