@@ -3,10 +3,39 @@ import { Loader2, Lock, CheckCircle2 } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function OAuthScreen({ 
-    logoUrl, unaData, oauthParams, oauthError, oauthApproving, handleApproveOAuth 
+    logoUrl, unaData, oauthParams, oauthError, oauthApproving, handleApproveOAuth, handleCancelOAuth 
 }) {
     const role = Number(unaData?.user?.role);
     const isPremium = ![1, 2, 15, 18].includes(role);
+
+    // --- SAFE CANCEL HANDLER ---
+    // Safely decodes the URL to prevent the "Invalid URL" TypeError
+    const handleSafeCancel = () => {
+        // Use the prop if passed down from App.jsx
+        if (typeof handleCancelOAuth === 'function') {
+            handleCancelOAuth();
+            return;
+        }
+
+        // Fallback: Handle it locally if the prop is missing
+        const rawRedirect = oauthParams?.redirect_uri || new URLSearchParams(window.location.search).get('redirect_uri');
+        
+        if (rawRedirect) {
+            try {
+                // Attempt clean parsing first
+                const redirectUrl = new URL(decodeURIComponent(rawRedirect));
+                redirectUrl.searchParams.set('soc_error', 'access_denied');
+                window.location.href = redirectUrl.toString();
+            } catch (urlErr) {
+                // SAFEY FALLBACK: String-build the URL if the constructor crashes
+                const decodedFallback = decodeURIComponent(rawRedirect);
+                const separator = decodedFallback.includes('?') ? '&' : '?';
+                window.location.href = `${decodedFallback}${separator}soc_error=access_denied`;
+            }
+        } else {
+            window.location.href = "https://selloutcrowds.com";
+        }
+    };
 
     if (!isPremium) {
         return (
@@ -27,15 +56,7 @@ export default function OAuthScreen({
                         Upgrade Account
                     </a>
                     <button 
-                        onClick={() => {
-                            if (oauthParams?.redirect_uri) {
-                                const redirectUrl = new URL(oauthParams.redirect_uri);
-                                redirectUrl.searchParams.set('soc_error', 'access_denied');
-                                window.location.href = redirectUrl.toString();
-                            } else {
-                                window.location.href = "https://selloutcrowds.com";
-                            }
-                        }}
+                        onClick={handleSafeCancel}
                         className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors"
                     >
                         Return to WordPress
@@ -81,13 +102,7 @@ export default function OAuthScreen({
                     </button>
                     
                     <button 
-                        onClick={() => {
-                            if (oauthParams?.redirect_uri) {
-                                const redirectUrl = new URL(oauthParams.redirect_uri);
-                                redirectUrl.searchParams.set('soc_error', 'access_denied');
-                                window.location.href = redirectUrl.toString();
-                            }
-                        }}
+                        onClick={handleSafeCancel}
                         className="w-full bg-white/5 text-white hover:bg-white/10 font-bold py-4 rounded-xl text-xs transition-colors">
                         Cancel & Return
                     </button>

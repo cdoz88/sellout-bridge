@@ -145,7 +145,7 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           setOauthParams({
               client_id: params.get('client_id'),
-              redirect_uri: params.get('response_type'),
+              redirect_uri: params.get('redirect_uri') || params.get('response_type'), // Ensuring redirect_uri is grabbed
               state: params.get('state')
           });
       }
@@ -432,25 +432,44 @@ export default function App() {
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
   };
 
+  // --- FIX: Safely parse redirect_uri to prevent JavaScript URL crashes ---
   const handleApproveOAuth = async () => {
       setOauthApproving(true);
       setOauthError(null);
+      
+      const rawRedirect = oauthParams?.redirect_uri || new URLSearchParams(window.location.search).get('redirect_uri');
+      
+      if (!rawRedirect) {
+          setOauthError("Missing WordPress return link. Please start over from your WordPress site.");
+          setOauthApproving(false);
+          return;
+      }
+
       try {
           const res = await fetch('/api/oauth/approve', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
-                  client_id: oauthParams.client_id, 
-                  redirect_uri: oauthParams.redirect_uri 
+                  client_id: oauthParams?.client_id || 'wordpress_global_app', 
+                  redirect_uri: rawRedirect 
               })
           });
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
+          
           if (data.success) {
-              const redirectUrl = new URL(oauthParams.redirect_uri);
-              redirectUrl.searchParams.set('code', data.code);
-              if (oauthParams.state) redirectUrl.searchParams.set('state', oauthParams.state);
-              window.location.href = redirectUrl.toString();
+              try {
+                  const redirectUrl = new URL(decodeURIComponent(rawRedirect));
+                  redirectUrl.searchParams.set('code', data.code);
+                  if (oauthParams?.state) redirectUrl.searchParams.set('state', oauthParams.state);
+                  window.location.href = redirectUrl.toString();
+              } catch (urlErr) {
+                  const decodedFallback = decodeURIComponent(rawRedirect);
+                  const separator = decodedFallback.includes('?') ? '&' : '?';
+                  let fallbackUrl = `${decodedFallback}${separator}code=${data.code}`;
+                  if (oauthParams?.state) fallbackUrl += `&state=${oauthParams.state}`;
+                  window.location.href = fallbackUrl;
+              }
           } else {
               setOauthError(data.error || "Failed to generate authorization code.");
               setOauthApproving(false);
@@ -458,6 +477,22 @@ export default function App() {
       } catch (err) {
           setOauthError("Server error during approval. Please try again.");
           setOauthApproving(false);
+      }
+  };
+
+  // --- FIX: Safe Cancel and Return to prevent WordPress from denying access ---
+  const handleCancelOAuth = () => {
+      const rawRedirect = oauthParams?.redirect_uri || new URLSearchParams(window.location.search).get('redirect_uri');
+      if (rawRedirect) {
+          try {
+              const redirectUrl = new URL(decodeURIComponent(rawRedirect));
+              redirectUrl.searchParams.set('soc_error', 'access_denied');
+              window.location.href = redirectUrl.toString();
+          } catch (urlErr) {
+              const decodedFallback = decodeURIComponent(rawRedirect);
+              const separator = decodedFallback.includes('?') ? '&' : '?';
+              window.location.href = `${decodedFallback}${separator}soc_error=access_denied`;
+          }
       }
   };
 
@@ -521,7 +556,8 @@ export default function App() {
               oauthParams={oauthParams} 
               oauthError={oauthError} 
               oauthApproving={oauthApproving} 
-              handleApproveOAuth={handleApproveOAuth} 
+              handleApproveOAuth={handleApproveOAuth}
+              handleCancelOAuth={handleCancelOAuth} 
           />
       );
   }
