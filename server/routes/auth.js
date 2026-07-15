@@ -19,6 +19,26 @@ router.post('/api/auth/callback', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed" }); }
 });
 
+// NEW: Silent Refresh Route
+router.post('/api/auth/refresh', async (req, res) => {
+    try {
+        const { refresh_token } = req.body;
+        if (!refresh_token) return res.status(400).json({ error: "No refresh token provided" });
+
+        const params = new URLSearchParams();
+        params.append('grant_type', 'refresh_token');
+        params.append('client_id', UNA_CLIENT_ID);
+        params.append('client_secret', UNA_CLIENT_SECRET);
+        params.append('refresh_token', refresh_token);
+        
+        const response = await fetch(`${UNA_BASE_URL}/modules/?r=oauth2/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+        const data = await response.json();
+        
+        if (data.error) return res.status(400).json(data);
+        res.json(data);
+    } catch (error) { res.status(500).json({ error: "Server error during token refresh" }); }
+});
+
 router.get('/api/get-user', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);

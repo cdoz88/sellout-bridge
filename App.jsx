@@ -126,12 +126,47 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
+  // NEW: Silent Refresh Interceptor
   useEffect(() => {
-      const handleUnauthorized = () => {
-          if (hasUser.current) {
-              setSessionExpired(true);
-          } else {
-              handleLogout();
+      const handleUnauthorized = async () => {
+          const currentRefreshToken = localStorage.getItem('bridge_refresh');
+          let refreshed = false;
+
+          if (currentRefreshToken) {
+              try {
+                  const res = await fetch('/api/auth/refresh', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ refresh_token: currentRefreshToken })
+                  });
+                  const data = await res.json();
+                  
+                  if (data.access_token) {
+                      setSession(data.access_token);
+                      if (data.refresh_token) {
+                          localStorage.setItem('bridge_refresh', data.refresh_token);
+                      }
+                      
+                      const userRes = await fetch('/api/get-user', { headers: { 'Authorization': `Bearer ${data.access_token}` } });
+                      if (userRes.ok) {
+                          const userData = await userRes.json();
+                          if (userData.user) {
+                              setUnaData(prev => ({ ...prev, user: userData.user }));
+                          }
+                      }
+                      refreshed = true;
+                  }
+              } catch (e) {
+                  console.error("Silent refresh failed", e);
+              }
+          }
+
+          if (!refreshed) {
+              if (hasUser.current) {
+                  setSessionExpired(true);
+              } else {
+                  handleLogout();
+              }
           }
       };
       window.addEventListener('unauthorized', handleUnauthorized);
@@ -145,7 +180,7 @@ export default function App() {
           const params = new URLSearchParams(window.location.search);
           setOauthParams({
               client_id: params.get('client_id'),
-              redirect_uri: params.get('redirect_uri') || params.get('response_type'), // Ensuring redirect_uri is grabbed
+              redirect_uri: params.get('redirect_uri') || params.get('response_type'), 
               state: params.get('state')
           });
       }
@@ -278,11 +313,14 @@ export default function App() {
       }
   }, []);
 
+  // NEW: Ensure the refresh token is cleared completely if the session is manually cleared
   useEffect(() => {
-    if (session) localStorage.setItem('bridge_session', session);
-    else {
-      localStorage.removeItem('bridge_session');
-      localStorage.removeItem('bridge_unadata'); 
+    if (session) {
+        localStorage.setItem('bridge_session', session);
+    } else {
+        localStorage.removeItem('bridge_session');
+        localStorage.removeItem('bridge_unadata'); 
+        localStorage.removeItem('bridge_refresh'); 
     }
   }, [session]);
 
@@ -304,11 +342,13 @@ export default function App() {
     } catch(e) {}
   }, [isPublicBio, isRedirecting, session]);
 
+  // NEW: Clear the refresh token upon manual logout
   const handleLogout = () => {
     setSession(null);
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
     setCurrentApp('dashboard');
     setActiveTab('home');
+    localStorage.removeItem('bridge_refresh');
     try {
         const url = new URL(window.location);
         url.search = '';
@@ -329,6 +369,7 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
+  // NEW: Save the refresh token locally when returning from login
   const handleCallback = async (code) => {
     setIsLoading(true);
     setError(null);
@@ -343,6 +384,9 @@ export default function App() {
       
       if (data.access_token) {
         setSession(data.access_token);
+        if (data.refresh_token) {
+            localStorage.setItem('bridge_refresh', data.refresh_token);
+        }
         fetchUser(data.access_token); 
         syncCommunities(data.access_token);
 
@@ -509,8 +553,8 @@ export default function App() {
       if (isLoading) {
           return (
              <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
-                <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                <span className="font-black uppercase tracking-[0.3em] text-[10px]">Loading Profile...</span>
+                 <Loader2 className="w-12 h-12 animate-spin mb-4" />
+                 <span className="font-black uppercase tracking-[0.3em] text-[10px]">Loading Profile...</span>
              </div>
           );
       }
