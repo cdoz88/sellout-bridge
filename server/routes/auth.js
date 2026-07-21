@@ -208,6 +208,40 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 
         try {
             const json = JSON.parse(text);
+
+            // --- ADDED: FILTER COMMUNITIES TO ONLY OWNED ONES ---
+            try {
+                const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${UNA_SECRET}` 
+                    },
+                    body: JSON.stringify({ user: targetUser, action: 'get_owned_profile_ids' })
+                });
+                const connectorData = await connectorRes.json();
+
+                if (connectorData.success && json?.allow_view_to?.values && Array.isArray(json.allow_view_to.values)) {
+                    const ownedIds = new Set([
+                        ...(connectorData.owned_spaces || []).map(id => id.toString()),
+                        ...(connectorData.owned_groups || []).map(id => id.toString())
+                    ]);
+
+                    json.allow_view_to.values = json.allow_view_to.values.filter(item => {
+                        // Keep section dividers/headers
+                        if (item.type === 'group_header' || item.type === 'group_end') return true;
+                        if (item.key === undefined || item.key === null) return true;
+
+                        // UNA privacy group keys are negative integers matching the profile ID
+                        const profileId = Math.abs(parseInt(item.key, 10)).toString();
+                        return ownedIds.has(profileId);
+                    });
+                }
+            } catch (filterErr) {
+                console.error("Failed to filter owned communities:", filterErr);
+            }
+            // --- END FILTER ---
+
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return valid JSON. Raw response: " + text.substring(0, 100) });
