@@ -126,6 +126,7 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
+  // FIX: Context-Aware Unauthorized Handler
   useEffect(() => {
       const handleUnauthorized = async () => {
           const currentRefreshToken = localStorage.getItem('bridge_refresh');
@@ -161,7 +162,16 @@ export default function App() {
           }
 
           if (!refreshed) {
-              if (hasUser.current) {
+              const currentPath = window.location.pathname;
+              
+              // If the session fails while they are on the OAuth screen, automatically bounce them to the login screen!
+              if (currentPath.includes('/oauth')) {
+                  localStorage.setItem('hub_pending_oauth', currentPath + window.location.search);
+                  const origin = window.location.origin;
+                  const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
+                  const state = Math.random().toString(36).substring(7);
+                  window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
+              } else if (hasUser.current) {
                   setSessionExpired(true);
               } else {
                   handleLogout();
@@ -493,7 +503,14 @@ export default function App() {
                   redirect_uri: rawRedirect 
               })
           });
-          if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
+          
+          // FIX: Stop the spinner immediately if the session is expired!
+          if (res.status === 401) { 
+              setOauthApproving(false);
+              window.dispatchEvent(new Event('unauthorized')); 
+              return; 
+          }
+          
           const data = await res.json();
           
           if (data.success) {
@@ -688,7 +705,7 @@ export default function App() {
             </button>
             <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`p-2 transition-colors flex flex-col items-center gap-1 ${currentApp === 'dashboard' ? 'text-[#9df01c]' : 'text-gray-500 hover:text-white'}`}>
                 <LayoutDashboard size={20} />
-                <span className="text-[9px] font-bold uppercase tracking-widest">Hub</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Office</span>
             </button>
             <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
                 <QrCode size={20} />
@@ -700,7 +717,6 @@ export default function App() {
             </button>
         </div>
 
-        {/* NEW: Updated Modal Hook */}
         {sessionExpired && (
             <SessionExpiredModal 
                 setSessionExpired={setSessionExpired} 
