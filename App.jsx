@@ -18,7 +18,7 @@ import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
 
-// New Extracted Auth Components
+// Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
 import OAuthScreen from './components/auth/OAuthScreen';
 import UpgradeScreen from './components/auth/UpgradeScreen';
@@ -34,7 +34,7 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
-              const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com');
+              const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
       } catch(e) {}
@@ -126,7 +126,6 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
-  // NEW: Silent Refresh Interceptor
   useEffect(() => {
       const handleUnauthorized = async () => {
           const currentRefreshToken = localStorage.getItem('bridge_refresh');
@@ -201,9 +200,9 @@ export default function App() {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
       } else if (isOAuthFlow) {
-          document.title = "Authorize Connection | SC Hub";
+          document.title = "Authorize Connection | Front Office";
       } else if (!isRedirecting) {
-          document.title = "Sellout Crowds Hub";
+          document.title = "Sellout Crowds Front Office";
       }
   }, [isPublicBio, publicCardData, isOAuthFlow, isRedirecting]);
 
@@ -289,7 +288,7 @@ export default function App() {
           return;
       }
 
-      const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com');
+      const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com') || hostname.includes('office.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
           if (rawPath && rawPath !== '') {
@@ -313,7 +312,6 @@ export default function App() {
       }
   }, []);
 
-  // NEW: Ensure the refresh token is cleared completely if the session is manually cleared
   useEffect(() => {
     if (session) {
         localStorage.setItem('bridge_session', session);
@@ -342,7 +340,6 @@ export default function App() {
     } catch(e) {}
   }, [isPublicBio, isRedirecting, session]);
 
-  // NEW: Clear the refresh token upon manual logout
   const handleLogout = () => {
     setSession(null);
     setUnaData({ user: null, crowds: [], spaces: [], debug: null });
@@ -369,7 +366,6 @@ export default function App() {
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
 
-  // NEW: Save the refresh token locally when returning from login
   const handleCallback = async (code) => {
     setIsLoading(true);
     setError(null);
@@ -476,7 +472,6 @@ export default function App() {
       setTimeout(() => window.dispatchEvent(new CustomEvent('open-add-contact')), 100);
   };
 
-  // --- FIX: Safely parse redirect_uri to prevent JavaScript URL crashes ---
   const handleApproveOAuth = async () => {
       setOauthApproving(true);
       setOauthError(null);
@@ -524,7 +519,6 @@ export default function App() {
       }
   };
 
-  // --- FIX: Safe Cancel and Return to prevent WordPress from denying access ---
   const handleCancelOAuth = () => {
       const rawRedirect = oauthParams?.redirect_uri || new URLSearchParams(window.location.search).get('redirect_uri');
       if (rawRedirect) {
@@ -706,12 +700,12 @@ export default function App() {
             </button>
         </div>
 
+        {/* NEW: Updated Modal Hook */}
         {sessionExpired && (
             <SessionExpiredModal 
-                session={session} 
-                setSession={setSession} 
                 setSessionExpired={setSessionExpired} 
                 handleLogout={handleLogout} 
+                startLogin={startLogin}
             />
         )}
     </div>
