@@ -222,6 +222,14 @@ export default function App() {
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
+      // NEW: The "Human-Only" Redirect
+      // If a user visits the old Hub in their browser, seamlessly bounce them to the Office.
+      // This keeps background APIs safe because webhooks don't load React!
+      if (hostname === 'hub.selloutcrowds.com') {
+          window.location.replace(`https://office.selloutcrowds.com${pathname}${window.location.search}`);
+          return;
+      }
+
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth') && !pathname.startsWith('/scout/'))) {
           if (pathname.startsWith('/c/')) {
               const pathSlug = pathname.replace('/c/', '');
