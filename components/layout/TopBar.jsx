@@ -18,7 +18,7 @@ export default function TopBar({
             case 'guides': return { name: 'Help and Guides', icon: <FileText size={20} className="text-[#9df01c]" /> };
             case 'onboarding': return { name: 'Getting Started', icon: <ListChecks size={20} className="text-[#9df01c]" /> };
             case 'affiliate': return { name: 'Scouting', icon: <TrendingUp size={20} className="text-[#9df01c]" /> };
-            default: return { name: 'Creator Hub', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
+            default: return { name: 'Front Office', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
     const config = getAppConfig();
@@ -43,7 +43,7 @@ export default function TopBar({
                         <div className="absolute top-full left-0 mt-2 w-64 bg-[#111] rounded-2xl shadow-2xl border border-white/10 overflow-hidden z-50 py-2 animate-in slide-in-from-top-2 duration-200">
                             
                             <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'dashboard' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <LayoutDashboard size={18} className={currentApp === 'dashboard' ? 'text-[#9df01c]' : ''}/> Creator Hub
+                                <LayoutDashboard size={18} className={currentApp === 'dashboard' ? 'text-[#9df01c]' : ''}/> Front Office
                             </button>
 
                             <div className="h-px bg-white/5 my-1 mx-2"></div>

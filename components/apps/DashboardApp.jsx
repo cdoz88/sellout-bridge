@@ -78,7 +78,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
             <div className="mb-10">
                 <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-4 text-white flex items-center gap-3">
                     <LayoutDashboard className="text-[#9df01c]" size={36} />
-                    Creator Hub
+                    Front Office
                 </h2>
                 <p className="text-gray-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest">
                     Welcome back, {unaData?.user?.name || 'Creator'}. Select a tool below to get started.
