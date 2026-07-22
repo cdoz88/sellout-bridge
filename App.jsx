@@ -17,6 +17,7 @@ import CommunityLinkApp from './components/apps/CommunityLinkApp';
 import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
+import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
 
 // Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
@@ -34,7 +35,6 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
-              // NEW: Added office domain to known domains
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -205,7 +205,6 @@ export default function App() {
       }
   }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session, isRedirecting]);
 
-  // NEW: Updated Document Titles for Front Office
   useEffect(() => {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
@@ -222,9 +221,6 @@ export default function App() {
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
-      // NEW: The "Human-Only" Redirect
-      // If a user visits the old Hub in their browser, seamlessly bounce them to the Office.
-      // This keeps background APIs safe because webhooks don't load React!
       if (hostname === 'hub.selloutcrowds.com') {
           window.location.replace(`https://office.selloutcrowds.com${pathname}${window.location.search}`);
           return;
@@ -306,7 +302,6 @@ export default function App() {
           return;
       }
 
-      // NEW: Added office domain to known domains list
       const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com') || hostname.includes('office.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
@@ -666,6 +661,8 @@ export default function App() {
               return <NewsletterApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'affiliate':
               return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
+          case 'youtube':
+              return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }
@@ -713,7 +710,6 @@ export default function App() {
             </button>
             <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`p-2 transition-colors flex flex-col items-center gap-1 ${currentApp === 'dashboard' ? 'text-[#9df01c]' : 'text-gray-500 hover:text-white'}`}>
                 <LayoutDashboard size={20} />
-                {/* NEW: Updated Mobile Nav text */}
                 <span className="text-[9px] font-bold uppercase tracking-widest">Office</span>
             </button>
             <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
