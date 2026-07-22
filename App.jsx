@@ -34,6 +34,7 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
+              // NEW: Added office domain to known domains
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -126,7 +127,6 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
-  // FIX: Context-Aware Unauthorized Handler
   useEffect(() => {
       const handleUnauthorized = async () => {
           const currentRefreshToken = localStorage.getItem('bridge_refresh');
@@ -164,7 +164,6 @@ export default function App() {
           if (!refreshed) {
               const currentPath = window.location.pathname;
               
-              // If the session fails while they are on the OAuth screen, automatically bounce them to the login screen!
               if (currentPath.includes('/oauth')) {
                   localStorage.setItem('hub_pending_oauth', currentPath + window.location.search);
                   const origin = window.location.origin;
@@ -206,6 +205,7 @@ export default function App() {
       }
   }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session, isRedirecting]);
 
+  // NEW: Updated Document Titles for Front Office
   useEffect(() => {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
@@ -298,6 +298,7 @@ export default function App() {
           return;
       }
 
+      // NEW: Added office domain to known domains list
       const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com') || hostname.includes('office.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
@@ -504,7 +505,6 @@ export default function App() {
               })
           });
           
-          // FIX: Stop the spinner immediately if the session is expired!
           if (res.status === 401) { 
               setOauthApproving(false);
               window.dispatchEvent(new Event('unauthorized')); 
@@ -705,6 +705,7 @@ export default function App() {
             </button>
             <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`p-2 transition-colors flex flex-col items-center gap-1 ${currentApp === 'dashboard' ? 'text-[#9df01c]' : 'text-gray-500 hover:text-white'}`}>
                 <LayoutDashboard size={20} />
+                {/* NEW: Updated Mobile Nav text */}
                 <span className="text-[9px] font-bold uppercase tracking-widest">Office</span>
             </button>
             <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
