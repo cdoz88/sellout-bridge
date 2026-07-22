@@ -1,15 +1,117 @@
-import React, { useState } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, CheckCircle2, X, Globe, ExternalLink, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Youtube, Plus, Key, Loader2, Trash2, X, Globe, ExternalLink, ArrowLeft } from 'lucide-react';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [playlists, setPlaylists] = useState([]);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [apiKey, setApiKey] = useState('');
     
-    // Mock state for the add modal and API Key
+    // Modal State
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newPlaylistId, setNewPlaylistId] = useState('');
     const [isActive, setIsActive] = useState(true);
-    const [apiKey, setApiKey] = useState('');
+    const [selectedPrivacy, setSelectedPrivacy] = useState('');
+    const [modalError, setModalError] = useState('');
+
+    useEffect(() => {
+        if (!session) return;
+        fetchData();
+    }, [session]);
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [keyRes, listsRes] = await Promise.all([
+                fetch('/api/youtube/key', { headers: { 'Authorization': `Bearer ${session}` } }),
+                fetch('/api/youtube/playlists', { headers: { 'Authorization': `Bearer ${session}` } })
+            ]);
+            
+            const keyData = await keyRes.json();
+            const listsData = await listsRes.json();
+            
+            if (keyData.key) setApiKey(keyData.key);
+            if (listsData.playlists) setPlaylists(listsData.playlists);
+        } catch (err) {
+            console.error("Failed to load YouTube data");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveKey = async () => {
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/youtube/key', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: apiKey })
+            });
+            if (res.ok) alert("API Key saved successfully!");
+            else alert("Failed to save API key.");
+        } catch (err) {
+            alert("Server error. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAddPlaylist = async () => {
+        setModalError('');
+        if (!newPlaylistId || !selectedPrivacy) {
+            setModalError('Please fill out all required fields.');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/youtube/playlists', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ident: newPlaylistId, 
+                    active: isActive, 
+                    allow_view_to: selectedPrivacy 
+                })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                setIsAddModalOpen(false);
+                setNewPlaylistId('');
+                setSelectedPrivacy('');
+                await fetchData();
+            } else {
+                setModalError(data.error || "Failed to add playlist.");
+            }
+        } catch (err) {
+            setModalError("Server error. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDeletePlaylist = async (id) => {
+        if (!window.confirm("Are you sure you want to remove this playlist?")) return;
+        
+        try {
+            const res = await fetch(`/api/youtube/playlists/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${session}` }
+            });
+            if (res.ok) {
+                setPlaylists(playlists.filter(p => p.id !== id));
+            }
+        } catch (err) {
+            alert("Failed to delete playlist.");
+        }
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '---------';
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+    };
 
     // --- VIEW: API KEY SETTINGS ---
     if (activeTab === 'settings') {
@@ -58,8 +160,12 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 placeholder="AIzaSyB..."
                                 className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors font-mono"
                             />
-                            <button className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap">
-                                Save Key
+                            <button 
+                                onClick={handleSaveKey}
+                                disabled={isSaving}
+                                className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap"
+                            >
+                                {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Save Key"}
                             </button>
                         </div>
                     </div>
@@ -117,38 +223,47 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                         <table className="w-full text-left border-collapse min-w-[800px]">
                             <thead>
                                 <tr className="border-b border-white/10">
-                                    <th className="pb-4 pl-4"><input type="checkbox" className="rounded bg-black border-white/20 text-[#9df01c] focus:ring-[#9df01c] focus:ring-offset-black" /></th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Active</th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Playlist Id</th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Total</th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Transferred</th>
-                                    <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Last Video</th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Updated</th>
                                     <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Last video date</th>
                                     <th className="pb-4 pr-4 text-right"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {/* Mock Row for UI mapping */}
-                                <tr className="border-b border-white/5 hover:bg-white/5 transition-colors group">
-                                    <td className="py-4 pl-4"><input type="checkbox" className="rounded bg-black border-white/20 text-[#9df01c] focus:ring-[#9df01c] focus:ring-offset-black" /></td>
-                                    <td className="py-4 text-xs font-bold text-white">Yes</td>
-                                    <td className="py-4 text-sm font-bold text-blue-400 hover:underline cursor-pointer flex items-center gap-2">
-                                        Example Playlist
-                                        <div className="w-6 h-6 rounded-full bg-white/10 flex-shrink-0" />
-                                    </td>
-                                    <td className="py-4 text-xs font-mono text-gray-400">147</td>
-                                    <td className="py-4 text-xs font-mono text-gray-400">11</td>
-                                    <td className="py-4 text-xs text-blue-400 hover:underline cursor-pointer truncate max-w-[150px]">Example Last Video Title...</td>
-                                    <td className="py-4 text-xs font-mono text-gray-400">2026-07-22</td>
-                                    <td className="py-4 text-xs font-mono text-gray-400">2026-07-22</td>
-                                    <td className="py-4 pr-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-1.5 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-md hover:bg-white/10"><Edit3 size={14} /></button>
-                                            <button className="p-1.5 text-gray-500 hover:text-red-500 transition-colors bg-white/5 rounded-md hover:bg-white/10"><Trash2 size={14} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                {playlists.map(playlist => (
+                                    <tr key={playlist.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
+                                        <td className="py-4 text-xs font-bold text-white">
+                                            {playlist.active === 1 ? 'Yes' : 'No'}
+                                        </td>
+                                        <td className="py-4 text-sm font-bold text-blue-400 hover:underline cursor-pointer flex items-center gap-3">
+                                            <img src={playlist.thumb} alt={playlist.title} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                            <a href={`https://www.youtube.com/playlist?list=${playlist.ident}`} target="_blank" rel="noopener noreferrer">
+                                                {playlist.title || playlist.ident}
+                                            </a>
+                                        </td>
+                                        <td className="py-4 text-xs font-mono text-gray-400">{playlist.total}</td>
+                                        <td className="py-4 text-xs font-mono text-gray-400">{playlist.migrated}</td>
+                                        <td className="py-4 text-xs font-mono text-gray-400">
+                                            {playlist.last_update ? formatDate(new Date(playlist.last_update * 1000)) : '---------'}
+                                        </td>
+                                        <td className="py-4 text-xs font-mono text-gray-400">
+                                            {formatDate(playlist.cursor)}
+                                        </td>
+                                        <td className="py-4 pr-4 text-right">
+                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => handleDeletePlaylist(playlist.id)}
+                                                    className="p-1.5 text-gray-500 hover:text-red-500 transition-colors bg-white/5 rounded-md hover:bg-white/10"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -167,9 +282,16 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                         </div>
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                             
-                            {/* Author Mock Block */}
+                            {modalError && (
+                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold text-center">
+                                    {modalError}
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0" />
+                                <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-bold">
+                                    {unaData?.user?.name?.charAt(0) || 'U'}
+                                </div>
                                 <span className="text-sm font-bold text-white">{unaData?.user?.name || 'Author Name'}</span>
                             </div>
 
@@ -181,6 +303,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                     type="text" 
                                     value={newPlaylistId}
                                     onChange={(e) => setNewPlaylistId(e.target.value)}
+                                    placeholder="PLxxxxxxxxxxxxxxxxxxxx"
                                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors"
                                 />
                             </div>
@@ -208,19 +331,40 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Select Where to Post <span className="text-red-500">*</span>
                                 </label>
-                                <div className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white cursor-pointer hover:border-white/20 transition-colors flex items-center gap-2">
+                                <div className="w-full bg-black border border-white/10 rounded-xl px-4 py-1 text-sm text-white hover:border-white/20 transition-colors flex items-center gap-2">
                                     <Globe size={16} className="text-gray-400" />
-                                    <span>Select a Crowd</span>
+                                    <select 
+                                        value={selectedPrivacy}
+                                        onChange={(e) => setSelectedPrivacy(e.target.value)}
+                                        className="w-full bg-transparent text-white border-none focus:ring-0 py-2 outline-none cursor-pointer"
+                                    >
+                                        <option value="" className="bg-[#111] text-gray-400">Select a Crowd</option>
+                                        <option value="3" className="bg-[#111]">Public</option>
+                                        {unaData?.spaces?.map(space => (
+                                            <option key={space.id} value={`-${space.id}`} className="bg-[#111]">{space.title}</option>
+                                        ))}
+                                        {unaData?.crowds?.map(crowd => (
+                                            <option key={crowd.id} value={`-${crowd.id}`} className="bg-[#111]">{crowd.title}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <p className="text-[10px] text-gray-500">Note: Only new videos will be added to Sellout Crowds. Videos already uploaded on Youtube will not be imported.</p>
                             </div>
 
                         </div>
                         <div className="p-6 border-t border-white/5 flex gap-3 bg-black/50">
-                            <button className="bg-[#9df01c] text-black font-black uppercase text-[11px] tracking-widest py-3 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10">
-                                Add
+                            <button 
+                                onClick={handleAddPlaylist}
+                                disabled={isSaving}
+                                className="bg-[#9df01c] text-black font-black uppercase text-[11px] tracking-widest py-3 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10"
+                            >
+                                {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Add'}
                             </button>
-                            <button onClick={() => setIsAddModalOpen(false)} className="bg-white/5 text-white font-black uppercase text-[11px] tracking-widest py-3 px-8 rounded-xl hover:bg-white/10 transition-colors">
+                            <button 
+                                onClick={() => setIsAddModalOpen(false)} 
+                                disabled={isSaving}
+                                className="bg-white/5 text-white font-black uppercase text-[11px] tracking-widest py-3 px-8 rounded-xl hover:bg-white/10 transition-colors"
+                            >
                                 Cancel
                             </button>
                         </div>
