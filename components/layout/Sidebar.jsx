@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube } from 'lucide-react';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -287,6 +287,23 @@ export default function Sidebar({
                                     ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
                                     : 'Commissioner Exempt subscription required to sync communities.'}
                             </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* NEW: YouTube Sync Sidebar Menu */}
+                {currentApp === 'youtube' && (
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
+                            <div className="space-y-1">
+                                <button onClick={() => handleNavClick('manage')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manage' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Youtube size={16} /> Playlists
+                                </button>
+                                <button onClick={() => handleNavClick('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'settings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Settings size={16} /> API Key Settings
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

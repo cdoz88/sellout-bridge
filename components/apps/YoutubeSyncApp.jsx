@@ -1,15 +1,74 @@
 import React, { useState } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, CheckCircle2 } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, CheckCircle2, X, Globe, ExternalLink, ArrowLeft } from 'lucide-react';
 
-export default function YoutubeSyncApp({ session, unaData }) {
+export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(false);
     const [playlists, setPlaylists] = useState([]);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     
-    // Mock state for the add modal
+    // Mock state for the add modal and API Key
     const [newPlaylistId, setNewPlaylistId] = useState('');
     const [isActive, setIsActive] = useState(true);
+    const [apiKey, setApiKey] = useState('');
 
+    // --- VIEW: API KEY SETTINGS ---
+    if (activeTab === 'settings') {
+        return (
+            <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+                <div className="flex items-center gap-4 mb-8">
+                    <button
+                        onClick={() => setActiveTab('manage')}
+                        className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-white"
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                        <h3 className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-2 m-0 leading-none">
+                            <Key className="text-[#9df01c]" size={24} /> API Key Settings
+                        </h3>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                            Connect your Google YouTube API Key
+                        </p>
+                    </div>
+                </div>
+
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl">
+                    <div className="mb-8 p-5 bg-white/5 border border-white/10 rounded-2xl">
+                        <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
+                            <Youtube size={16} className="text-red-500" /> How to obtain your API Key
+                        </h4>
+                        <ol className="list-decimal list-inside text-xs text-gray-400 space-y-3 leading-relaxed font-medium">
+                            <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-[#9df01c] hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={10}/></a>.</li>
+                            <li>Create a new project or select an existing one at the top of the page.</li>
+                            <li>Enable the <strong>YouTube Data API v3</strong> for your project in the API Library.</li>
+                            <li>Go back to the <strong>Credentials</strong> tab and click <strong>+ Create Credentials &gt; API key</strong>.</li>
+                            <li>Copy your newly generated API key and paste it below.</li>
+                        </ol>
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                            Google YouTube API Key
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <input
+                                type="text"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder="AIzaSyB..."
+                                className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors font-mono"
+                            />
+                            <button className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap">
+                                Save Key
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- VIEW: DASHBOARD (DEFAULT) ---
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             {/* Header */}
@@ -23,17 +82,18 @@ export default function YoutubeSyncApp({ session, unaData }) {
                         Manage your connected YouTube playlists to automatically import content.
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2">
                     <button 
                         onClick={() => setIsAddModalOpen(true)}
-                        className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/10"
+                        className="flex-1 sm:flex-none bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/10"
                     >
                         <Plus size={16} /> Add Playlist
                     </button>
                     <button 
-                        className="bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                        onClick={() => setActiveTab('settings')}
+                        className="flex-1 sm:flex-none bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
                     >
-                        <Key size={16} /> <span className="hidden sm:inline">Google YouTube API Key</span>
+                        <Key size={16} /> <span className="hidden sm:inline">API Key Settings</span>
                     </button>
                 </div>
             </div>
