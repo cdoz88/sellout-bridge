@@ -1,16 +1,28 @@
 import express from 'express';
-import { sql, getAuthenticatedUser } from '../config.js';
+import { sql } from '../config.js';
 
 const router = express.Router();
 
-// Middleware to ensure the user is authenticated via UNA token
+// Safe, inline authentication middleware that checks UNA's token table directly
 const authenticate = async (req, res, next) => {
     try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user) return res.status(401).json({ error: "Not authenticated" });
-        req.user = user;
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: "Not authenticated" });
+        
+        const token = authHeader.replace('Bearer ', '').trim();
+        
+        // 1. Look up the token in UNA's OAuth table
+        const tokenRows = await sql`SELECT user_id FROM sys_oauth2_access_tokens WHERE access_token = ${token}`;
+        if (tokenRows.length === 0) return res.status(401).json({ error: "Invalid token" });
+        
+        // 2. Get the user's account info
+        const userRows = await sql`SELECT id, email, name FROM sys_accounts WHERE id = ${tokenRows[0].user_id}`;
+        if (userRows.length === 0) return res.status(401).json({ error: "User not found" });
+        
+        req.user = userRows[0];
         next();
     } catch (e) {
+        console.error("Auth Error:", e);
         res.status(500).json({ error: "Server Error" });
     }
 };
@@ -51,7 +63,7 @@ router.get('/api/youtube/teammates', authenticate, async (req, res) => {
         
         const primaryUser = {
             id: req.user.id,
-            name: req.user.name || req.user.display_name || 'Primary Account',
+            name: req.user.name || 'Primary Account',
             email: req.user.email,
             profile_id: req.user.id,
             is_primary: true
