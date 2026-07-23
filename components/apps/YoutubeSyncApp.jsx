@@ -460,7 +460,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                         className="w-full bg-transparent text-white border-none focus:ring-0 py-2 outline-none cursor-pointer text-sm"
                                     >
                                         <option value="" className="bg-[#111] text-gray-400">Select Where to Post...</option>
-                                        <option value="3" className="bg-[#111] text-white">Public (Entire Site)</option>
                                         
                                         {unaData?.crowds && unaData.crowds.length > 0 && (
                                             <optgroup label="── CROWDS ──" className="bg-[#111] text-[#9df01c] font-black tracking-widest uppercase">

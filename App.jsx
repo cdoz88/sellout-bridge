@@ -17,7 +17,7 @@ import CommunityLinkApp from './components/apps/CommunityLinkApp';
 import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
-import YoutubeSyncApp from './components/apps/YoutubeSyncApp'; // NEW: Imported the YouTube App
+import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
 
 // Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
@@ -35,7 +35,6 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
-              // NEW: Added office domain to known domains
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -167,8 +166,13 @@ export default function App() {
               
               if (currentPath.includes('/oauth')) {
                   localStorage.setItem('hub_pending_oauth', currentPath + window.location.search);
+                  
+                  // FIX: Explicitly lock the return URL to the office domain (unless developing locally)
                   const origin = window.location.origin;
-                  const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
+                  const isLocalhost = origin.includes('localhost');
+                  const strictRedirect = isLocalhost ? (origin.endsWith('/') ? origin : `${origin}/`) : 'https://office.selloutcrowds.com/';
+                  
+                  const redirectUri = encodeURIComponent(strictRedirect);
                   const state = Math.random().toString(36).substring(7);
                   window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
               } else if (hasUser.current) {
@@ -221,6 +225,11 @@ export default function App() {
       const pathname = window.location.pathname;
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
+
+      if (hostname === 'hub.selloutcrowds.com') {
+          window.location.replace(`https://office.selloutcrowds.com${pathname}${window.location.search}`);
+          return;
+      }
 
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth') && !pathname.startsWith('/scout/'))) {
           if (pathname.startsWith('/c/')) {
@@ -370,8 +379,13 @@ export default function App() {
     if (isOAuthFlow) {
         localStorage.setItem('hub_pending_oauth', window.location.pathname + window.location.search);
     }
+    
+    // FIX: Explicitly lock the return URL to the office domain (unless developing locally)
     const origin = window.location.origin;
-    const redirectUri = encodeURIComponent(origin.endsWith('/') ? origin : `${origin}/`);
+    const isLocalhost = origin.includes('localhost');
+    const strictRedirect = isLocalhost ? (origin.endsWith('/') ? origin : `${origin}/`) : 'https://office.selloutcrowds.com/';
+    
+    const redirectUri = encodeURIComponent(strictRedirect);
     const state = Math.random().toString(36).substring(7);
     window.location.href = `${UNA_AUTH_URL}&client_id=${UNA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&state=${state}`;
   };
@@ -380,7 +394,10 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     try {
-      const redirectUri = window.location.origin.endsWith('/') ? window.location.origin : `${window.location.origin}/`;
+      const origin = window.location.origin;
+      const isLocalhost = origin.includes('localhost');
+      const redirectUri = isLocalhost ? (origin.endsWith('/') ? origin : `${origin}/`) : 'https://office.selloutcrowds.com/';
+      
       const res = await fetch('/api/auth/callback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -657,7 +674,6 @@ export default function App() {
               return <NewsletterApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'affiliate':
               return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
-          // NEW: Added the YouTube route rendering
           case 'youtube':
               return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
