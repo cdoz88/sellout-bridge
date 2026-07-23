@@ -40,6 +40,43 @@ router.post('/api/youtube/key', authenticate, async (req, res) => {
     }
 });
 
+// GET: Fetch account teammates for author selection
+router.get('/api/youtube/teammates', authenticate, async (req, res) => {
+    try {
+        const teamRows = await sql`
+            SELECT id, email, name, profile_id 
+            FROM team_members 
+            WHERE owner_user_id = ${req.user.id} OR owner_email = ${req.user.email}
+        `;
+        
+        const primaryUser = {
+            id: req.user.id,
+            name: req.user.name || req.user.display_name || 'Primary Account',
+            email: req.user.email,
+            profile_id: req.user.id,
+            is_primary: true
+        };
+
+        const teammates = [primaryUser];
+
+        if (teamRows && teamRows.length > 0) {
+            teamRows.forEach(row => {
+                teammates.push({
+                    id: row.profile_id || row.id,
+                    name: row.name || row.email,
+                    email: row.email,
+                    profile_id: row.profile_id || row.id,
+                    is_primary: false
+                });
+            });
+        }
+
+        res.json({ teammates });
+    } catch (err) {
+        res.json({ teammates: [{ id: req.user.id, name: req.user.name || 'Primary Account', email: req.user.email, profile_id: req.user.id, is_primary: true }] });
+    }
+});
+
 // GET: Fetch all user's Playlists
 router.get('/api/youtube/playlists', authenticate, async (req, res) => {
     try {
@@ -53,11 +90,15 @@ router.get('/api/youtube/playlists', authenticate, async (req, res) => {
 // POST: Add a new Playlist
 router.post('/api/youtube/playlists', authenticate, async (req, res) => {
     try {
-        const { ident, active, allow_view_to } = req.body;
+        const { ident, active, allow_view_to, authors } = req.body;
         
         if (!ident || !allow_view_to) {
             return res.status(400).json({ error: "Please fill out all required fields." });
         }
+
+        const authorList = Array.isArray(authors) && authors.length > 0 ? authors : [req.user.id];
+        const primaryAuthor = authorList[0];
+        const coAuthors = authorList.slice(1).join(',');
 
         // 1. Get User's Youtube API Key
         const keyRows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
@@ -83,16 +124,41 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
         // 3. Insert into Sellout Crowds Database
         await sql`
             INSERT INTO aqb_fsan_ylists 
-            (ident, title, thumb, \`desc\`, total, active, allow_view_to, author, created, cursor)
+            (ident, title, thumb, \`desc\`, total, active, allow_view_to, author, co_authors, created, cursor)
             VALUES 
-            (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${req.user.id}, NOW(), NOW())
+            (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${primaryAuthor}, ${coAuthors}, NOW(), NOW())
         `;
 
         res.json({ success: true });
     } catch (err) {
-        if (err.message.includes('Duplicate entry')) {
+        if (err.message && err.message.includes('Duplicate entry')) {
             return res.status(400).json({ error: "This playlist is already connected." });
         }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT: Update an existing Playlist
+router.put('/api/youtube/playlists/:id', authenticate, async (req, res) => {
+    try {
+        const { active, allow_view_to, authors } = req.body;
+        const playlistId = req.params.id;
+
+        const authorList = Array.isArray(authors) && authors.length > 0 ? authors : [req.user.id];
+        const primaryAuthor = authorList[0];
+        const coAuthors = authorList.slice(1).join(',');
+
+        await sql`
+            UPDATE aqb_fsan_ylists 
+            SET active = ${active ? 1 : 0},
+                allow_view_to = ${allow_view_to},
+                author = ${primaryAuthor},
+                co_authors = ${coAuthors}
+            WHERE id = ${playlistId} AND author = ${req.user.id}
+        `;
+
+        res.json({ success: true });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

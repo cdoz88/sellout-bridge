@@ -35,6 +35,7 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
+              // Added office domain to known domains
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -205,6 +206,7 @@ export default function App() {
       }
   }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session, isRedirecting]);
 
+  // Updated Document Titles for Front Office
   useEffect(() => {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
@@ -220,11 +222,6 @@ export default function App() {
       const pathname = window.location.pathname;
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
-
-      if (hostname === 'hub.selloutcrowds.com') {
-          window.location.replace(`https://office.selloutcrowds.com${pathname}${window.location.search}`);
-          return;
-      }
 
       if (hostname.includes('crowds.bio') || (hostname.includes('localhost') && pathname.length > 1 && !pathname.startsWith('/oauth') && !pathname.startsWith('/scout/'))) {
           if (pathname.startsWith('/c/')) {
@@ -302,6 +299,7 @@ export default function App() {
           return;
       }
 
+      // Added office domain to known domains list
       const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com') || hostname.includes('office.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
