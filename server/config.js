@@ -220,11 +220,12 @@ export async function getAuthenticatedUser(token) {
         if (meData && meData.id) {
             try {
                 if (meData.email) {
-                    const url = `${UNA_BASE_URL}/bridge-connector.php`;
+                    // FIX: Direct to reliable domain & inject secret into body
+                    const url = `https://selloutcrowds.com/bridge-connector.php`;
                     const roleRes = await fetch(url, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, 
-                        body: JSON.stringify({ email: meData.email, action: 'get_role' }) 
+                        body: JSON.stringify({ email: meData.email, action: 'get_role', secret: UNA_SECRET }) 
                     });
                     if (roleRes.ok) {
                         const roleData = await roleRes.json();
@@ -241,8 +242,8 @@ export async function getAuthenticatedUser(token) {
 
 export async function grantCommunityAccess(email, module, contentId) {
     try {
-        const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add' }) });
+        const url = `https://selloutcrowds.com/bridge-connector.php`;
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'add', secret: UNA_SECRET }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
@@ -250,8 +251,8 @@ export async function grantCommunityAccess(email, module, contentId) {
 
 export async function revokeCommunityAccess(email, module, contentId) {
     try {
-        const url = `${UNA_BASE_URL}/bridge-connector.php`;
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove' }) });
+        const url = `https://selloutcrowds.com/bridge-connector.php`;
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: email, space_id: contentId, module: module, action: 'remove', secret: UNA_SECRET }) });
         const responseText = await response.text();
         try { return JSON.parse(responseText); } catch (e) { return { error: responseText }; }
     } catch (err) { return { error: err.message }; }
