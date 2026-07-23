@@ -158,7 +158,6 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
         `;
 
-        // --- NEW: Register the token natively with UNA so it appears in your Tokens dashboard ---
         try {
             const wpDomain = new URL(authCode.redirect_uri).hostname.replace(/^www\./, '');
             await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
@@ -202,7 +201,6 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         const targetUser = user || rows[0].profile_link || '';
 
         const formData = new URLSearchParams();
-        // FIX: We now pass the specific site's token and domain to UNA for native validation
         formData.append('api_key', access_token);
         formData.append('user', targetUser);
         formData.append('domain', domain || '');
@@ -220,6 +218,14 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 
         try {
             const json = JSON.parse(text);
+
+            // --- AUTO-REVOKE LISTENER ---
+            // If UNA throws a 404 or specifically returns an 'Access Denied!' payload because the token was deleted in the dashboard
+            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
+                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
+                return res.status(200).json({ error: "Invalid or expired access token" }); // This string triggers the WP auto-disconnect
+            }
+            // ----------------------------
 
             try {
                 const connectorRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
@@ -278,7 +284,6 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         const targetUser = user || rows[0].profile_link || '';
 
         const formData = new URLSearchParams();
-        // FIX: We now pass the specific site's token and domain to UNA for native validation
         formData.append('api_key', access_token);
         formData.append('user', targetUser);
         formData.append('domain', domain || '');
@@ -302,6 +307,14 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         
         try {
             const json = JSON.parse(text);
+
+            // --- AUTO-REVOKE LISTENER ---
+            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
+                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
+                return res.status(200).json({ error: "Invalid or expired access token" }); 
+            }
+            // ----------------------------
+
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
