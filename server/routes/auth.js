@@ -69,8 +69,7 @@ router.get('/api/get-communities', async (req, res) => {
         let ownedGroups = [];
         try {
             if (meData.email) {
-                // FIX: Use UNA_BASE_URL to prevent payload stripping
-                const ownedRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
+                const ownedRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, { 
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids', secret: UNA_SECRET }) 
                 });
                 const ownedData = await ownedRes.json();
@@ -159,10 +158,10 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
         `;
 
+        // --- NEW: Register the token natively with UNA so it appears in your Tokens dashboard ---
         try {
             const wpDomain = new URL(authCode.redirect_uri).hostname.replace(/^www\./, '');
-            // FIX: Use UNA_BASE_URL to prevent the POST payload from being stripped
-            const regRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
                 body: JSON.stringify({ 
@@ -173,10 +172,6 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
                     secret: UNA_SECRET 
                 })
             });
-            const regData = await regRes.json();
-            if (!regData.success) {
-                console.error("UNA Registration Failed:", regData.error);
-            }
         } catch (regErr) {
             console.error("Failed to register token with UNA:", regErr);
         }
@@ -190,22 +185,6 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
     } catch (error) {
         console.error("Token exchange error:", error);
         res.status(500).json({ error: "server_error" });
-    }
-});
-
-router.post(['/api/wp/revoke-token', '/wp/revoke-token'], async (req, res) => {
-    try {
-        const { token, secret } = req.body;
-        if (secret !== UNA_SECRET) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-        if (token) {
-            await sql`DELETE FROM wp_access_tokens WHERE token = ${token}`;
-        }
-        res.json({ success: true });
-    } catch (error) {
-        console.error("Token revocation error:", error);
-        res.status(500).json({ error: error.message });
     }
 });
 
@@ -223,6 +202,7 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         const targetUser = user || rows[0].profile_link || '';
 
         const formData = new URLSearchParams();
+        // FIX: We now pass the specific site's token and domain to UNA for native validation
         formData.append('api_key', access_token);
         formData.append('user', targetUser);
         formData.append('domain', domain || '');
@@ -241,14 +221,8 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
-            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
-                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-                return res.status(200).json({ error: "Invalid or expired access token" }); 
-            }
-
             try {
-                // FIX: Use UNA_BASE_URL to prevent payload stripping
-                const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                const connectorRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json', 
@@ -304,6 +278,7 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         const targetUser = user || rows[0].profile_link || '';
 
         const formData = new URLSearchParams();
+        // FIX: We now pass the specific site's token and domain to UNA for native validation
         formData.append('api_key', access_token);
         formData.append('user', targetUser);
         formData.append('domain', domain || '');
@@ -327,12 +302,6 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         
         try {
             const json = JSON.parse(text);
-
-            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
-                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-                return res.status(200).json({ error: "Invalid or expired access token" }); 
-            }
-
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
