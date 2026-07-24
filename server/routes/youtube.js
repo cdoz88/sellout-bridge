@@ -1,5 +1,5 @@
 import express from 'express';
-import { sql, getAuthenticatedUser } from '../config.js';
+import { sql, getAuthenticatedUser, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
 
@@ -24,11 +24,23 @@ const authenticate = async (req, res, next) => {
     }
 };
 
+// Helper to securely interact with the UNA database via bridge-connector
+const callBridge = async (action, email, payload = {}) => {
+    const url = `https://selloutcrowds.com/bridge-connector.php`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+        body: JSON.stringify({ action, email, secret: UNA_SECRET, ...payload })
+    });
+    return response.json();
+};
+
 // GET: Fetch user's saved YouTube API Key
 router.get('/api/youtube/key', authenticate, async (req, res) => {
     try {
-        const rows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
-        res.json({ key: rows.length > 0 ? rows[0].key : '' });
+        // Proxied securely to UNA MySQL Database
+        const data = await callBridge('get_youtube_key', req.user.email);
+        res.json({ key: data.key || '' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -38,12 +50,9 @@ router.get('/api/youtube/key', authenticate, async (req, res) => {
 router.post('/api/youtube/key', authenticate, async (req, res) => {
     try {
         const { key } = req.body;
-        if (!key) {
-            await sql`DELETE FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
-        } else {
-            await sql`REPLACE INTO aqb_fsan_youtube_keys (author, \`key\`) VALUES (${req.user.id}, ${key})`;
-        }
-        res.json({ success: true });
+        // Proxied securely to UNA MySQL Database
+        const data = await callBridge('save_youtube_key', req.user.email, { key });
+        res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -52,11 +61,17 @@ router.post('/api/youtube/key', authenticate, async (req, res) => {
 // GET: Fetch account teammates for author selection
 router.get('/api/youtube/teammates', authenticate, async (req, res) => {
     try {
-        const teamRows = await sql`
-            SELECT id, email, name, profile_id 
-            FROM team_members 
-            WHERE owner_user_id = ${req.user.id} OR owner_email = ${req.user.email}
-        `;
+        // Wrapped in Try/Catch so if the 'team_members' table hasn't been created in Neon yet, it safely falls back to the primary account
+        let teamRows = [];
+        try {
+            teamRows = await sql`
+                SELECT id, email, name, profile_id 
+                FROM team_members 
+                WHERE owner_user_id = ${req.user.id} OR owner_email = ${req.user.email}
+            `;
+        } catch (dbErr) {
+            console.warn("Neon DB warning: team_members table missing or un-synced. Defaulting to primary account.", dbErr.message);
+        }
         
         const primaryUser = {
             id: req.user.id,
@@ -89,8 +104,9 @@ router.get('/api/youtube/teammates', authenticate, async (req, res) => {
 // GET: Fetch all user's Playlists
 router.get('/api/youtube/playlists', authenticate, async (req, res) => {
     try {
-        const rows = await sql`SELECT * FROM aqb_fsan_ylists WHERE author = ${req.user.id} ORDER BY created DESC`;
-        res.json({ playlists: rows });
+        // Proxied securely to UNA MySQL Database
+        const data = await callBridge('get_youtube_playlists', req.user.email);
+        res.json({ playlists: data.playlists || [] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -109,12 +125,13 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
         const primaryAuthor = authorList[0];
         const coAuthors = authorList.slice(1).join(',');
 
-        // 1. Get User's Youtube API Key
-        const keyRows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
-        if (keyRows.length === 0 || !keyRows[0].key) {
+        // 1. Get User's Youtube API Key via Bridge
+        const keyData = await callBridge('get_youtube_key', req.user.email);
+        const apiKey = keyData.key;
+        
+        if (!apiKey) {
             return res.status(400).json({ error: "Please save your YouTube API Key in settings first." });
         }
-        const apiKey = keyRows[0].key;
 
         // 2. Fetch Playlist Info from Google API
         const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&id=${ident}&key=${apiKey}`);
@@ -130,19 +147,19 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
         const thumb = info.snippet.thumbnails?.default?.url || '';
         const total = info.contentDetails.itemCount || 0;
 
-        // 3. Insert into Sellout Crowds Database
-        await sql`
-            INSERT INTO aqb_fsan_ylists 
-            (ident, title, thumb, \`desc\`, total, active, allow_view_to, author, co_authors, created, cursor)
-            VALUES 
-            (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${primaryAuthor}, ${coAuthors}, NOW(), NOW())
-        `;
+        // 3. Insert into UNA MySQL via Bridge
+        const insertData = await callBridge('add_youtube_playlist', req.user.email, {
+            ident, title, thumb, desc, total, 
+            active: active ? 1 : 0, 
+            allow_view_to, primaryAuthor, coAuthors
+        });
+
+        if (!insertData.success) {
+            return res.status(400).json({ error: insertData.error || "Failed to add playlist" });
+        }
 
         res.json({ success: true });
     } catch (err) {
-        if (err.message && err.message.includes('Duplicate entry')) {
-            return res.status(400).json({ error: "This playlist is already connected." });
-        }
         res.status(500).json({ error: err.message });
     }
 });
@@ -157,14 +174,10 @@ router.put('/api/youtube/playlists/:id', authenticate, async (req, res) => {
         const primaryAuthor = authorList[0];
         const coAuthors = authorList.slice(1).join(',');
 
-        await sql`
-            UPDATE aqb_fsan_ylists 
-            SET active = ${active ? 1 : 0},
-                allow_view_to = ${allow_view_to},
-                author = ${primaryAuthor},
-                co_authors = ${coAuthors}
-            WHERE id = ${playlistId} AND author = ${req.user.id}
-        `;
+        // Update via Bridge
+        await callBridge('update_youtube_playlist', req.user.email, {
+            playlistId, active: active ? 1 : 0, allow_view_to, primaryAuthor, coAuthors
+        });
 
         res.json({ success: true });
     } catch (err) {
@@ -175,7 +188,7 @@ router.put('/api/youtube/playlists/:id', authenticate, async (req, res) => {
 // DELETE: Remove a Playlist
 router.delete('/api/youtube/playlists/:id', authenticate, async (req, res) => {
     try {
-        await sql`DELETE FROM aqb_fsan_ylists WHERE id = ${req.params.id} AND author = ${req.user.id}`;
+        await callBridge('delete_youtube_playlist', req.user.email, { playlistId: req.params.id });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
