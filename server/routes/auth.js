@@ -69,7 +69,8 @@ router.get('/api/get-communities', async (req, res) => {
         let ownedGroups = [];
         try {
             if (meData.email) {
-                const ownedRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, { 
+                // FIX: Use UNA_BASE_URL to prevent payload stripping
+                const ownedRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids', secret: UNA_SECRET }) 
                 });
                 const ownedData = await ownedRes.json();
@@ -160,7 +161,8 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 
         try {
             const wpDomain = new URL(authCode.redirect_uri).hostname.replace(/^www\./, '');
-            await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
+            // FIX: Use UNA_BASE_URL to prevent the POST payload from being stripped
+            const regRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
                 body: JSON.stringify({ 
@@ -171,6 +173,10 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
                     secret: UNA_SECRET 
                 })
             });
+            const regData = await regRes.json();
+            if (!regData.success) {
+                console.error("UNA Registration Failed:", regData.error);
+            }
         } catch (regErr) {
             console.error("Failed to register token with UNA:", regErr);
         }
@@ -184,6 +190,22 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
     } catch (error) {
         console.error("Token exchange error:", error);
         res.status(500).json({ error: "server_error" });
+    }
+});
+
+router.post(['/api/wp/revoke-token', '/wp/revoke-token'], async (req, res) => {
+    try {
+        const { token, secret } = req.body;
+        if (secret !== UNA_SECRET) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        if (token) {
+            await sql`DELETE FROM wp_access_tokens WHERE token = ${token}`;
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Token revocation error:", error);
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -219,16 +241,14 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
-            // --- AUTO-REVOKE LISTENER ---
-            // If UNA throws a 404 or specifically returns an 'Access Denied!' payload because the token was deleted in the dashboard
             if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
                 await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-                return res.status(200).json({ error: "Invalid or expired access token" }); // This string triggers the WP auto-disconnect
+                return res.status(200).json({ error: "Invalid or expired access token" }); 
             }
-            // ----------------------------
 
             try {
-                const connectorRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
+                // FIX: Use UNA_BASE_URL to prevent payload stripping
+                const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json', 
@@ -308,12 +328,10 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
-            // --- AUTO-REVOKE LISTENER ---
             if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
                 await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
                 return res.status(200).json({ error: "Invalid or expired access token" }); 
             }
-            // ----------------------------
 
             return res.json(json);
         } catch(e) {
