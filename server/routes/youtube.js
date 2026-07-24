@@ -11,29 +11,40 @@ const authenticate = async (req, res, next) => {
         
         const token = authHeader.replace('Bearer ', '').trim();
         
-        // 1. Look up the token in UNA's OAuth table
-        const tokenRows = await sql`SELECT user_id FROM sys_oauth2_access_tokens WHERE access_token = ${token}`;
-        if (tokenRows.length === 0) return res.status(401).json({ error: "Invalid token" });
+        let tokenRows;
+        try {
+            // 1. Look up the token in UNA's OAuth table
+            // This is wrapped in its own try/catch to intercept the missing table error in Neon DB
+            tokenRows = await sql`SELECT user_id FROM sys_oauth2_access_tokens WHERE access_token = ${token}`;
+        } catch (dbErr) {
+            console.warn("Auth DB Error (Table likely missing in Neon):", dbErr.message);
+            return res.status(401).json({ error: "Database configuration error. Authentication unavailable." });
+        }
+        
+        if (!tokenRows || tokenRows.length === 0) return res.status(401).json({ error: "Invalid token" });
         
         // 2. Fetch user account information
         const userRows = await sql`SELECT id, email, name FROM sys_accounts WHERE id = ${tokenRows[0].user_id}`;
-        if (userRows.length === 0) return res.status(401).json({ error: "User not found" });
+        if (!userRows || userRows.length === 0) return res.status(401).json({ error: "User not found" });
         
         req.user = userRows[0];
         next();
     } catch (e) {
         console.error("YouTube Route Auth Error:", e);
-        res.status(500).json({ error: "Server Error" });
+        // Fallback to 401 instead of 500 to prevent breaking frontend data fetching chains
+        res.status(401).json({ error: "Authentication Server Error" });
     }
 };
 
 // GET: Fetch user's saved YouTube API Key
 router.get('/api/youtube/key', authenticate, async (req, res) => {
     try {
-        const rows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
+        // Updated to use Postgres double quotes instead of MySQL backticks
+        const rows = await sql`SELECT "key" FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
         res.json({ key: rows.length > 0 ? rows[0].key : '' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Error fetching YouTube key:", err.message);
+        res.json({ key: '' }); // Graceful fallback
     }
 });
 
@@ -41,13 +52,16 @@ router.get('/api/youtube/key', authenticate, async (req, res) => {
 router.post('/api/youtube/key', authenticate, async (req, res) => {
     try {
         const { key } = req.body;
-        if (!key) {
-            await sql`DELETE FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
-        } else {
-            await sql`REPLACE INTO aqb_fsan_youtube_keys (author, \`key\`) VALUES (${req.user.id}, ${key})`;
+        
+        // Removed REPLACE INTO (MySQL specific). Using DELETE then INSERT for Postgres compatibility.
+        await sql`DELETE FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
+        
+        if (key) {
+            await sql`INSERT INTO aqb_fsan_youtube_keys (author, "key") VALUES (${req.user.id}, ${key})`;
         }
         res.json({ success: true });
     } catch (err) {
+        console.error("Error saving YouTube key:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -85,6 +99,8 @@ router.get('/api/youtube/teammates', authenticate, async (req, res) => {
 
         res.json({ teammates });
     } catch (err) {
+        console.error("Error fetching teammates:", err.message);
+        // Graceful fallback to prevent frontend crash
         res.json({ teammates: [{ id: req.user.id, name: req.user.name || 'Primary Account', email: req.user.email, profile_id: req.user.id, is_primary: true }] });
     }
 });
@@ -95,7 +111,8 @@ router.get('/api/youtube/playlists', authenticate, async (req, res) => {
         const rows = await sql`SELECT * FROM aqb_fsan_ylists WHERE author = ${req.user.id} ORDER BY created DESC`;
         res.json({ playlists: rows });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Error fetching playlists:", err.message);
+        res.json({ playlists: [] }); // Graceful fallback
     }
 });
 
@@ -113,7 +130,7 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
         const coAuthors = authorList.slice(1).join(',');
 
         // 1. Get User's Youtube API Key
-        const keyRows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
+        const keyRows = await sql`SELECT "key" FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
         if (keyRows.length === 0 || !keyRows[0].key) {
             return res.status(400).json({ error: "Please save your YouTube API Key in settings first." });
         }
@@ -134,16 +151,18 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
         const total = info.contentDetails.itemCount || 0;
 
         // 3. Insert into Sellout Crowds Database
+        // Updated to use Postgres double quotes for "desc"
         await sql`
             INSERT INTO aqb_fsan_ylists 
-            (ident, title, thumb, \`desc\`, total, active, allow_view_to, author, co_authors, created, cursor)
+            (ident, title, thumb, "desc", total, active, allow_view_to, author, co_authors, created, cursor)
             VALUES 
             (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${primaryAuthor}, ${coAuthors}, NOW(), NOW())
         `;
 
         res.json({ success: true });
     } catch (err) {
-        if (err.message && err.message.includes('Duplicate entry')) {
+        // Adjusted MySQL "Duplicate entry" check to Postgres "duplicate key value"
+        if (err.message && err.message.includes('duplicate key value')) {
             return res.status(400).json({ error: "This playlist is already connected." });
         }
         res.status(500).json({ error: err.message });
