@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { sql, getAuthenticatedUser, UNA_BASE_URL, UNA_SECRET, UNA_CLIENT_ID, UNA_CLIENT_SECRET, FSAN_ENDPOINT, FSAN_TOKEN } from '../config.js';
+import { sql, ensureSchema, getAuthenticatedUser, UNA_BASE_URL, UNA_SECRET, UNA_CLIENT_ID, UNA_CLIENT_SECRET, FSAN_ENDPOINT, FSAN_TOKEN } from '../config.js';
 
 const router = express.Router();
 
@@ -19,6 +19,7 @@ router.post('/api/auth/callback', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed" }); }
 });
 
+// NEW: Silent Refresh Route
 router.post('/api/auth/refresh', async (req, res) => {
     try {
         const { refresh_token } = req.body;
@@ -57,7 +58,7 @@ router.get('/api/get-communities', async (req, res) => {
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', userProfileUrl);
-        formData.append('domain', 'https://office.selloutcrowds.com');
+        formData.append('domain', 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
@@ -69,8 +70,8 @@ router.get('/api/get-communities', async (req, res) => {
         let ownedGroups = [];
         try {
             if (meData.email) {
-                const ownedRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, { 
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids', secret: UNA_SECRET }) 
+                const ownedRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids' }) 
                 });
                 const ownedData = await ownedRes.json();
                 if (ownedData.success) { ownedSpaces = ownedData.owned_spaces || []; ownedGroups = ownedData.owned_groups || []; }
@@ -110,6 +111,8 @@ router.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
         if (client_id !== 'wordpress_global_app') {
             return res.status(400).json({ error: "Invalid client_id" });
         }
+
+        await ensureSchema();
         
         let profileLink = user.url || user.link || user.profile_url || user.profile_link || '';
         
@@ -136,6 +139,8 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             return res.status(400).json({ error: "invalid_request" });
         }
 
+        await ensureSchema();
+
         const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
         
         if (rows.length === 0) {
@@ -158,23 +163,6 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
         `;
 
-        try {
-            const wpDomain = new URL(authCode.redirect_uri).hostname.replace(/^www\./, '');
-            await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-                body: JSON.stringify({ 
-                    action: 'register_wp_token', 
-                    user: authCode.profile_link, 
-                    domain: wpDomain, 
-                    token: accessToken, 
-                    secret: UNA_SECRET 
-                })
-            });
-        } catch (regErr) {
-            console.error("Failed to register token with UNA:", regErr);
-        }
-
         res.json({
             access_token: accessToken,
             token_type: "bearer",
@@ -189,7 +177,7 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 
 router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
     try {
-        const { access_token, user, domain } = req.body; 
+        const { access_token, user } = req.body; 
         
         if (!access_token) {
             return res.status(200).json({ error: "Missing access token" });
@@ -200,10 +188,12 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 
         const targetUser = user || rows[0].profile_link || '';
 
+        const hubDomain = 'https://bridge.selloutcrowds.com';
+
         const formData = new URLSearchParams();
-        formData.append('api_key', access_token);
+        formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
-        formData.append('domain', domain || '');
+        formData.append('domain', hubDomain);
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { 
             method: 'POST', 
@@ -219,22 +209,15 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
-            // --- AUTO-REVOKE LISTENER ---
-            // If UNA throws a 404 or specifically returns an 'Access Denied!' payload because the token was deleted in the dashboard
-            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
-                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-                return res.status(200).json({ error: "Invalid or expired access token" }); // This string triggers the WP auto-disconnect
-            }
-            // ----------------------------
-
+            // --- ADDED: FILTER COMMUNITIES TO ONLY OWNED ONES ---
             try {
-                const connectorRes = await fetch(`https://selloutcrowds.com/bridge-connector.php`, {
+                const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json', 
                         'Authorization': `Bearer ${UNA_SECRET}` 
                     },
-                    body: JSON.stringify({ user: targetUser, action: 'get_owned_profile_ids', secret: UNA_SECRET })
+                    body: JSON.stringify({ user: targetUser, action: 'get_owned_profile_ids' })
                 });
                 const connectorData = await connectorRes.json();
 
@@ -245,9 +228,11 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
                     ]);
 
                     json.allow_view_to.values = json.allow_view_to.values.filter(item => {
+                        // Keep section dividers/headers
                         if (item.type === 'group_header' || item.type === 'group_end') return true;
                         if (item.key === undefined || item.key === null) return true;
 
+                        // UNA privacy group keys are negative integers matching the profile ID
                         const profileId = Math.abs(parseInt(item.key, 10)).toString();
                         return ownedIds.has(profileId);
                     });
@@ -255,6 +240,7 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
             } catch (filterErr) {
                 console.error("Failed to filter owned communities:", filterErr);
             }
+            // --- END FILTER ---
 
             return res.json(json);
         } catch(e) {
@@ -272,7 +258,7 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         const validActions = ['create-post', 'edit-post', 'delete-post'];
         if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
 
-        const { access_token, user, data, domain } = req.body;
+        const { access_token, user, data } = req.body;
         
         if (!access_token) {
             return res.status(200).json({ error: "Missing access token" });
@@ -282,11 +268,13 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
         const targetUser = user || rows[0].profile_link || '';
+        
+        const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
-        formData.append('api_key', access_token);
+        formData.append('api_key', FSAN_TOKEN);
         formData.append('user', targetUser);
-        formData.append('domain', domain || '');
+        formData.append('domain', hubDomain);
 
         if (data && typeof data === 'object') {
             for (const key in data) {
@@ -307,14 +295,6 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         
         try {
             const json = JSON.parse(text);
-
-            // --- AUTO-REVOKE LISTENER ---
-            if (fsanRes.status === 404 || (json.code === 1 && json.msg === 'Access Denied!')) {
-                await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-                return res.status(200).json({ error: "Invalid or expired access token" }); 
-            }
-            // ----------------------------
-
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
