@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw } from 'lucide-react';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(true);
@@ -195,10 +195,27 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         }
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return '---------';
-        const date = new Date(dateString);
-        return date.toISOString().split('T')[0];
+    const formatDate = (dateInput) => {
+        if (!dateInput) return '---------';
+        
+        let date;
+        if (typeof dateInput === 'number' || (typeof dateInput === 'string' && !isNaN(dateInput) && !dateInput.includes('-'))) {
+            date = new Date(Number(dateInput) * 1000);
+        } else {
+            date = new Date(dateInput);
+        }
+        
+        if (dateInput instanceof Date) {
+            date = dateInput;
+        }
+
+        if (isNaN(date.getTime())) return '---------';
+        
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const yyyy = date.getFullYear();
+        
+        return `${mm}-${dd}-${yyyy}`;
     };
 
     // --- VIEW: API KEY SETTINGS ---
@@ -339,7 +356,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                         <td className="py-4 text-xs font-mono text-gray-400">{playlist.total}</td>
                                         <td className="py-4 text-xs font-mono text-gray-400">{playlist.migrated}</td>
                                         <td className="py-4 text-xs font-mono text-gray-400">
-                                            {playlist.last_update ? formatDate(new Date(playlist.last_update * 1000)) : '---------'}
+                                            {formatDate(playlist.last_update)}
                                         </td>
                                         <td className="py-4 text-xs font-mono text-gray-400">
                                             {formatDate(playlist.cursor)}
@@ -389,6 +406,21 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                     {modalError}
                                 </div>
                             )}
+
+                            {/* Admin/Manager Display (Read-Only) */}
+                            <div className="flex items-center justify-between bg-[#111] border border-white/5 rounded-xl px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                    {unaData?.user?.avatar ? (
+                                        <img src={unaData.user.avatar} alt={unaData.user.name || 'Admin'} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white border border-white/10">
+                                            {unaData?.user?.name ? unaData.user.name.charAt(0).toUpperCase() : 'A'}
+                                        </div>
+                                    )}
+                                    <span className="text-sm font-bold text-white">{unaData?.user?.name || 'Platform Admin'}</span>
+                                </div>
+                                <RefreshCw size={18} className="text-gray-400" />
+                            </div>
 
                             {/* Playlist ID */}
                             <div className="space-y-2">
