@@ -89,6 +89,55 @@ router.get('/api/youtube/teammates', authenticate, async (req, res) => {
     }
 });
 
+// GET: Search all Admins & Creators on Sell Out Crowds
+router.get('/api/youtube/search-users', authenticate, async (req, res) => {
+    try {
+        const term = req.query.term || '';
+        if (term.length < 2) return res.json({ users: [] });
+
+        const searchPattern = `%${term}%`;
+        
+        // Strictly limit to Admins (role=3) or Premium Creator Tiers (15, 16, 17, 18)
+        const userRows = await sql`
+            SELECT 
+                p.id as profile_id, 
+                a.email, 
+                a.name as username, 
+                pd.fullname, 
+                pd.picture 
+            FROM sys_profiles p
+            INNER JOIN sys_accounts a ON p.account_id = a.id
+            LEFT JOIN bx_persons_data pd ON p.content_id = pd.id AND p.type = 'bx_persons'
+            WHERE p.type = 'bx_persons' AND p.status = 'active'
+            AND (
+                a.role = 3 
+                OR p.id IN (
+                    SELECT id_profile FROM sys_acl_levels_members 
+                    WHERE id_level IN (3, 15, 16, 17, 18) 
+                    AND (date_expires = 0 OR date_expires > UNIX_TIMESTAMP() OR date_expires IS NULL)
+                )
+            )
+            AND (a.name LIKE ${searchPattern} OR a.email LIKE ${searchPattern} OR pd.fullname LIKE ${searchPattern})
+            LIMIT 15
+        `;
+
+        const formattedUsers = userRows.map(r => ({
+            id: r.profile_id,
+            profile_id: r.profile_id,
+            name: r.fullname || r.username,
+            email: r.email,
+            // Format via standard UNA 13 image transcoder
+            avatar: r.picture ? `https://studio.selloutcrowds.com/image_transcoder.php?o=bx_persons_avatar&h=${r.picture}` : null,
+            is_primary: false
+        }));
+
+        res.json({ users: formattedUsers });
+    } catch (err) {
+        console.error("Search API Error:", err);
+        res.json({ users: [] });
+    }
+});
+
 // GET: Fetch all user's Playlists
 router.get('/api/youtube/playlists', authenticate, async (req, res) => {
     try {

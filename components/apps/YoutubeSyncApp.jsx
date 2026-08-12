@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search } from 'lucide-react';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(true);
@@ -17,10 +17,40 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [selectedAuthors, setSelectedAuthors] = useState([]);
     const [modalError, setModalError] = useState('');
 
+    // User Search State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+
     useEffect(() => {
         if (!session) return;
         fetchData();
     }, [session]);
+
+    // Handle Async Search with Debouncing
+    useEffect(() => {
+        if (searchQuery.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        
+        const delayDebounceFn = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const res = await fetch(`/api/youtube/search-users?term=${encodeURIComponent(searchQuery)}`, {
+                    headers: { 'Authorization': `Bearer ${session}` }
+                });
+                const data = await res.json();
+                if (data.users) setSearchResults(data.users);
+            } catch (err) {
+                console.error("Failed to search users:", err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 400);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery, session]);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -51,6 +81,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsActive(true);
         setSelectedPrivacy('');
         setModalError('');
+        setSearchQuery('');
+        setSearchResults([]);
         
         // Default to the main account user
         const defaultAuthor = teammates.length > 0 ? teammates[0] : { id: unaData?.user?.id || 0, name: unaData?.user?.name || 'Primary Account' };
@@ -64,6 +96,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsActive(playlist.active === 1);
         setSelectedPrivacy(playlist.allow_view_to?.toString() || '');
         setModalError('');
+        setSearchQuery('');
+        setSearchResults([]);
 
         // Map author and co_authors
         const authorIds = [playlist.author];
@@ -81,13 +115,13 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsAddModalOpen(true);
     };
 
-    const handleToggleAuthor = (teammate) => {
-        const exists = selectedAuthors.some(a => (a.id === teammate.id || a.profile_id === teammate.profile_id));
+    const handleToggleAuthor = (user) => {
+        const exists = selectedAuthors.some(a => (a.id === user.id || a.profile_id === user.profile_id));
         if (exists) {
             if (selectedAuthors.length === 1) return; // Must keep at least one primary author
-            setSelectedAuthors(selectedAuthors.filter(a => a.id !== teammate.id && a.profile_id !== teammate.profile_id));
+            setSelectedAuthors(selectedAuthors.filter(a => a.id !== user.id && a.profile_id !== user.profile_id));
         } else {
-            setSelectedAuthors([...selectedAuthors, teammate]);
+            setSelectedAuthors([...selectedAuthors, user]);
         }
     };
 
@@ -386,62 +420,100 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 </button>
                             </div>
 
-                            {/* Creator(s) Multi-Select */}
+                            {/* Creator(s) Search & Multi-Select */}
                             <div className="space-y-3">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Creator(s) <Users size={12} className="text-[#9df01c]" />
                                 </label>
                                 
-                                {/* Selected Authors Tags */}
+                                {/* Selected Authors Tags with Avatars */}
                                 <div className="flex flex-wrap gap-2 min-h-[42px] p-2.5 bg-black border border-white/10 rounded-xl items-center">
                                     {selectedAuthors.map((author, index) => (
                                         <span 
                                             key={author.id || author.profile_id || index} 
-                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold ${
                                                 index === 0 
                                                     ? 'bg-[#9df01c] text-black shadow-md shadow-[#9df01c]/10' 
                                                     : 'bg-white/10 text-white'
                                             }`}
                                         >
+                                            {/* Render Thumbnail inside selected pill */}
+                                            {author.avatar ? (
+                                                <img src={author.avatar} alt={author.name} className="w-5 h-5 rounded-full object-cover border border-black/20" />
+                                            ) : (
+                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] ${index === 0 ? 'bg-black text-[#9df01c]' : 'bg-white/20 text-white'}`}>
+                                                    {author.name ? author.name.charAt(0).toUpperCase() : 'U'}
+                                                </div>
+                                            )}
+                                            
                                             {author.name || author.email}
+                                            
                                             {index === 0 && <span className="text-[9px] uppercase tracking-wider bg-black/20 px-1.5 py-0.5 rounded ml-1 font-black">Primary</span>}
+                                            
                                             {selectedAuthors.length > 1 && (
                                                 <button 
                                                     type="button"
                                                     onClick={() => handleToggleAuthor(author)} 
-                                                    className="hover:opacity-75 transition-opacity"
+                                                    className="hover:opacity-75 transition-opacity ml-1"
                                                 >
-                                                    <X size={12} />
+                                                    <X size={14} />
                                                 </button>
                                             )}
                                         </span>
                                     ))}
                                 </div>
 
-                                {/* Teammates Selection Dropdown */}
-                                {teammates.length > 0 && (
-                                    <div className="space-y-1">
-                                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Add or Remove Account Teammates:</p>
-                                        <div className="max-h-36 overflow-y-auto custom-scrollbar border border-white/5 rounded-xl bg-black/50 p-1 space-y-0.5">
-                                            {teammates.map(tm => {
-                                                const isSelected = selectedAuthors.some(a => (a.id === tm.id || a.profile_id === tm.profile_id));
+                                {/* Dynamic User Search Dropdown */}
+                                <div className="relative mt-2">
+                                    <div className="flex items-center bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-[#9df01c] transition-colors">
+                                        <Search size={16} className="text-gray-500 mr-2" />
+                                        <input 
+                                            type="text" 
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Search Admin & Creators..."
+                                            className="bg-transparent border-none text-white text-sm w-full focus:outline-none"
+                                        />
+                                        {isSearching && <Loader2 size={16} className="animate-spin text-[#9df01c] ml-2" />}
+                                    </div>
+                                    
+                                    {searchResults.length > 0 && searchQuery.length >= 2 && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 rounded-xl bg-[#1a1a1a] p-1 space-y-1 z-10 shadow-2xl">
+                                            {searchResults.map(user => {
+                                                const isSelected = selectedAuthors.some(a => (a.id === user.id || a.profile_id === user.profile_id));
                                                 return (
                                                     <button
-                                                        key={tm.id || tm.profile_id}
+                                                        key={user.id || user.profile_id}
                                                         type="button"
-                                                        onClick={() => handleToggleAuthor(tm)}
-                                                        className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                                                            isSelected ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                                        onClick={() => {
+                                                            handleToggleAuthor(user);
+                                                            setSearchQuery('');
+                                                            setSearchResults([]);
+                                                        }}
+                                                        className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
+                                                            isSelected ? 'bg-white/10' : 'hover:bg-white/5'
                                                         }`}
                                                     >
-                                                        <span>{tm.name} {tm.is_primary ? '(Account Owner)' : ''}</span>
-                                                        {isSelected && <Check size={14} className="text-[#9df01c]" />}
+                                                        <div className="flex items-center gap-3">
+                                                            {user.avatar ? (
+                                                                <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                                            ) : (
+                                                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white border border-white/10">
+                                                                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                                                </div>
+                                                            )}
+                                                            <div className="flex flex-col text-left">
+                                                                <span className={`text-sm ${isSelected ? 'text-[#9df01c] font-bold' : 'text-white font-medium'}`}>{user.name}</span>
+                                                                <span className="text-[10px] text-gray-500">{user.email}</span>
+                                                            </div>
+                                                        </div>
+                                                        {isSelected && <Check size={16} className="text-[#9df01c]" />}
                                                     </button>
                                                 );
                                             })}
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                                 <p className="text-[10px] text-gray-500 leading-relaxed">
                                     Note: Please be aware that the first user in the list will be assigned as the primary author of this video.
                                 </p>
