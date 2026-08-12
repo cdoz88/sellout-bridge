@@ -17,6 +17,7 @@ import CommunityLinkApp from './components/apps/CommunityLinkApp';
 import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
+import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
 
 // Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
@@ -666,6 +667,8 @@ export default function App() {
               return <NewsletterApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'affiliate':
               return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
+          case 'youtube':
+              return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }
