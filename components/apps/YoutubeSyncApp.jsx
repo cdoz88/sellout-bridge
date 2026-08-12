@@ -98,18 +98,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
 
-        // Map ONLY co_authors to the creator list, because playlist.author is now securely the admin manager
-        const authorIds = [];
-        if (playlist.co_authors) {
-            authorIds.push(...playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean));
-        }
-
-        const matchedAuthors = authorIds.map(id => {
-            const found = teammates.find(t => (t.id === id || t.profile_id === id));
-            return found || { id: id, profile_id: id, name: `Creator #${id}` };
-        });
-
-        setSelectedAuthors(matchedAuthors);
+        // The backend now hydrates all co-authors with their actual name and avatar, so we just use that directly!
+        setSelectedAuthors(playlist.creators_data || []);
         setIsAddModalOpen(true);
     };
 
