@@ -89,7 +89,7 @@ router.get('/api/youtube/teammates', authenticate, async (req, res) => {
     }
 });
 
-// GET: Search all Admins & Creators on Sell Out Crowds
+// GET: Search all users on Sell Out Crowds
 router.get('/api/youtube/search-users', authenticate, async (req, res) => {
     try {
         const term = req.query.term || '';
@@ -97,7 +97,7 @@ router.get('/api/youtube/search-users', authenticate, async (req, res) => {
 
         const searchPattern = `%${term}%`;
         
-        // Strictly limit to Admins (role=3) or Premium Creator Tiers (15, 16, 17, 18)
+        // Bulletproof query that searches all active persons on the platform
         const userRows = await sql`
             SELECT 
                 p.id as profile_id, 
@@ -109,14 +109,6 @@ router.get('/api/youtube/search-users', authenticate, async (req, res) => {
             INNER JOIN sys_accounts a ON p.account_id = a.id
             LEFT JOIN bx_persons_data pd ON p.content_id = pd.id AND p.type = 'bx_persons'
             WHERE p.type = 'bx_persons' AND p.status = 'active'
-            AND (
-                a.role = 3 
-                OR p.id IN (
-                    SELECT id_profile FROM sys_acl_levels_members 
-                    WHERE id_level IN (3, 15, 16, 17, 18) 
-                    AND (date_expires = 0 OR date_expires > UNIX_TIMESTAMP() OR date_expires IS NULL)
-                )
-            )
             AND (a.name LIKE ${searchPattern} OR a.email LIKE ${searchPattern} OR pd.fullname LIKE ${searchPattern})
             LIMIT 15
         `;
@@ -126,7 +118,6 @@ router.get('/api/youtube/search-users', authenticate, async (req, res) => {
             profile_id: r.profile_id,
             name: r.fullname || r.username,
             email: r.email,
-            // Format via standard UNA 13 image transcoder
             avatar: r.picture ? `https://studio.selloutcrowds.com/image_transcoder.php?o=bx_persons_avatar&h=${r.picture}` : null,
             is_primary: false
         }));
@@ -157,9 +148,9 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
             return res.status(400).json({ error: "Please fill out all required fields." });
         }
 
-        const authorList = Array.isArray(authors) && authors.length > 0 ? authors : [req.user.id];
-        const primaryAuthor = authorList[0];
-        const coAuthors = authorList.slice(1).join(',');
+        // We join all selected creators into the co_authors column. 
+        // The "author" column strictly stays the Admin (req.user.id) so you don't lose management access!
+        const coAuthors = Array.isArray(authors) ? authors.join(',') : '';
 
         // 1. Get User's Youtube API Key
         const keyRows = await sql`SELECT \`key\` FROM aqb_fsan_youtube_keys WHERE author = ${req.user.id}`;
@@ -187,7 +178,7 @@ router.post('/api/youtube/playlists', authenticate, async (req, res) => {
             INSERT INTO aqb_fsan_ylists 
             (ident, title, thumb, \`desc\`, total, active, allow_view_to, author, co_authors, created, cursor)
             VALUES 
-            (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${primaryAuthor}, ${coAuthors}, NOW(), NOW())
+            (${ident}, ${title}, ${thumb}, ${desc}, ${total}, ${active ? 1 : 0}, ${allow_view_to}, ${req.user.id}, ${coAuthors}, NOW(), NOW())
         `;
 
         res.json({ success: true });
@@ -205,15 +196,12 @@ router.put('/api/youtube/playlists/:id', authenticate, async (req, res) => {
         const { active, allow_view_to, authors } = req.body;
         const playlistId = req.params.id;
 
-        const authorList = Array.isArray(authors) && authors.length > 0 ? authors : [req.user.id];
-        const primaryAuthor = authorList[0];
-        const coAuthors = authorList.slice(1).join(',');
+        const coAuthors = Array.isArray(authors) ? authors.join(',') : '';
 
         await sql`
             UPDATE aqb_fsan_ylists 
             SET active = ${active ? 1 : 0},
                 allow_view_to = ${allow_view_to},
-                author = ${primaryAuthor},
                 co_authors = ${coAuthors}
             WHERE id = ${playlistId} AND author = ${req.user.id}
         `;

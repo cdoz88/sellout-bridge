@@ -84,9 +84,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
         
-        // Default to the main account user
-        const defaultAuthor = teammates.length > 0 ? teammates[0] : { id: unaData?.user?.id || 0, name: unaData?.user?.name || 'Primary Account' };
-        setSelectedAuthors([defaultAuthor]);
+        // Start completely empty so the admin isn't forced as a creator
+        setSelectedAuthors([]);
         setIsAddModalOpen(true);
     };
 
@@ -99,26 +98,24 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
 
-        // Map author and co_authors
-        const authorIds = [playlist.author];
+        // Map ONLY co_authors to the creator list, because playlist.author is now securely the admin manager
+        const authorIds = [];
         if (playlist.co_authors) {
-            const coList = playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean);
-            authorIds.push(...coList);
+            authorIds.push(...playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean));
         }
 
         const matchedAuthors = authorIds.map(id => {
             const found = teammates.find(t => (t.id === id || t.profile_id === id));
-            return found || { id: id, profile_id: id, name: `User #${id}` };
+            return found || { id: id, profile_id: id, name: `Creator #${id}` };
         });
 
-        setSelectedAuthors(matchedAuthors.length > 0 ? matchedAuthors : [{ id: unaData?.user?.id || 0, name: unaData?.user?.name || 'Primary Account' }]);
+        setSelectedAuthors(matchedAuthors);
         setIsAddModalOpen(true);
     };
 
     const handleToggleAuthor = (user) => {
         const exists = selectedAuthors.some(a => (a.id === user.id || a.profile_id === user.profile_id));
         if (exists) {
-            if (selectedAuthors.length === 1) return; // Must keep at least one primary author
             setSelectedAuthors(selectedAuthors.filter(a => a.id !== user.id && a.profile_id !== user.profile_id));
         } else {
             setSelectedAuthors([...selectedAuthors, user]);
@@ -450,17 +447,18 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                             
                                             {index === 0 && <span className="text-[9px] uppercase tracking-wider bg-black/20 px-1.5 py-0.5 rounded ml-1 font-black">Primary</span>}
                                             
-                                            {selectedAuthors.length > 1 && (
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => handleToggleAuthor(author)} 
-                                                    className="hover:opacity-75 transition-opacity ml-1"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            )}
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleToggleAuthor(author)} 
+                                                className="hover:opacity-75 transition-opacity ml-1"
+                                            >
+                                                <X size={14} />
+                                            </button>
                                         </span>
                                     ))}
+                                    {selectedAuthors.length === 0 && (
+                                        <span className="text-xs text-gray-500 italic px-2">No creators assigned...</span>
+                                    )}
                                 </div>
 
                                 {/* Dynamic User Search Dropdown */}
@@ -532,7 +530,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                         className="w-full bg-transparent text-white border-none focus:ring-0 py-2 outline-none cursor-pointer text-sm"
                                     >
                                         <option value="" className="bg-[#111] text-gray-400">Select Where to Post...</option>
-                                        <option value="3" className="bg-[#111] text-white">Public (Entire Site)</option>
                                         
                                         {unaData?.crowds && unaData.crowds.length > 0 && (
                                             <optgroup label="── CROWDS ──" className="bg-[#111] text-[#9df01c] font-black tracking-widest uppercase">
