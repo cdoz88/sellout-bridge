@@ -113,6 +113,23 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsAddModalOpen(true);
     };
 
+    // Automatically strip the URL if a user pastes a full link instead of just the ID
+    const handlePlaylistIdChange = (e) => {
+        let val = e.target.value;
+        try {
+            if (val.includes('youtube.com') || val.includes('youtu.be')) {
+                const url = new URL(val);
+                const listParam = url.searchParams.get('list');
+                if (listParam) {
+                    val = listParam;
+                }
+            }
+        } catch(err) {
+            // Ignore invalid URL parsing errors
+        }
+        setNewPlaylistId(val);
+    };
+
     const handleToggleAuthor = (user) => {
         const exists = selectedAuthors.some(a => (a.id === user.id || a.profile_id === user.profile_id));
         if (exists) {
@@ -408,18 +425,23 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                             )}
 
                             {/* Admin/Manager Display (Read-Only) */}
-                            <div className="flex items-center justify-between bg-[#111] border border-white/5 rounded-xl px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                    {unaData?.user?.avatar ? (
-                                        <img src={unaData.user.avatar} alt={unaData.user.name || 'Admin'} className="w-8 h-8 rounded-full object-cover border border-white/10" />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white border border-white/10">
-                                            {unaData?.user?.name ? unaData.user.name.charAt(0).toUpperCase() : 'A'}
-                                        </div>
-                                    )}
-                                    <span className="text-sm font-bold text-white">{unaData?.user?.name || 'Platform Admin'}</span>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                    Playlist Manager
+                                </label>
+                                <div className="flex items-center justify-between bg-[#111] border border-white/5 rounded-xl px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                        {unaData?.user?.avatar ? (
+                                            <img src={unaData.user.avatar} alt={unaData.user.name || 'Admin'} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white border border-white/10">
+                                                {unaData?.user?.name ? unaData.user.name.charAt(0).toUpperCase() : 'A'}
+                                            </div>
+                                        )}
+                                        <span className="text-sm font-bold text-white">{unaData?.user?.name || 'Platform Admin'}</span>
+                                    </div>
+                                    <RefreshCw size={18} className="text-gray-400" />
                                 </div>
-                                <RefreshCw size={18} className="text-gray-400" />
                             </div>
 
                             {/* Playlist ID */}
@@ -430,10 +452,9 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 <input 
                                     type="text" 
                                     value={newPlaylistId}
-                                    onChange={(e) => setNewPlaylistId(e.target.value)}
-                                    disabled={!!editingPlaylistId}
-                                    placeholder="PLxxxxxxxxxxxxxxxxxxxx"
-                                    className={`w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors ${editingPlaylistId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    onChange={handlePlaylistIdChange}
+                                    placeholder="PLxxxxxxxxxxxxxxxxxxxx or YouTube URL"
+                                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors"
                                 />
                             </div>
 
