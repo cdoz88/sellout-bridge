@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw, PlayCircle, ChevronDown } from 'lucide-react';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +21,9 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Help Drawer State
+    const [showHelpDrawer, setShowHelpDrawer] = useState(false);
 
     useEffect(() => {
         if (!session) return;
@@ -98,8 +101,18 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
 
-        // The backend now hydrates all co-authors with their actual name and avatar, so we just use that directly!
-        setSelectedAuthors(playlist.creators_data || []);
+        // Map ONLY co_authors to the creator list, because playlist.author is now securely the admin manager
+        const authorIds = [];
+        if (playlist.co_authors) {
+            authorIds.push(...playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean));
+        }
+
+        const matchedAuthors = authorIds.map(id => {
+            const found = teammates.find(t => (t.id === id || t.profile_id === id));
+            return found || { id: id, profile_id: id, name: `Creator #${id}` };
+        });
+
+        setSelectedAuthors(playlist.creators_data || matchedAuthors);
         setIsAddModalOpen(true);
     };
 
@@ -137,8 +150,12 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                 headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ key: apiKey })
             });
-            if (res.ok) alert("API Key saved successfully!");
-            else alert("Failed to save API key.");
+            if (res.ok) {
+                alert("API Key saved successfully!");
+                setShowHelpDrawer(false); // Close the drawer automatically on success
+            } else {
+                alert("Failed to save API key.");
+            }
         } catch (err) {
             alert("Server error. Please try again.");
         } finally {
@@ -228,61 +245,117 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     // --- VIEW: API KEY SETTINGS ---
     if (activeTab === 'settings') {
         return (
-            <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
-                <div className="flex items-center gap-4 mb-8">
-                    <button
-                        onClick={() => setActiveTab('manage')}
-                        className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-white"
-                    >
-                        <ArrowLeft size={18} />
-                    </button>
-                    <div>
-                        <h3 className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-2 m-0 leading-none">
-                            <Key className="text-[#9df01c]" size={24} /> API Key Settings
-                        </h3>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
-                            Connect your Google YouTube API Key
-                        </p>
-                    </div>
-                </div>
-
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl">
-                    <div className="mb-8 p-5 bg-white/5 border border-white/10 rounded-2xl">
-                        <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
-                            <Youtube size={16} className="text-red-500" /> How to obtain your API Key
-                        </h4>
-                        <ol className="list-decimal list-inside text-xs text-gray-400 space-y-3 leading-relaxed font-medium">
-                            <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-[#9df01c] hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={10}/></a>.</li>
-                            <li>Create a new project or select an existing one at the top of the page.</li>
-                            <li>Enable the <strong>YouTube Data API v3</strong> for your project in the API Library.</li>
-                            <li>Go back to the <strong>Credentials</strong> tab and click <strong>+ Create Credentials &gt; API key</strong>.</li>
-                            <li>Copy your newly generated API key and paste it below.</li>
-                        </ol>
+            <>
+                <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-4 mb-8">
+                        <button
+                            onClick={() => setActiveTab('manage')}
+                            className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-white"
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+                        <div>
+                            <h3 className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-2 m-0 leading-none">
+                                <Key className="text-[#9df01c]" size={24} /> API Key Settings
+                            </h3>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                Connect your Google YouTube API Key
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Google YouTube API Key
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <input
-                                type="text"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder="AIzaSyB..."
-                                className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors font-mono"
-                            />
-                            <button 
-                                onClick={handleSaveKey}
-                                disabled={isSaving}
-                                className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap"
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl relative">
+                        
+                        {/* Interactive Help Prompt */}
+                        <div className="mb-8 p-6 bg-[#151515] border border-white/10 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-widest text-white mb-2 flex items-center gap-2">
+                                    <Youtube size={16} className="text-red-500" /> Need Help Finding Your Key?
+                                </h4>
+                                <p className="text-xs text-gray-400 font-medium leading-relaxed">
+                                    Follow our interactive, step-by-step walkthrough to generate and copy your Google Cloud API key in minutes.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowHelpDrawer(!showHelpDrawer)}
+                                className={`shrink-0 font-bold uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl transition-colors flex items-center gap-2 shadow-lg ${
+                                    showHelpDrawer 
+                                    ? 'bg-white/10 hover:bg-white/20 text-white' 
+                                    : 'bg-[#9df01c] hover:bg-[#8ce015] text-black shadow-[#9df01c]/10'
+                                }`}
                             >
-                                {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Save Key"}
+                                <PlayCircle size={16} /> {showHelpDrawer ? 'Close Walkthrough' : 'Open Walkthrough'}
                             </button>
+                        </div>
+
+                        {/* API Key Input */}
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                Google YouTube API Key
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input
+                                    type="text"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder="AIzaSyB..."
+                                    className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3.5 text-sm text-white focus:outline-none focus:border-[#9df01c] transition-colors font-mono"
+                                />
+                                <button 
+                                    onClick={handleSaveKey}
+                                    disabled={isSaving}
+                                    className="bg-white text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-gray-200 transition-colors whitespace-nowrap"
+                                >
+                                    {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Save Key"}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-2">
+                                Your key is securely stored and used to fetch playlist metadata directly from Google.
+                            </p>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                {/* --- HELP DRAWER (SLIDE-UP SHELF) --- */}
+                <div 
+                    className={`fixed bottom-0 left-0 lg:left-[16rem] right-0 bg-[#0a0a0a] border-t border-[#9df01c]/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] z-[100] transition-transform duration-500 ease-in-out flex flex-col ${showHelpDrawer ? 'translate-y-0' : 'translate-y-full'}`}
+                    style={{ height: '65vh' }}
+                >
+                    {/* Drawer Header */}
+                    <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#111] flex-shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#9df01c]/10 flex items-center justify-center text-[#9df01c]">
+                                <PlayCircle size={16} />
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-white">Interactive Walkthrough</h3>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Create & Connect YouTube API Key</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowHelpDrawer(false)} 
+                            className="text-gray-500 hover:text-[#9df01c] p-2 bg-white/5 rounded-lg transition-colors flex items-center gap-2 group"
+                        >
+                            <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:block group-hover:text-[#9df01c]">Slide Down</span>
+                            <ChevronDown size={16} />
+                        </button>
+                    </div>
+
+                    {/* Custom Domain Help Embed */}
+                    <div className="flex-1 bg-[#050505] w-full h-full relative overflow-hidden">
+                        <iframe 
+                            src="https://help.selloutcrowds.com/e/cmlyms4a90001l204rrzng1pe/tour" 
+                            className="absolute inset-0 w-full h-full border-none"
+                            allowFullScreen
+                            webkitAllowFullScreen="true"
+                            mozAllowFullScreen="true"
+                            allowTransparency="true"
+                            title="YouTube API Walkthrough"
+                        ></iframe>
+                    </div>
+                </div>
+            </>
         );
     }
 
@@ -396,7 +469,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
             {/* Add/Edit Playlist Modal */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-[#151515] rounded-3xl border border-white/10 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="flex justify-between items-center p-6 border-b border-white/5">
                             <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">
