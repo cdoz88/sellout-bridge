@@ -266,30 +266,19 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl relative">
                         
-                        {/* Interactive Help Prompt */}
-                        <div className="mb-8 p-6 bg-[#151515] border border-white/10 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                            <div>
-                                <h4 className="text-sm font-black uppercase tracking-widest text-white mb-2 flex items-center gap-2">
-                                    <Youtube size={16} className="text-red-500" /> Need Help Finding Your Key?
-                                </h4>
-                                <p className="text-xs text-gray-400 font-medium leading-relaxed">
-                                    Follow our interactive, step-by-step walkthrough to generate and copy your Google Cloud API key in minutes.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowHelpDrawer(!showHelpDrawer)}
-                                className={`shrink-0 font-bold uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl transition-colors flex items-center gap-2 shadow-lg ${
-                                    showHelpDrawer 
-                                    ? 'bg-white/10 hover:bg-white/20 text-white' 
-                                    : 'bg-[#9df01c] hover:bg-[#8ce015] text-black shadow-[#9df01c]/10'
-                                }`}
-                            >
-                                <PlayCircle size={16} /> {showHelpDrawer ? 'Close Walkthrough' : 'Open Walkthrough'}
-                            </button>
+                        <div className="mb-8 p-5 bg-white/5 border border-white/10 rounded-2xl">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
+                                <Youtube size={16} className="text-red-500" /> How to obtain your API Key
+                            </h4>
+                            <ol className="list-decimal list-inside text-xs text-gray-400 space-y-3 leading-relaxed font-medium">
+                                <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-[#9df01c] hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={10}/></a>.</li>
+                                <li>Create a new project or select an existing one at the top of the page.</li>
+                                <li>Enable the <strong>YouTube Data API v3</strong> for your project in the API Library.</li>
+                                <li>Go back to the <strong>Credentials</strong> tab and click <strong>+ Create Credentials &gt; API key</strong>.</li>
+                                <li>Copy your newly generated API key and paste it below.</li>
+                            </ol>
                         </div>
 
-                        {/* API Key Input */}
                         <div className="space-y-4">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                 Google YouTube API Key
@@ -305,7 +294,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 <button 
                                     onClick={handleSaveKey}
                                     disabled={isSaving}
-                                    className="bg-white text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-gray-200 transition-colors whitespace-nowrap"
+                                    className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap"
                                 >
                                     {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Save Key"}
                                 </button>
@@ -322,6 +311,19 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     className={`fixed bottom-0 left-0 lg:left-[16rem] right-0 bg-[#0a0a0a] border-t border-[#9df01c]/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] z-[100] transition-transform duration-500 ease-in-out flex flex-col ${showHelpDrawer ? 'translate-y-0' : 'translate-y-full'}`}
                     style={{ height: '65vh' }}
                 >
+                    {/* The Folder Tab Button */}
+                    <button
+                        onClick={() => setShowHelpDrawer(!showHelpDrawer)}
+                        className={`absolute -top-12 right-6 sm:right-12 h-12 px-6 rounded-t-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-colors border-t border-l border-r shadow-[0_-10px_20px_rgba(0,0,0,0.3)] ${
+                            showHelpDrawer 
+                            ? 'bg-[#111] text-gray-400 hover:text-white border-white/10' 
+                            : 'bg-[#9df01c] hover:bg-[#8ce015] text-black border-[#9df01c]/30'
+                        }`}
+                    >
+                        {showHelpDrawer ? <X size={16} /> : <PlayCircle size={16} />}
+                        {showHelpDrawer ? 'Close Guide' : 'Step-by-Step Guide'}
+                    </button>
+
                     {/* Drawer Header */}
                     <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#111] flex-shrink-0">
                         <div className="flex items-center gap-3">
@@ -333,13 +335,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Create & Connect YouTube API Key</p>
                             </div>
                         </div>
-                        <button 
-                            onClick={() => setShowHelpDrawer(false)} 
-                            className="text-gray-500 hover:text-[#9df01c] p-2 bg-white/5 rounded-lg transition-colors flex items-center gap-2 group"
-                        >
-                            <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:block group-hover:text-[#9df01c]">Slide Down</span>
-                            <ChevronDown size={16} />
-                        </button>
                     </div>
 
                     {/* Custom Domain Help Embed */}
