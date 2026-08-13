@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw, PlayCircle, ChevronDown } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw, Info, ChevronDown } from 'lucide-react';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(true);
@@ -266,20 +266,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl relative">
                         
-                        <div className="mb-8 p-5 bg-white/5 border border-white/10 rounded-2xl">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
-                                <Youtube size={16} className="text-red-500" /> How to obtain your API Key
-                            </h4>
-                            <ol className="list-decimal list-inside text-xs text-gray-400 space-y-3 leading-relaxed font-medium">
-                                <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-[#9df01c] hover:underline inline-flex items-center gap-1">Google Cloud Console <ExternalLink size={10}/></a>.</li>
-                                <li>Create a new project or select an existing one at the top of the page.</li>
-                                <li>Enable the <strong>YouTube Data API v3</strong> for your project in the API Library.</li>
-                                <li>Go back to the <strong>Credentials</strong> tab and click <strong>+ Create Credentials &gt; API key</strong>.</li>
-                                <li>Copy your newly generated API key and paste it below.</li>
-                            </ol>
-                        </div>
-
-                        <div className="space-y-4">
+                        {/* 1. API Key Input First */}
+                        <div className="space-y-4 mb-10">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                 Google YouTube API Key
                             </label>
@@ -293,8 +281,12 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 />
                                 <button 
                                     onClick={handleSaveKey}
-                                    disabled={isSaving}
-                                    className="bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/10 whitespace-nowrap"
+                                    disabled={isSaving || !apiKey}
+                                    className={`font-black uppercase text-[10px] tracking-widest py-3.5 px-8 rounded-xl transition-colors whitespace-nowrap ${
+                                        apiKey 
+                                        ? 'bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/10' 
+                                        : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                                    }`}
                                 >
                                     {isSaving ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Save Key"}
                                 </button>
@@ -303,6 +295,30 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 Your key is securely stored and used to fetch playlist metadata directly from Google.
                             </p>
                         </div>
+
+                        {/* 2. Instruction Box Second */}
+                        <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
+                                <Youtube size={16} className="text-red-500" /> How to obtain your API Key
+                            </h4>
+                            <p className="text-xs text-gray-400 leading-relaxed font-medium mb-5">
+                                A YouTube API key is free to obtain and required to start syncing YouTube playlists with your communities. 
+                            </p>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <a 
+                                    href="https://console.cloud.google.com/apis/credentials" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="bg-black border border-white/10 hover:border-[#9df01c] text-white font-bold text-xs px-5 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                                >
+                                    Open Google Console <ExternalLink size={14} />
+                                </a>
+                                <p className="text-xs text-gray-500 italic max-w-xs leading-relaxed">
+                                    For detailed instructions, open the <strong className="text-[#9df01c]">Step-by-Step Guide</strong> tab in the bottom right corner of your screen.
+                                </p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -314,13 +330,13 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     {/* The Folder Tab Button */}
                     <button
                         onClick={() => setShowHelpDrawer(!showHelpDrawer)}
-                        className={`absolute -top-12 right-6 sm:right-12 h-12 px-6 rounded-t-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-colors border-t border-l border-r shadow-[0_-10px_20px_rgba(0,0,0,0.3)] ${
+                        className={`absolute -top-12 right-6 sm:right-12 h-12 px-6 rounded-t-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all border-t border-l border-r ${
                             showHelpDrawer 
-                            ? 'bg-[#111] text-gray-400 hover:text-white border-white/10' 
-                            : 'bg-[#9df01c] hover:bg-[#8ce015] text-black border-[#9df01c]/30'
+                            ? 'bg-[#111] text-gray-400 hover:text-white border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]' 
+                            : 'bg-[#9df01c] hover:bg-[#8ce015] text-black border-[#9df01c]/30 shadow-[0_0_15px_rgba(157,240,28,0.4)] animate-pulse'
                         }`}
                     >
-                        {showHelpDrawer ? <X size={16} /> : <PlayCircle size={16} />}
+                        {showHelpDrawer ? <X size={16} /> : <Info size={16} />}
                         {showHelpDrawer ? 'Close Guide' : 'Step-by-Step Guide'}
                     </button>
 
@@ -328,7 +344,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#111] flex-shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-[#9df01c]/10 flex items-center justify-center text-[#9df01c]">
-                                <PlayCircle size={16} />
+                                <Info size={16} />
                             </div>
                             <div>
                                 <h3 className="text-xs font-black uppercase tracking-widest text-white">Interactive Walkthrough</h3>
@@ -369,15 +385,26 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     </p>
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                    {/* Add Playlist Button - Disabled and dark if no API key is present */}
                     <button 
-                        onClick={handleOpenAddModal}
-                        className="flex-1 sm:flex-none bg-[#9df01c] text-black font-black uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/10"
+                        onClick={apiKey ? handleOpenAddModal : undefined}
+                        disabled={!apiKey}
+                        className={`flex-1 sm:flex-none font-black uppercase text-[10px] tracking-widest py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
+                            apiKey 
+                            ? 'bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/10 cursor-pointer' 
+                            : 'bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed'
+                        }`}
                     >
                         <Plus size={16} /> Add Playlist
                     </button>
+                    {/* API Key Settings Button - Green if no API key is present, otherwise dark */}
                     <button 
                         onClick={() => setActiveTab('settings')}
-                        className="flex-1 sm:flex-none bg-white/5 border border-white/10 text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                        className={`flex-1 sm:flex-none font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
+                            !apiKey 
+                            ? 'bg-[#9df01c] text-black hover:bg-[#8ce015] shadow-lg shadow-[#9df01c]/10' 
+                            : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
+                        }`}
                     >
                         <Key size={16} /> <span className="hidden sm:inline">API Key Settings</span>
                     </button>
@@ -395,7 +422,10 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                         <Youtube size={48} className="mx-auto mb-4 text-white/20"/>
                         <p className="text-sm font-medium mb-2">No Playlists Connected</p>
                         <p className="text-[10px] max-w-md mx-auto uppercase tracking-widest leading-relaxed">
-                            Click "Add Playlist" above to connect your first YouTube playlist and begin importing videos automatically to your communities.
+                            {apiKey 
+                                ? 'Click "Add Playlist" above to connect your first YouTube playlist and begin importing videos automatically to your communities.'
+                                : 'Please configure your API Key in the settings first to unlock the ability to add playlists.'
+                            }
                         </p>
                     </div>
                 ) : (
