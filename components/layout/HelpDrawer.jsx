@@ -90,7 +90,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
     return (
         <div 
             className={`fixed bottom-0 left-0 lg:left-[16rem] right-0 bg-[#0a0a0a] border-t border-[#9df01c]/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] z-[100] transition-transform duration-500 ease-in-out flex flex-col ${showDrawer ? 'translate-y-0' : 'translate-y-full'}`}
-            style={{ height: '65vh' }}
+            style={{ height: '90vh' }}
         >
             <button
                 onClick={() => setShowDrawer(!showDrawer)}
