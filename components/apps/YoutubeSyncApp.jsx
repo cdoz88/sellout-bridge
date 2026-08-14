@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw, Info, ChevronDown } from 'lucide-react';
+import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw } from 'lucide-react';
+
+// IMPORT THE NEW COMPONENT HERE!
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
     const [isLoading, setIsLoading] = useState(true);
@@ -8,7 +11,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [apiKey, setApiKey] = useState('');
     const [teammates, setTeammates] = useState([]);
     
-    // Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingPlaylistId, setEditingPlaylistId] = useState(null);
     const [newPlaylistId, setNewPlaylistId] = useState('');
@@ -17,13 +19,9 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [selectedAuthors, setSelectedAuthors] = useState([]);
     const [modalError, setModalError] = useState('');
 
-    // User Search State
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-
-    // Help Drawer State
-    const [showHelpDrawer, setShowHelpDrawer] = useState(false);
 
     useEffect(() => {
         if (!session) return;
@@ -87,7 +85,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
         
-        // Start completely empty so the admin isn't forced as a creator
         setSelectedAuthors([]);
         setIsAddModalOpen(true);
     };
@@ -101,7 +98,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
 
-        // Map ONLY co_authors to the creator list, because playlist.author is now securely the admin manager
         const authorIds = [];
         if (playlist.co_authors) {
             authorIds.push(...playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean));
@@ -116,7 +112,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsAddModalOpen(true);
     };
 
-    // Automatically strip the URL if a user pastes a full link instead of just the ID
     const handlePlaylistIdChange = (e) => {
         let val = e.target.value;
         try {
@@ -127,9 +122,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     val = listParam;
                 }
             }
-        } catch(err) {
-            // Ignore invalid URL parsing errors
-        }
+        } catch(err) {}
         setNewPlaylistId(val);
     };
 
@@ -152,7 +145,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
             });
             if (res.ok) {
                 alert("API Key saved successfully!");
-                setShowHelpDrawer(false); // Close the drawer automatically on success
             } else {
                 alert("Failed to save API key.");
             }
@@ -221,24 +213,17 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
     const formatDate = (dateInput) => {
         if (!dateInput) return '---------';
-        
         let date;
         if (typeof dateInput === 'number' || (typeof dateInput === 'string' && !isNaN(dateInput) && !dateInput.includes('-'))) {
             date = new Date(Number(dateInput) * 1000);
         } else {
             date = new Date(dateInput);
         }
-        
-        if (dateInput instanceof Date) {
-            date = dateInput;
-        }
-
+        if (dateInput instanceof Date) date = dateInput;
         if (isNaN(date.getTime())) return '---------';
-        
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         const yyyy = date.getFullYear();
-        
         return `${mm}-${dd}-${yyyy}`;
     };
 
@@ -266,7 +251,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl max-w-3xl relative">
                         
-                        {/* 1. API Key Input First */}
                         <div className="space-y-4 mb-10">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                 Google YouTube API Key
@@ -296,7 +280,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                             </p>
                         </div>
 
-                        {/* 2. Instruction Box Second */}
                         <div className="p-6 bg-white/5 border border-white/10 rounded-2xl">
                             <h4 className="text-sm font-black uppercase tracking-widest text-white mb-3 flex items-center gap-2">
                                 <Youtube size={16} className="text-red-500" /> How to obtain your API Key
@@ -322,50 +305,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     </div>
                 </div>
 
-                {/* --- HELP DRAWER (SLIDE-UP SHELF) --- */}
-                <div 
-                    className={`fixed bottom-0 left-0 lg:left-[16rem] right-0 bg-[#0a0a0a] border-t border-[#9df01c]/30 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] z-[100] transition-transform duration-500 ease-in-out flex flex-col ${showHelpDrawer ? 'translate-y-0' : 'translate-y-full'}`}
-                    style={{ height: '65vh' }}
-                >
-                    {/* The Folder Tab Button */}
-                    <button
-                        onClick={() => setShowHelpDrawer(!showHelpDrawer)}
-                        className={`absolute -top-12 right-6 sm:right-12 h-12 px-6 rounded-t-xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all border-t border-l border-r ${
-                            showHelpDrawer 
-                            ? 'bg-[#111] text-gray-400 hover:text-white border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]' 
-                            : 'bg-[#9df01c] hover:bg-[#8ce015] text-black border-[#9df01c]/30 shadow-[0_0_15px_rgba(157,240,28,0.4)] animate-pulse'
-                        }`}
-                    >
-                        {showHelpDrawer ? <X size={16} /> : <Info size={16} />}
-                        {showHelpDrawer ? 'Close Guide' : 'Step-by-Step Guide'}
-                    </button>
-
-                    {/* Drawer Header */}
-                    <div className="flex justify-between items-center px-6 py-3 border-b border-white/10 bg-[#111] flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-[#9df01c]/10 flex items-center justify-center text-[#9df01c]">
-                                <Info size={16} />
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-black uppercase tracking-widest text-white">Interactive Walkthrough</h3>
-                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Create & Connect YouTube API Key</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Custom Domain Help Embed */}
-                    <div className="flex-1 bg-[#050505] w-full h-full relative overflow-hidden">
-                        <iframe 
-                            src="https://help.selloutcrowds.com/e/cmlyms4a90001l204rrzng1pe/tour" 
-                            className="absolute inset-0 w-full h-full border-none"
-                            allowFullScreen
-                            webkitAllowFullScreen="true"
-                            mozAllowFullScreen="true"
-                            allowTransparency="true"
-                            title="YouTube API Walkthrough"
-                        ></iframe>
-                    </div>
-                </div>
+                {/* --- MAGIC UNIVERSAL HELP DRAWER --- */}
+                <HelpDrawer pageName="youtube_sync_api" session={session} />
             </>
         );
     }
@@ -385,7 +326,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     </p>
                 </div>
                 <div className="flex flex-wrap sm:flex-nowrap gap-2">
-                    {/* Add Playlist Button - Disabled and dark if no API key is present */}
                     <button 
                         onClick={apiKey ? handleOpenAddModal : undefined}
                         disabled={!apiKey}
@@ -397,7 +337,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     >
                         <Plus size={16} /> Add Playlist
                     </button>
-                    {/* API Key Settings Button - Green if no API key is present, otherwise dark */}
                     <button 
                         onClick={() => setActiveTab('settings')}
                         className={`flex-1 sm:flex-none font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -512,7 +451,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 </div>
                             )}
 
-                            {/* Admin/Manager Display (Read-Only) */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Playlist Manager
@@ -532,7 +470,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 </div>
                             </div>
 
-                            {/* Playlist ID */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Playlist Id <span className="text-red-500">*</span>
@@ -546,7 +483,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 />
                             </div>
 
-                            {/* Active Switcher */}
                             <div className="flex items-center justify-between p-4 bg-black border border-white/10 rounded-xl">
                                 <span className="text-xs font-bold text-white">Active</span>
                                 <button 
@@ -558,13 +494,11 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 </button>
                             </div>
 
-                            {/* Creator(s) Search & Multi-Select */}
                             <div className="space-y-3">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Creator(s) <Users size={12} className="text-[#9df01c]" />
                                 </label>
                                 
-                                {/* Selected Authors Tags with Avatars */}
                                 <div className="flex flex-wrap gap-2 min-h-[42px] p-2.5 bg-black border border-white/10 rounded-xl items-center">
                                     {selectedAuthors.map((author, index) => (
                                         <span 
@@ -575,7 +509,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                                     : 'bg-white/10 text-white'
                                             }`}
                                         >
-                                            {/* Render Thumbnail inside selected pill */}
                                             {author.avatar ? (
                                                 <img src={author.avatar} alt={author.name} className="w-5 h-5 rounded-full object-cover border border-black/20" />
                                             ) : (
@@ -602,7 +535,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                     )}
                                 </div>
 
-                                {/* Dynamic User Search Dropdown */}
                                 <div className="relative mt-2">
                                     <div className="flex items-center bg-black border border-white/10 rounded-xl px-4 py-3 focus-within:border-[#9df01c] transition-colors">
                                         <Search size={16} className="text-gray-500 mr-2" />
@@ -658,7 +590,6 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                                 </p>
                             </div>
 
-                            {/* Destination Selection (Grouped Crowds & Spaces) */}
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                                     Select Where to Post <span className="text-red-500">*</span>
@@ -718,6 +649,10 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     </div>
                 </div>
             )}
+            
+            {/* --- MAGIC UNIVERSAL HELP DRAWER --- */}
+            {/* Added for the Dashboard just in case, but you can remove if only needed on Settings */}
+            <HelpDrawer pageName="youtube_sync_dash" session={session} />
         </div>
     );
 }
