@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { PlayCircle, Info, ChevronDown, Loader2 } from 'lucide-react';
+import { PlayCircle, Info, ChevronDown, Loader2, X } from 'lucide-react';
 
-export default function HelpDrawer({ pageName, session }) {
+export default function HelpDrawer({ pageName, session, unaData }) {
     const [showDrawer, setShowDrawer] = useState(false);
     const [mapping, setMapping] = useState(null);
     const [guide, setGuide] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const userEmail = unaData?.user?.email || '';
+
     useEffect(() => {
-        if (!session || !pageName) return;
+        if (!session || !pageName || !userEmail) return;
         fetchDrawerData();
-    }, [session, pageName]);
+    }, [session, pageName, userEmail]);
 
     const fetchDrawerData = async () => {
         setIsLoading(true);
         try {
-            // 1. Check UNA to see if Admin activated a guide for this page
-            const mappingRes = await fetch('/api/bridge', {
+            const mappingRes = await fetch('/api/admin-bridge', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get_page_guide_mapping', page_name: pageName })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'get_page_guide_mapping', 
+                    page_name: pageName,
+                    email: userEmail
+                })
             });
             const mappingData = await mappingRes.json();
 
-            // 2. If mapped and active, fetch the actual guide content from the Help Center database!
             if (mappingData.success && mappingData.mapping && mappingData.mapping.is_active === 1) {
                 setMapping(mappingData.mapping);
                 
@@ -34,7 +38,6 @@ export default function HelpDrawer({ pageName, session }) {
                 
                 const foundGuide = guidesData.guides?.find(g => g.id === mappingData.mapping.guide_id);
                 if (foundGuide) {
-                    // Parse content safely
                     let parsedContent = foundGuide.content;
                     if (typeof foundGuide.content === 'string') {
                         try { parsedContent = JSON.parse(foundGuide.content); } catch(e) {}
@@ -49,7 +52,6 @@ export default function HelpDrawer({ pageName, session }) {
         }
     };
 
-    // If no guide is actively mapped to this page by the admin, render nothing!
     if (isLoading || !mapping || !guide) return null;
 
     const renderContent = () => {
@@ -70,7 +72,6 @@ export default function HelpDrawer({ pageName, session }) {
                 </div>
             );
         } else {
-            // Renders standard HTML or LayerPath Iframe Embeds flawlessly
             return (
                 <div 
                     className="p-6 sm:p-10 text-gray-300 text-base leading-loose whitespace-pre-wrap font-sans overflow-y-auto custom-scrollbar h-full pb-20"

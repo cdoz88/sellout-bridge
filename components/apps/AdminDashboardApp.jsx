@@ -3,7 +3,8 @@ import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check } from 'lucide-re
 
 export default function AdminDashboardApp({ session, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
-    const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
+    const userEmail = unaData?.user?.email || '';
+    const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase());
 
     const [activeTab, setActiveTab] = useState('guides');
     const [isLoading, setIsLoading] = useState(true);
@@ -12,7 +13,6 @@ export default function AdminDashboardApp({ session, unaData }) {
     const [guides, setGuides] = useState([]);
     const [mappings, setMappings] = useState([]);
 
-    // Hardcoded list of apps/pages across your platform
     const platformPages = [
         { id: 'youtube_sync_api', name: 'YouTube Sync - API Settings' },
         { id: 'youtube_sync_dash', name: 'YouTube Sync - Dashboard' },
@@ -21,30 +21,27 @@ export default function AdminDashboardApp({ session, unaData }) {
     ];
 
     useEffect(() => {
-        if (!session || !isAdmin) return;
+        if (!session || !isAdmin || !userEmail) return;
         fetchAdminData();
-    }, [session, isAdmin]);
+    }, [session, isAdmin, userEmail]);
 
     const fetchAdminData = async () => {
         setIsLoading(true);
         try {
-            // Auto-create database tables on UNA if they don't exist
-            await fetch('/api/bridge', {
+            await fetch('/api/admin-bridge', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'init_admin_tables' })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'init_admin_tables', email: userEmail })
             });
 
-            // Fetch library guides
             const guidesRes = await fetch(`/api/guides/data`, { headers: { 'Authorization': `Bearer ${session}` } });
             const guidesData = await guidesRes.json();
             if (guidesData.guides) setGuides(guidesData.guides);
 
-            // Fetch active mappings
-            const mappingRes = await fetch('/api/bridge', {
+            const mappingRes = await fetch('/api/admin-bridge', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get_guide_mappings' })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_guide_mappings', email: userEmail })
             });
             const mappingData = await mappingRes.json();
             if (mappingData.mappings) setMappings(mappingData.mappings);
@@ -59,19 +56,25 @@ export default function AdminDashboardApp({ session, unaData }) {
     const handleSaveMapping = async (pageId, guideId, isActive) => {
         setIsSaving(true);
         try {
-            await fetch('/api/bridge', {
+            const res = await fetch('/api/admin-bridge', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${session}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     action: 'save_guide_mapping', 
                     page_name: pageId,
                     guide_id: parseInt(guideId),
-                    is_active: isActive ? 1 : 0
+                    is_active: isActive ? 1 : 0,
+                    email: userEmail
                 })
             });
-            // Update local state instantly
-            const newMappings = mappings.filter(m => m.page_name !== pageId);
-            setMappings([...newMappings, { page_name: pageId, guide_id: parseInt(guideId), is_active: isActive ? 1 : 0 }]);
+            const data = await res.json();
+            
+            if (data.success) {
+                const newMappings = mappings.filter(m => m.page_name !== pageId);
+                setMappings([...newMappings, { page_name: pageId, guide_id: parseInt(guideId), is_active: isActive ? 1 : 0 }]);
+            } else {
+                alert(data.error || "Server rejected the save. You may not have Admin permissions.");
+            }
         } catch (e) {
             alert("Failed to save mapping");
         } finally {

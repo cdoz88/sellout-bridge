@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Youtube, Plus, Key, Loader2, Edit3, Trash2, X, Globe, ExternalLink, ArrowLeft, Users, Check, Search, RefreshCw } from 'lucide-react';
-
-// IMPORT THE NEW COMPONENT HERE!
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage', setActiveTab }) {
@@ -11,6 +9,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [apiKey, setApiKey] = useState('');
     const [teammates, setTeammates] = useState([]);
     
+    // Modal State
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingPlaylistId, setEditingPlaylistId] = useState(null);
     const [newPlaylistId, setNewPlaylistId] = useState('');
@@ -19,6 +18,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
     const [selectedAuthors, setSelectedAuthors] = useState([]);
     const [modalError, setModalError] = useState('');
 
+    // User Search State
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -85,6 +85,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
         
+        // Start completely empty so the admin isn't forced as a creator
         setSelectedAuthors([]);
         setIsAddModalOpen(true);
     };
@@ -98,6 +99,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setSearchQuery('');
         setSearchResults([]);
 
+        // Map ONLY co_authors to the creator list, because playlist.author is now securely the admin manager
         const authorIds = [];
         if (playlist.co_authors) {
             authorIds.push(...playlist.co_authors.split(',').map(id => parseInt(id.trim(), 10)).filter(Boolean));
@@ -112,6 +114,7 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
         setIsAddModalOpen(true);
     };
 
+    // Automatically strip the URL if a user pastes a full link instead of just the ID
     const handlePlaylistIdChange = (e) => {
         let val = e.target.value;
         try {
@@ -122,7 +125,9 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     val = listParam;
                 }
             }
-        } catch(err) {}
+        } catch(err) {
+            // Ignore invalid URL parsing errors
+        }
         setNewPlaylistId(val);
     };
 
@@ -213,17 +218,24 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
 
     const formatDate = (dateInput) => {
         if (!dateInput) return '---------';
+        
         let date;
         if (typeof dateInput === 'number' || (typeof dateInput === 'string' && !isNaN(dateInput) && !dateInput.includes('-'))) {
             date = new Date(Number(dateInput) * 1000);
         } else {
             date = new Date(dateInput);
         }
-        if (dateInput instanceof Date) date = dateInput;
+        
+        if (dateInput instanceof Date) {
+            date = dateInput;
+        }
+
         if (isNaN(date.getTime())) return '---------';
+        
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         const yyyy = date.getFullYear();
+        
         return `${mm}-${dd}-${yyyy}`;
     };
 
@@ -305,8 +317,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                     </div>
                 </div>
 
-                {/* --- MAGIC UNIVERSAL HELP DRAWER --- */}
-                <HelpDrawer pageName="youtube_sync_api" session={session} />
+                {/* --- MAGIC UNIVERSAL HELP DRAWER (PASSED UNADATA) --- */}
+                <HelpDrawer pageName="youtube_sync_api" session={session} unaData={unaData} />
             </>
         );
     }
@@ -650,9 +662,8 @@ export default function YoutubeSyncApp({ session, unaData, activeTab = 'manage',
                 </div>
             )}
             
-            {/* --- MAGIC UNIVERSAL HELP DRAWER --- */}
-            {/* Added for the Dashboard just in case, but you can remove if only needed on Settings */}
-            <HelpDrawer pageName="youtube_sync_dash" session={session} />
+            {/* --- MAGIC UNIVERSAL HELP DRAWER (PASSED UNADATA) --- */}
+            <HelpDrawer pageName="youtube_sync_dash" session={session} unaData={unaData} />
         </div>
     );
 }
