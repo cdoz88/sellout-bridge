@@ -7,6 +7,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
     const [guide, setGuide] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Extract the user's email to pass to the backend for Admin validation
     const userEmail = unaData?.user?.email || '';
 
     useEffect(() => {
@@ -17,6 +18,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
     const fetchDrawerData = async () => {
         setIsLoading(true);
         try {
+            // FIXED: Pointing to the correct admin-bridge endpoint!
             const mappingRes = await fetch('/api/admin-bridge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -28,6 +30,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
             });
             const mappingData = await mappingRes.json();
 
+            // If mapped and active, fetch the actual guide content from the Help Center database!
             if (mappingData.success && mappingData.mapping && mappingData.mapping.is_active === 1) {
                 setMapping(mappingData.mapping);
                 
@@ -38,6 +41,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
                 
                 const foundGuide = guidesData.guides?.find(g => g.id === mappingData.mapping.guide_id);
                 if (foundGuide) {
+                    // Parse content safely
                     let parsedContent = foundGuide.content;
                     if (typeof foundGuide.content === 'string') {
                         try { parsedContent = JSON.parse(foundGuide.content); } catch(e) {}
@@ -52,6 +56,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
         }
     };
 
+    // If no guide is actively mapped to this page by the admin, render nothing!
     if (isLoading || !mapping || !guide) return null;
 
     const renderContent = () => {
@@ -72,6 +77,7 @@ export default function HelpDrawer({ pageName, session, unaData }) {
                 </div>
             );
         } else {
+            // Renders standard HTML or LayerPath Iframe Embeds flawlessly
             return (
                 <div 
                     className="p-6 sm:p-10 text-gray-300 text-base leading-loose whitespace-pre-wrap font-sans overflow-y-auto custom-scrollbar h-full pb-20"
