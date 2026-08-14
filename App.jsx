@@ -18,6 +18,7 @@ import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
 import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
+import AdminDashboardApp from './components/apps/AdminDashboardApp';
 
 // Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
@@ -669,6 +670,8 @@ export default function App() {
               return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
           case 'youtube':
               return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'admin':
+              return <AdminDashboardApp session={session} unaData={unaData} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }
@@ -716,7 +719,6 @@ export default function App() {
             </button>
             <button onClick={() => handleAppSwitch('dashboard', 'home')} className={`p-2 transition-colors flex flex-col items-center gap-1 ${currentApp === 'dashboard' ? 'text-[#9df01c]' : 'text-gray-500 hover:text-white'}`}>
                 <LayoutDashboard size={20} />
-                {/* NEW: Updated Mobile Nav text */}
                 <span className="text-[9px] font-bold uppercase tracking-widest">Office</span>
             </button>
             <button onClick={triggerMobileQRCode} className="p-2 text-gray-500 hover:text-[#9df01c] transition-colors flex flex-col items-center gap-1">
