@@ -1,7 +1,8 @@
 import React from 'react';
-import { AlertCircle, LogOut, ArrowUpCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowUpCircle } from 'lucide-react';
 
 export default function UpgradeScreen({ handleLogout, toolName, roleName }) {
+    // Dynamic messaging based on the tool they tried to access
     const message = toolName && roleName 
         ? `${toolName} is not available for ${roleName} subscribers. Upgrade your account to access this tool!`
         : `These tools are not available for ${roleName ? roleName : 'your current'} subscribers. Upgrade your account to access them!`;
@@ -24,11 +25,16 @@ export default function UpgradeScreen({ handleLogout, toolName, roleName }) {
                 >
                     <ArrowUpCircle size={16} /> Upgrade Account
                 </a>
-                <button 
-                    onClick={handleLogout}
-                    className="w-full bg-white/5 text-white font-black uppercase text-xs tracking-widest py-4 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                <a 
+                    href="https://office.selloutcrowds.com/?app=dashboard&tab=home"
+                    className="w-full bg-white/5 text-white font-black uppercase text-xs tracking-widest py-4 rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 mb-6"
                 >
-                    <LogOut size={16} /> Log Out
+                    <ArrowLeft size={16} /> Back to Front Office
+                </a>
+                
+                {/* Fallback so low-tier users aren't trapped and can switch accounts */}
+                <button onClick={handleLogout} className="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest transition-colors">
+                    Log out of this account
                 </button>
             </div>
         </div>
