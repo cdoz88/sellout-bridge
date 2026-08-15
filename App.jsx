@@ -85,7 +85,6 @@ export default function App() {
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // --- ACL Matrix State ---
   const [aclMatrix, setAclMatrix] = useState([]);
   const [isAclLoading, setIsAclLoading] = useState(false);
 
@@ -132,7 +131,6 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
-  // Fetch ACL Matrix from Command Center
   const fetchAclMatrix = async (token, email) => {
       setIsAclLoading(true);
       try {
@@ -467,8 +465,6 @@ export default function App() {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.user) {
-              
-              // FIX: Call our new bridge to fetch the ACTUAL backend UNA role!
               try {
                   const roleRes = await fetch('/api/admin-bridge', {
                       method: 'POST',
@@ -602,9 +598,39 @@ export default function App() {
       }
   };
 
-  // --- THE ACL SECURITY GATEKEEPER ---
+  // --- THE ACL SECURITY GATEKEEPER HELPER FUNCTIONS ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isUserAdmin = unaData?.user && (Number(unaData.user.role) === 3 || ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+
+  const getRoleName = (roleId) => {
+      if (!roleId) return 'Standard';
+      switch (Number(roleId)) {
+          case 3: return 'Admin';
+          case 12: return 'Com. Exempt';
+          case 15: return 'Rookie';
+          case 16: return 'All-Star';
+          case 17: return 'H.O.F.';
+          case 18: return 'Teammate';
+          default: return 'Standard'; 
+      }
+  };
+
+  const getToolName = (appId) => {
+      const names = {
+          'youtube': 'YouTube Sync',
+          'newsletter': 'Newsletter',
+          'affiliate': 'Affiliates',
+          'teammates': 'Teammates',
+          'address-book': 'Address Book',
+          'business-card': 'Digital Card',
+          'linktree': 'Bio Page',
+          'assets': 'Asset Library',
+          'content': 'Content Engine',
+          'community-link': 'Custom Community URL',
+          'bridge': 'Subscription Bridge'
+      };
+      return names[appId] || 'This tool';
+  };
 
   const hasAccess = (appId) => {
       if (isUserAdmin) return true;
@@ -708,16 +734,22 @@ export default function App() {
     );
   }
 
+  const userRoleName = getRoleName(unaData?.user?.role);
+
+  // Hard block for Standard & Unconfirmed users platform-wide
+  if (unaData.user && (Number(unaData.user.role) === 1 || Number(unaData.user.role) === 2)) {
+      return <UpgradeScreen handleLogout={handleLogout} roleName={userRoleName} />;
+  }
+
   const renderApp = () => {
       // ACL GATEKEEPER INTERCEPTION
       if (!hasAccess(currentApp)) {
-          return <UpgradeScreen handleLogout={handleLogout} />;
+          return <UpgradeScreen handleLogout={handleLogout} toolName={getToolName(currentApp)} roleName={userRoleName} />;
       }
 
       // STANDARD ROUTING
       switch (currentApp) {
           case 'dashboard':
-              // PASSING hasAccess DOWN TO DASHBOARD FOR NEXT STEP
               return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} hasAccess={hasAccess} />;
           case 'business-card':
               return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
