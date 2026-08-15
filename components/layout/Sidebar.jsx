@@ -69,7 +69,15 @@ export default function Sidebar({
     }, [session]);
 
     const handleNavClick = (tab) => {
-        setActiveTab(tab);
+        if (currentApp === 'admin') {
+            if (handleAppSwitch) {
+                handleAppSwitch('admin', tab);
+            } else {
+                setActiveTab(tab);
+            }
+        } else {
+            setActiveTab(tab);
+        }
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
     };
 

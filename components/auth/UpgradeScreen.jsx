@@ -2,7 +2,6 @@ import React from 'react';
 import { AlertCircle, ArrowLeft, ArrowUpCircle } from 'lucide-react';
 
 export default function UpgradeScreen({ handleLogout, toolName, roleName }) {
-    // Dynamic messaging based on the tool they tried to access
     const message = toolName && roleName 
         ? `${toolName} is not available for ${roleName} subscribers. Upgrade your account to access this tool!`
         : `These tools are not available for ${roleName ? roleName : 'your current'} subscribers. Upgrade your account to access them!`;
@@ -32,7 +31,6 @@ export default function UpgradeScreen({ handleLogout, toolName, roleName }) {
                     <ArrowLeft size={16} /> Back to Front Office
                 </a>
                 
-                {/* Fallback so low-tier users aren't trapped and can switch accounts */}
                 <button onClick={handleLogout} className="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest transition-colors">
                     Log out of this account
                 </button>
