@@ -12,12 +12,37 @@ export default function AdminDashboardApp({ session, unaData }) {
     
     const [guides, setGuides] = useState([]);
     const [mappings, setMappings] = useState([]);
+    const [aclMatrix, setAclMatrix] = useState([]);
 
+    // Hardcoded list of apps/pages across your platform
     const platformPages = [
         { id: 'youtube_sync_api', name: 'YouTube Sync - API Settings' },
         { id: 'youtube_sync_dash', name: 'YouTube Sync - Dashboard' },
         { id: 'wordpress_plugin', name: 'WordPress Plugin Setup' },
         { id: 'stripe_payments', name: 'Stripe Payments Configuration' },
+    ];
+
+    // Static UNA Membership Levels
+    const unaRoles = [
+        { id: 15, name: 'Rookie' },
+        { id: 16, name: 'All-Star' },
+        { id: 17, name: 'H.O.F.' },
+        { id: 12, name: 'Com. Exempt' },
+        { id: 18, name: 'Teammate' }
+    ];
+
+    // Platform Features for ACL
+    const platformFeatures = [
+        { id: 'youtube', name: 'YouTube Sync' },
+        { id: 'newsletter', name: 'Newsletter' },
+        { id: 'affiliates', name: 'Affiliates' },
+        { id: 'teammates', name: 'Teammates' },
+        { id: 'address_book', name: 'Address Book' },
+        { id: 'business_card', name: 'Digital Card' },
+        { id: 'bio_page', name: 'Bio Page' },
+        { id: 'assets', name: 'Asset Library' },
+        { id: 'content', name: 'Content Engine' },
+        { id: 'community_link', name: 'Community Links' },
     ];
 
     useEffect(() => {
@@ -45,6 +70,14 @@ export default function AdminDashboardApp({ session, unaData }) {
             });
             const mappingData = await mappingRes.json();
             if (mappingData.mappings) setMappings(mappingData.mappings);
+
+            const aclRes = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_acl_matrix', email: userEmail })
+            });
+            const aclData = await aclRes.json();
+            if (aclData.matrix) setAclMatrix(aclData.matrix);
 
         } catch (error) {
             console.error("Admin Fetch Error:", error);
@@ -82,6 +115,35 @@ export default function AdminDashboardApp({ session, unaData }) {
         }
     };
 
+    const handleSaveAcl = async (featureId, levelId, isActive) => {
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'save_acl_matrix', 
+                    feature_name: featureId,
+                    level_id: parseInt(levelId),
+                    is_active: isActive ? 1 : 0,
+                    email: userEmail
+                })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const newMatrix = aclMatrix.filter(m => !(m.feature_name === featureId && parseInt(m.level_id) === parseInt(levelId)));
+                setAclMatrix([...newMatrix, { feature_name: featureId, level_id: parseInt(levelId), is_active: isActive ? 1 : 0 }]);
+            } else {
+                alert(data.error || "Server rejected the save.");
+            }
+        } catch (e) {
+            alert("Failed to save Access Control.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     if (!isAdmin) {
         return <div className="p-12 text-center text-red-500 font-bold uppercase tracking-widest text-xs">Access Denied</div>;
     }
@@ -98,9 +160,9 @@ export default function AdminDashboardApp({ session, unaData }) {
                         Global Platform Settings and Architecture
                     </p>
                 </div>
-                <div className="flex bg-[#111] p-1 rounded-xl border border-white/5">
-                    <button onClick={() => setActiveTab('guides')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'guides' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><BookOpen size={14}/> Guide Maps</button>
-                    <button onClick={() => setActiveTab('acl')} className={`px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'acl' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><ShieldAlert size={14}/> Access Control</button>
+                <div className="flex bg-[#111] p-1 rounded-xl border border-white/5 overflow-x-auto">
+                    <button onClick={() => setActiveTab('guides')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'guides' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><BookOpen size={14}/> Guide Maps</button>
+                    <button onClick={() => setActiveTab('acl')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'acl' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><ShieldAlert size={14}/> Access Control</button>
                 </div>
             </div>
 
@@ -150,8 +212,54 @@ export default function AdminDashboardApp({ session, unaData }) {
                     </div>
                 </div>
             ) : (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-16 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
-                    Access Control Matrix Module coming next...
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl overflow-hidden">
+                    <div className="mb-8 border-b border-white/5 pb-6">
+                        <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Access Control Matrix</h3>
+                        <p className="text-xs text-gray-400 leading-relaxed">Toggle which Membership Levels are permitted to access each module in the Front Office.</p>
+                        <p className="text-[9px] text-[#9df01c] font-black uppercase tracking-widest mt-2">Note: Platform Admins always have full access.</p>
+                    </div>
+
+                    <div className="overflow-x-auto custom-scrollbar pb-4">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead>
+                                <tr>
+                                    <th className="p-4 bg-[#1a1a1a] border-b border-white/10 text-[10px] font-black uppercase tracking-widest text-white rounded-tl-xl">Feature / Module</th>
+                                    {unaRoles.map(role => (
+                                        <th key={role.id} className="p-4 bg-[#1a1a1a] border-b border-l border-white/10 text-[10px] font-black uppercase tracking-widest text-center text-gray-400 last:rounded-tr-xl">
+                                            {role.name}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {platformFeatures.map((feature, index) => (
+                                    <tr key={feature.id} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${index === platformFeatures.length - 1 ? 'border-b-0' : ''}`}>
+                                        <td className="p-4 border-r border-white/5">
+                                            <p className="text-sm font-bold text-white mb-1">{feature.name}</p>
+                                        </td>
+                                        {unaRoles.map(role => {
+                                            const currentVal = aclMatrix.find(m => m.feature_name === feature.id && parseInt(m.level_id) === role.id);
+                                            // Default to True (1) if no record exists yet, just like UNA does
+                                            const isActive = currentVal ? parseInt(currentVal.is_active) === 1 : true;
+                                            
+                                            return (
+                                                <td key={role.id} className="p-4 border-r border-white/5 last:border-r-0 text-center">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => handleSaveAcl(feature.id, role.id, !isActive)}
+                                                        disabled={isSaving}
+                                                        className={`mx-auto w-10 h-6 rounded-full transition-colors relative flex items-center ${isActive ? 'bg-[#9df01c]' : 'bg-white/10'}`}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded-full bg-white transition-transform transform shadow-sm ${isActive ? 'translate-x-5' : 'translate-x-1'}`} />
+                                                    </button>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
