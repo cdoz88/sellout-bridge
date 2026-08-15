@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check } from 'lucide-react';
+import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp } from 'lucide-react';
 
+// Notice how activeTab and setActiveTab are ONLY coming from props now!
 export default function AdminDashboardApp({ session, unaData, activeTab = 'guides', setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const userEmail = unaData?.user?.email || '';
@@ -12,8 +13,8 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
     const [guides, setGuides] = useState([]);
     const [mappings, setMappings] = useState([]);
     const [aclMatrix, setAclMatrix] = useState([]);
+    const [usageLimits, setUsageLimits] = useState([]);
 
-    // Hardcoded list of apps/pages across your platform
     const platformPages = [
         { id: 'youtube_sync_api', name: 'YouTube Sync - API Settings' },
         { id: 'youtube_sync_dash', name: 'YouTube Sync - Dashboard' },
@@ -21,7 +22,6 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 'stripe_payments', name: 'Stripe Payments Configuration' },
     ];
 
-    // Static UNA Membership Levels
     const unaRoles = [
         { id: 15, name: 'Rookie' },
         { id: 16, name: 'All-Star' },
@@ -30,7 +30,6 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 18, name: 'Teammate' }
     ];
 
-    // Platform Features for ACL
     const platformFeatures = [
         { id: 'youtube', name: 'YouTube Sync' },
         { id: 'newsletter', name: 'Newsletter' },
@@ -42,6 +41,11 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 'assets', name: 'Asset Library' },
         { id: 'content', name: 'Content Engine' },
         { id: 'community_link', name: 'Community Links' },
+    ];
+
+    const limitFeatures = [
+        { id: 'teammates', name: 'Teammates Allowance' },
+        { id: 'community_link', name: 'Custom Domains Allowance' }
     ];
 
     useEffect(() => {
@@ -77,6 +81,14 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
             });
             const aclData = await aclRes.json();
             if (aclData.matrix) setAclMatrix(aclData.matrix);
+
+            const limitRes = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_usage_limits', email: userEmail })
+            });
+            const limitData = await limitRes.json();
+            if (limitData.limits) setUsageLimits(limitData.limits);
 
         } catch (error) {
             console.error("Admin Fetch Error:", error);
@@ -143,6 +155,32 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         }
     };
 
+    const handleSaveLimit = async (featureId, levelId, maxCount) => {
+        try {
+            const res = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'save_usage_limit', 
+                    feature_name: featureId,
+                    level_id: parseInt(levelId),
+                    max_count: parseInt(maxCount) || 0,
+                    email: userEmail
+                })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                const newLimits = usageLimits.filter(m => !(m.feature_name === featureId && parseInt(m.level_id) === parseInt(levelId)));
+                setUsageLimits([...newLimits, { feature_name: featureId, level_id: parseInt(levelId), max_count: parseInt(maxCount) || 0 }]);
+            } else {
+                alert(data.error || "Server rejected the save.");
+            }
+        } catch (e) {
+            alert("Failed to save Usage Limit.");
+        }
+    };
+
     if (!isAdmin) {
         return <div className="p-12 text-center text-red-500 font-bold uppercase tracking-widest text-xs">Access Denied</div>;
     }
@@ -162,6 +200,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                 <div className="flex bg-[#111] p-1 rounded-xl border border-white/5 overflow-x-auto">
                     <button onClick={() => setActiveTab('guides')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'guides' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><BookOpen size={14}/> Guide Maps</button>
                     <button onClick={() => setActiveTab('acl')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'acl' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><ShieldAlert size={14}/> Access Control</button>
+                    <button onClick={() => setActiveTab('limits')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'limits' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><TrendingUp size={14}/> Usage Limits</button>
                 </div>
             </div>
 
@@ -210,7 +249,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                         })}
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === 'acl' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl overflow-hidden">
                     <div className="mb-8 border-b border-white/5 pb-6">
                         <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Access Control Matrix</h3>
@@ -260,7 +299,54 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                         </table>
                     </div>
                 </div>
-            )}
+            ) : activeTab === 'limits' ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl overflow-hidden">
+                    <div className="mb-8 border-b border-white/5 pb-6">
+                        <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Usage Limits Matrix</h3>
+                        <p className="text-xs text-gray-400 leading-relaxed">Set the maximum allowances for specific features based on Membership Level. Set to '0' to disable.</p>
+                        <p className="text-[9px] text-[#9df01c] font-black uppercase tracking-widest mt-2">Note: Platform Admins always have unlimited access.</p>
+                    </div>
+
+                    <div className="overflow-x-auto custom-scrollbar pb-4">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead>
+                                <tr>
+                                    <th className="p-4 bg-[#1a1a1a] border-b border-white/10 text-[10px] font-black uppercase tracking-widest text-white rounded-tl-xl">Feature / Module</th>
+                                    {unaRoles.map(role => (
+                                        <th key={role.id} className="p-4 bg-[#1a1a1a] border-b border-l border-white/10 text-[10px] font-black uppercase tracking-widest text-center text-gray-400 last:rounded-tr-xl">
+                                            {role.name}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {limitFeatures.map((feature, index) => (
+                                    <tr key={feature.id} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${index === limitFeatures.length - 1 ? 'border-b-0' : ''}`}>
+                                        <td className="p-4 border-r border-white/5">
+                                            <p className="text-sm font-bold text-white mb-1">{feature.name}</p>
+                                        </td>
+                                        {unaRoles.map(role => {
+                                            const currentVal = usageLimits.find(m => m.feature_name === feature.id && parseInt(m.level_id) === role.id);
+                                            const maxCount = currentVal ? parseInt(currentVal.max_count) : 0;
+                                            
+                                            return (
+                                                <td key={role.id} className="p-4 border-r border-white/5 last:border-r-0 text-center">
+                                                    <input 
+                                                        type="number"
+                                                        value={maxCount}
+                                                        onChange={(e) => handleSaveLimit(feature.id, role.id, e.target.value)}
+                                                        className="w-16 mx-auto bg-black border border-white/10 rounded-lg px-2 py-1.5 text-xs font-bold text-center text-white focus:border-[#9df01c] outline-none"
+                                                    />
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
