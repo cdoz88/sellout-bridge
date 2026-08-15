@@ -36,7 +36,6 @@ export default function App() {
               if (host === 'scout.selloutcrowds.com' && path.length > 1) return true;
               if (host.endsWith('.selloutcrowds.fan') && !host.includes('localhost')) return true;
               
-              // NEW: Added office domain to known domains
               const isKnownDomain = host.includes('crowds.bio') || host.endsWith('.fan') || host.includes('localhost') || host.includes('hub.selloutcrowds.com') || host.includes('office.selloutcrowds.com');
               if (!isKnownDomain && path.length > 1) return true;
           }
@@ -86,7 +85,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // --- NEW: ACL Matrix State ---
+  // --- ACL Matrix State ---
   const [aclMatrix, setAclMatrix] = useState([]);
   const [isAclLoading, setIsAclLoading] = useState(false);
 
@@ -133,7 +132,7 @@ export default function App() {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
 
-  // --- NEW: Fetch ACL Matrix from Command Center ---
+  // Fetch ACL Matrix from Command Center
   const fetchAclMatrix = async (token, email) => {
       setIsAclLoading(true);
       try {
@@ -237,7 +236,6 @@ export default function App() {
       }
   }, [currentApp, activeTab, isPublicBio, isOAuthFlow, session, isRedirecting]);
 
-  // NEW: Updated Document Titles for Front Office
   useEffect(() => {
       if (isPublicBio && publicCardData) {
           document.title = `${publicCardData.pageTitle || publicCardData.name} | Contact`;
@@ -469,6 +467,22 @@ export default function App() {
           if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
           const data = await res.json();
           if (data.user) {
+              
+              // FIX: Call our new bridge to fetch the ACTUAL backend UNA role!
+              try {
+                  const roleRes = await fetch('/api/admin-bridge', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'get_role', email: data.user.email })
+                  });
+                  const roleData = await roleRes.json();
+                  if (roleData.success && roleData.role) {
+                      data.user.role = roleData.role;
+                  }
+              } catch (e) {
+                  console.error("Failed to fetch exact ACL role", e);
+              }
+
               setUnaData(prev => ({ ...prev, user: data.user }));
               fetchAclMatrix(token, data.user.email);
               if (currentApp === 'bridge') {
@@ -588,15 +602,14 @@ export default function App() {
       }
   };
 
-  // --- NEW: THE ACL SECURITY GATEKEEPER ---
+  // --- THE ACL SECURITY GATEKEEPER ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isUserAdmin = unaData?.user && (Number(unaData.user.role) === 3 || ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
 
   const hasAccess = (appId) => {
       if (isUserAdmin) return true;
-      if (aclMatrix.length === 0) return true; // Fail open while loading gracefully
+      if (aclMatrix.length === 0) return true; 
       
-      // Match the frontend routing IDs to the backend Matrix Feature IDs
       const featureMap = {
           'youtube': 'youtube',
           'newsletter': 'newsletter',
@@ -611,12 +624,12 @@ export default function App() {
       };
       
       const featureName = featureMap[appId];
-      if (!featureName) return true; // Core modules (Dashboard, Guides, etc) are always open
+      if (!featureName) return true;
 
       const userRole = Number(unaData.user.role);
       const aclEntry = aclMatrix.find(m => m.feature_name === featureName && Number(m.level_id) === userRole);
       
-      if (!aclEntry) return true; // Default allow if not configured yet
+      if (!aclEntry) return true; 
       return Number(aclEntry.is_active) === 1;
   };
 
@@ -695,21 +708,17 @@ export default function App() {
     );
   }
 
-  // Hard block for Standard & Unconfirmed users platform-wide
-  if (unaData.user && (Number(unaData.user.role) === 1 || Number(unaData.user.role) === 2)) {
-      return <UpgradeScreen handleLogout={handleLogout} />;
-  }
-
   const renderApp = () => {
-      // 1. ACL GATEKEEPER INTERCEPTION
+      // ACL GATEKEEPER INTERCEPTION
       if (!hasAccess(currentApp)) {
           return <UpgradeScreen handleLogout={handleLogout} />;
       }
 
-      // 2. STANDARD ROUTING
+      // STANDARD ROUTING
       switch (currentApp) {
           case 'dashboard':
-              return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} />;
+              // PASSING hasAccess DOWN TO DASHBOARD FOR NEXT STEP
+              return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} hasAccess={hasAccess} />;
           case 'business-card':
               return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'address-book':
@@ -737,7 +746,6 @@ export default function App() {
           case 'youtube':
               return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'admin':
-              // PASS GLOBAL TABS INTO DASHBOARD
               return <AdminDashboardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;

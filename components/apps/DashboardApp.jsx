@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube } from 'lucide-react';
 
-export default function DashboardApp({ session, unaData, handleAppSwitch }) {
+export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {
     const [onboardingSteps, setOnboardingSteps] = useState([]);
     const [completedSteps, setCompletedSteps] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -47,17 +47,18 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
 
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
+    // We combine the new hasAccess() matrix logic with your original legacy checks
     const apps = [
-        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: true },
-        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: canAccessPremium },
-        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: canAccessPremium },
-        { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: canAccessPremium },
-        { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasContentAccess },
-        { id: 'youtube', tab: 'manage', name: 'YouTube Sync', icon: Youtube, desc: 'Auto-import YouTube videos to communities.', canAccess: hasContentAccess },
-        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: canAccessPremium },
-        { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: canAccessPremium },
-        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasBillingAccess },
-        { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: true },
+        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true },
+        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium },
+        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: hasAccess ? hasAccess('linktree') : canAccessPremium },
+        { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: hasAccess ? hasAccess('community-link') : canAccessPremium },
+        { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasAccess ? hasAccess('content') : hasContentAccess },
+        { id: 'youtube', tab: 'manage', name: 'YouTube Sync', icon: Youtube, desc: 'Auto-import YouTube videos to communities.', canAccess: hasAccess ? hasAccess('youtube') : hasContentAccess },
+        { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasAccess ? hasAccess('bridge') && canAccessPremium : canAccessPremium },
+        { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: hasAccess ? hasAccess('affiliate') : canAccessPremium },
+        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasAccess ? hasAccess('teammates') : hasBillingAccess },
+        { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: hasAccess ? hasAccess('assets') : true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
     ];
 
@@ -138,27 +139,33 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                 {displayApps.map((app, i) => (
                     <button 
                         key={i} 
-                        onClick={() => handleAppSwitch(app.id, app.tab)} 
+                        onClick={() => {
+                            if (app.canAccess) {
+                                handleAppSwitch(app.id, app.tab);
+                            } else {
+                                window.open('https://www.selloutcrowds.com/plans', '_blank', 'noopener,noreferrer');
+                            }
+                        }} 
                         className={`relative text-left p-5 sm:p-6 rounded-[2rem] border transition-all duration-300 flex flex-col h-full group ${
                             app.canAccess 
                                 ? 'bg-[#111] border-white/5 hover:border-[#9df01c]/50 hover:bg-[#151515] shadow-lg shadow-black/50' 
-                                : 'bg-[#0a0a0a] border-white/5 opacity-70 hover:opacity-100 hover:border-white/10'
+                                : 'bg-[#0a0a0a] border-white/5 opacity-60 hover:opacity-100 hover:border-[#9df01c]/30 shadow-none'
                         }`}
                     >
                         <div className="flex items-center gap-4 mb-2 w-full">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all shrink-0 ${
                                 app.canAccess 
                                     ? 'bg-black border-white/10 text-[#9df01c] group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-[#9df01c]/10' 
-                                    : 'bg-black border-white/5 text-gray-500'
+                                    : 'bg-black border-white/5 text-gray-600 group-hover:text-[#9df01c]'
                             }`}>
                                 <app.icon size={24} />
                             </div>
                             
-                            <h3 className={`text-lg sm:text-xl font-black uppercase tracking-tight transition-colors ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-400'}`}>
+                            <h3 className={`text-lg sm:text-xl font-black uppercase tracking-tight transition-colors ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-500 group-hover:text-white'}`}>
                                 {app.name}
                             </h3>
                             
-                            {!app.canAccess && <Lock size={16} className="text-gray-500 ml-auto shrink-0" />}
+                            {!app.canAccess && <Lock size={16} className="text-gray-600 group-hover:text-[#9df01c] ml-auto shrink-0 transition-colors" />}
                         </div>
                         
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-5 mt-1">
@@ -178,11 +185,11 @@ export default function DashboardApp({ session, unaData, handleAppSwitch }) {
                         )}
 
                         {app.id !== 'onboarding' || progressPercent === 100 || onboardingSteps.length === 0 ? (
-                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center text-[10px] font-black uppercase tracking-widest text-gray-600 group-hover:text-white transition-colors">
+                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center text-[10px] font-black uppercase tracking-widest transition-colors">
                                 {app.canAccess ? (
-                                    <span className="flex items-center gap-1">Open Tool <ArrowRight size={12} /></span>
+                                    <span className="flex items-center gap-1 text-gray-600 group-hover:text-white transition-colors">Open Tool <ArrowRight size={12} /></span>
                                 ) : (
-                                    <span className="flex items-center gap-1 text-gray-500">Requires Upgrade</span>
+                                    <span className="flex items-center gap-1 text-[#9df01c] opacity-50 group-hover:opacity-100 transition-opacity">Upgrade to Access <ArrowRight size={12} /></span>
                                 )}
                             </div>
                         ) : null}
