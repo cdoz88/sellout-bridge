@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check } from 'lucide-react';
 
-export default function AdminDashboardApp({ session, unaData }) {
+export default function AdminDashboardApp({ session, unaData, activeTab = 'guides', setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const userEmail = unaData?.user?.email || '';
     const isAdmin = userEmail && ADMIN_EMAILS.includes(userEmail.toLowerCase());
 
-    const [activeTab, setActiveTab] = useState('guides');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     

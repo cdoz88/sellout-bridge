@@ -86,6 +86,10 @@ export default function App() {
   const [error, setError] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(false);
 
+  // --- NEW: ACL Matrix State ---
+  const [aclMatrix, setAclMatrix] = useState([]);
+  const [isAclLoading, setIsAclLoading] = useState(false);
+
   const [currentApp, setCurrentApp] = useState(() => {
       try {
           if (typeof window !== 'undefined') {
@@ -128,6 +132,32 @@ export default function App() {
   useEffect(() => {
       hasUser.current = !!unaData.user;
   }, [unaData.user]);
+
+  // --- NEW: Fetch ACL Matrix from Command Center ---
+  const fetchAclMatrix = async (token, email) => {
+      setIsAclLoading(true);
+      try {
+          const res = await fetch('/api/admin-bridge', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'get_acl_matrix', email })
+          });
+          const data = await res.json();
+          if (data.success) {
+              setAclMatrix(data.matrix || []);
+          }
+      } catch (err) {
+          console.error("Failed to fetch ACL matrix", err);
+      } finally {
+          setIsAclLoading(false);
+      }
+  };
+
+  useEffect(() => {
+      if (session && unaData?.user?.email && !isPublicBio && !isRedirecting) {
+          fetchAclMatrix(session, unaData.user.email);
+      }
+  }, [session, unaData?.user?.email, isPublicBio, isRedirecting]);
 
   useEffect(() => {
       const handleUnauthorized = async () => {
@@ -224,9 +254,6 @@ export default function App() {
       
       if (pathname === '/oauth/authorize' || pathname === '/oauth/token') return;
 
-      // NEW: The "Human-Only" Redirect
-      // If a user visits the old Hub in their browser, seamlessly bounce them to the Office.
-      // This keeps background APIs safe because webhooks don't load React!
       if (hostname === 'hub.selloutcrowds.com') {
           window.location.replace(`https://office.selloutcrowds.com${pathname}${window.location.search}`);
           return;
@@ -308,7 +335,6 @@ export default function App() {
           return;
       }
 
-      // NEW: Added office domain to known domains list
       const isKnownDomain = hostname.includes('crowds.bio') || hostname.endsWith('.fan') || hostname.includes('localhost') || hostname.includes('hub.selloutcrowds.com') || hostname.includes('office.selloutcrowds.com');
       if (!isKnownDomain && pathname.length > 1) {
           const rawPath = pathname.substring(1);
@@ -444,6 +470,7 @@ export default function App() {
           const data = await res.json();
           if (data.user) {
               setUnaData(prev => ({ ...prev, user: data.user }));
+              fetchAclMatrix(token, data.user.email);
               if (currentApp === 'bridge') {
                   syncCommunities(token); 
               }
@@ -561,6 +588,38 @@ export default function App() {
       }
   };
 
+  // --- NEW: THE ACL SECURITY GATEKEEPER ---
+  const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+  const isUserAdmin = unaData?.user && (Number(unaData.user.role) === 3 || ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
+
+  const hasAccess = (appId) => {
+      if (isUserAdmin) return true;
+      if (aclMatrix.length === 0) return true; // Fail open while loading gracefully
+      
+      // Match the frontend routing IDs to the backend Matrix Feature IDs
+      const featureMap = {
+          'youtube': 'youtube',
+          'newsletter': 'newsletter',
+          'affiliate': 'affiliates',
+          'teammates': 'teammates',
+          'address-book': 'address_book',
+          'business-card': 'business_card',
+          'linktree': 'bio_page',
+          'assets': 'assets',
+          'content': 'content',
+          'community-link': 'community_link'
+      };
+      
+      const featureName = featureMap[appId];
+      if (!featureName) return true; // Core modules (Dashboard, Guides, etc) are always open
+
+      const userRole = Number(unaData.user.role);
+      const aclEntry = aclMatrix.find(m => m.feature_name === featureName && Number(m.level_id) === userRole);
+      
+      if (!aclEntry) return true; // Default allow if not configured yet
+      return Number(aclEntry.is_active) === 1;
+  };
+
   if (isRedirecting) {
       return (
          <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
@@ -627,7 +686,7 @@ export default function App() {
       );
   }
 
-  if (isLoading) {
+  if (isLoading || isAclLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-[#9df01c] font-sans">
         <Loader2 className="w-12 h-12 animate-spin mb-4" />
@@ -636,11 +695,18 @@ export default function App() {
     );
   }
 
-  if (unaData.user && (unaData.user.role === 1 || unaData.user.role === 2)) {
+  // Hard block for Standard & Unconfirmed users platform-wide
+  if (unaData.user && (Number(unaData.user.role) === 1 || Number(unaData.user.role) === 2)) {
       return <UpgradeScreen handleLogout={handleLogout} />;
   }
 
   const renderApp = () => {
+      // 1. ACL GATEKEEPER INTERCEPTION
+      if (!hasAccess(currentApp)) {
+          return <UpgradeScreen handleLogout={handleLogout} />;
+      }
+
+      // 2. STANDARD ROUTING
       switch (currentApp) {
           case 'dashboard':
               return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} />;
@@ -671,7 +737,8 @@ export default function App() {
           case 'youtube':
               return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'admin':
-              return <AdminDashboardApp session={session} unaData={unaData} />;
+              // PASS GLOBAL TABS INTO DASHBOARD
+              return <AdminDashboardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }
