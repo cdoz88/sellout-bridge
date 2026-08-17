@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function TeammatesApp({ session, unaData }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    
-    // Unlocked for 12, 15, 16, 17
-    const canAccess = isAdmin || [12, 15, 16, 17].includes(Number(unaData?.user?.role));
+    const role = Number(unaData?.user?.role) || 1;
 
     const [teammates, setTeammates] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [freeSeats, setFreeSeats] = useState(0);
     
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [newEmail, setNewEmail] = useState('');
@@ -23,18 +23,10 @@ export default function TeammatesApp({ session, unaData }) {
     const [isMapping, setIsMapping] = useState(false);
     const [mapSuccess, setMapSuccess] = useState(false);
 
-    // --- Dynamic Pricing Variables ---
-    const role = Number(unaData?.user?.role) || 1;
-    let freeSeats = 0;
-    if (role === 12) freeSeats = Infinity;
-    else if (role === 17) freeSeats = 6;
-    else if (role === 16) freeSeats = 3;
-
     const usedSeats = teammates.length;
     const isNextSeatFree = usedSeats < freeSeats;
 
     const fetchTeammates = async () => {
-        if (!session || !canAccess) return;
         try {
             const res = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
@@ -44,14 +36,35 @@ export default function TeammatesApp({ session, unaData }) {
             }
         } catch (err) {
             console.error("Failed to load teammates");
-        } finally {
-            setIsLoading(false);
+        }
+    };
+
+    const fetchLimits = async () => {
+        if (isAdmin) {
+            setFreeSeats(Infinity);
+            return;
+        }
+        try {
+            const res = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_usage_limits', email: unaData?.user?.email })
+            });
+            const data = await res.json();
+            if (data.success && data.limits) {
+                const limitEntry = data.limits.find(l => l.feature_name === 'teammates' && Number(l.level_id) === role);
+                setFreeSeats(limitEntry ? Number(limitEntry.max_count) : 0);
+            }
+        } catch (err) {
+            console.error("Failed to load usage limits");
         }
     };
 
     useEffect(() => {
-        fetchTeammates();
-    }, [session, canAccess]);
+        if (!session) return;
+        setIsLoading(true);
+        Promise.all([fetchTeammates(), fetchLimits()]).finally(() => setIsLoading(false));
+    }, [session]);
 
     const handleInvite = async () => {
         if (!newEmail || !newEmail.includes('@')) {
@@ -190,24 +203,6 @@ export default function TeammatesApp({ session, unaData }) {
         </div>
     );
 
-    if (!canAccess) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                    <Users size={56} className="text-gray-500 mb-6 relative z-10" />
-                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Team Management</h3>
-                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        Upgrade your account to add staff, co-hosts, and moderators to your brand. Teammates can post on your behalf and access tools without you sharing your password.
-                    </p>
-                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                        Upgrade to Unlock
-                    </a>
-                </div>
-            </div>
-        );
-    }
-
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     return (
@@ -278,7 +273,7 @@ export default function TeammatesApp({ session, unaData }) {
                             {freeSeats === Infinity ? (
                                 <>
                                     <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
-                                        Your Commissioner Exempt account includes <strong>unlimited free teammates</strong>.
+                                        Your Administrator account includes <strong>unlimited free teammates</strong>.
                                     </p>
                                     <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
                                         <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
@@ -352,7 +347,7 @@ export default function TeammatesApp({ session, unaData }) {
                                 <p className="text-[10px] text-[#9df01c] font-bold uppercase tracking-widest mb-1">Billing Notice</p>
                                 {freeSeats === Infinity ? (
                                     <p className="text-xs text-gray-300">
-                                        Your Commissioner Exempt account includes <strong>unlimited free teammates</strong>. This teammate will be added for free.
+                                        Your Administrator account includes <strong>unlimited free teammates</strong>. This teammate will be added for free.
                                     </p>
                                 ) : freeSeats > 0 ? (
                                     <p className="text-xs text-gray-300">
@@ -425,6 +420,7 @@ export default function TeammatesApp({ session, unaData }) {
                     </div>
                 </div>
             )}
+            <HelpDrawer pageName="teammates" session={session} unaData={unaData} />
         </div>
     );
 }

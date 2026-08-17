@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, CheckCircle2, Lock, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight } from 'lucide-react';
+import { Globe, Save, Loader2, CheckCircle2, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight, BadgeCheck } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function CommunityLinkApp({ session, unaData }) {
     const role = Number(unaData?.user?.role) || 1;
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    
-    // Feature unlocked for Admin(3), Commissioner Exempt(12), All-Star(16), HOF(17)
-    const canAccess = isAdmin || [12, 16, 17].includes(role);
 
-    // Calculate maximum allowed links based on role
-    const maxLinks = isAdmin ? Infinity : (role === 17 ? 3 : ([12, 16].includes(role) ? 1 : 0));
-
+    const [maxLinks, setMaxLinks] = useState(0);
     const [domains, setDomains] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -29,10 +25,7 @@ export default function CommunityLinkApp({ session, unaData }) {
     const [bulkResult, setBulkResult] = useState(null);
 
     const fetchDomains = async () => {
-        if (!session || !canAccess) {
-            setIsLoading(false);
-            return;
-        }
+        if (!session) return;
         try {
             const res = await fetch('/api/get-domains', { headers: { 'Authorization': `Bearer ${session}` } });
             const data = await res.json();
@@ -40,15 +33,36 @@ export default function CommunityLinkApp({ session, unaData }) {
                 setDomains(data.domains);
             }
         } catch (e) {
-            console.error(e);
-        } finally {
-            setIsLoading(false);
+            console.error("Failed to load domains");
+        }
+    };
+
+    const fetchLimits = async () => {
+        if (isAdmin) {
+            setMaxLinks(Infinity);
+            return;
+        }
+        try {
+            const res = await fetch('/api/admin-bridge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'get_usage_limits', email: unaData?.user?.email })
+            });
+            const data = await res.json();
+            if (data.success && data.limits) {
+                const limitEntry = data.limits.find(l => l.feature_name === 'community_link' && Number(l.level_id) === role);
+                setMaxLinks(limitEntry ? Number(limitEntry.max_count) : 0);
+            }
+        } catch (err) {
+            console.error("Failed to load usage limits");
         }
     };
 
     useEffect(() => {
-        fetchDomains();
-    }, [session, canAccess]);
+        if (!session) return;
+        setIsLoading(true);
+        Promise.all([fetchDomains(), fetchLimits()]).finally(() => setIsLoading(false));
+    }, [session]);
 
     const handleSaveSingle = async () => {
         if (!subdomain || !targetUrl) {
@@ -163,24 +177,6 @@ export default function CommunityLinkApp({ session, unaData }) {
     const currentLinks = domains.length;
     const canAddMore = currentLinks < maxLinks;
 
-    if (!canAccess) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                    <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
-                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
-                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        Claim branded subdomains (e.g. <strong>yourname</strong>.selloutcrowds.fan) to seamlessly route fans to your communities. Available exclusively to All-Star, H.O.F., and Commissioner Exempt subscribers.
-                    </p>
-                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                        Upgrade to Unlock
-                    </a>
-                </div>
-            </div>
-        );
-    }
-
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     return (
@@ -211,62 +207,130 @@ export default function CommunityLinkApp({ session, unaData }) {
                 </div>
             </div>
 
-            <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 shadow-2xl relative overflow-hidden min-h-[60vh] flex flex-col">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                
-                <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-white/5 pb-6">
-                    <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-3">
-                        Active Links 
-                        <span className="bg-white/10 text-gray-300 text-xs px-3 py-1 rounded-lg">
-                            {currentLinks}{!isAdmin && ` / ${maxLinks}`}
-                        </span>
-                    </h3>
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                        <input 
-                            type="text" 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                            placeholder="Search links or targets..." 
-                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
-                        />
+            <div className="grid lg:grid-cols-12 gap-8">
+                {/* MAIN CONTENT AREA */}
+                <div className="lg:col-span-8">
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 shadow-2xl relative overflow-hidden min-h-[50vh] flex flex-col">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
+                        
+                        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 border-b border-white/5 pb-6">
+                            <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-3">
+                                Active Links 
+                                <span className="bg-white/10 text-gray-300 text-xs px-3 py-1 rounded-lg">
+                                    {currentLinks}{!isAdmin && ` / ${maxLinks}`}
+                                </span>
+                            </h3>
+                            <div className="relative w-full sm:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                <input 
+                                    type="text" 
+                                    value={searchTerm} 
+                                    onChange={(e) => setSearchTerm(e.target.value)} 
+                                    placeholder="Search links or targets..." 
+                                    className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="relative z-10 flex-1">
+                            {domains.length === 0 ? (
+                                <div className="border-2 border-dashed border-white/5 rounded-2xl p-12 text-center h-full flex flex-col items-center justify-center">
+                                    <Globe size={48} className="text-gray-600 mb-4 opacity-30" />
+                                    <p className="text-gray-400 font-bold text-sm">No Links Reserved</p>
+                                    <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">Click "New Link" {isAdmin && 'or "Bulk Automator" '}to get started.</p>
+                                </div>
+                            ) : filteredDomains.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500 font-medium text-sm">No links match your search.</div>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {filteredDomains.map(d => (
+                                        <div key={d.id} className="bg-black border border-white/5 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-white/20 transition-colors group">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Active</span>
+                                                    <p className="text-sm font-bold text-white truncate">{d.subdomain}.selloutcrowds.fan</p>
+                                                </div>
+                                                <div className="flex items-center gap-1 text-xs text-gray-500 font-mono truncate">
+                                                    <ArrowRight size={12} className="flex-shrink-0" /> {d.target_url}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/5 sm:border-none sm:pt-0">
+                                                <button onClick={() => copyToClipboard(d.subdomain)} className="flex-1 sm:flex-none p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors flex justify-center items-center" title="Copy Link">
+                                                    <Copy size={14}/>
+                                                </button>
+                                                <button onClick={() => handleDelete(d.id, d.subdomain)} className="flex-1 sm:flex-none p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors flex justify-center items-center" title="Delete Link">
+                                                    <Trash2 size={14}/>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                <div className="relative z-10 flex-1">
-                    {domains.length === 0 ? (
-                        <div className="border-2 border-dashed border-white/5 rounded-2xl p-12 text-center h-full flex flex-col items-center justify-center">
-                            <Globe size={48} className="text-gray-600 mb-4 opacity-30" />
-                            <p className="text-gray-400 font-bold text-sm">No Links Reserved</p>
-                            <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">Click "New Link" {isAdmin && 'or "Bulk Automator" '}to get started.</p>
-                        </div>
-                    ) : filteredDomains.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500 font-medium text-sm">No links match your search.</div>
-                    ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {filteredDomains.map(d => (
-                                <div key={d.id} className="bg-black border border-white/5 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-white/20 transition-colors group">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Active</span>
-                                            <p className="text-sm font-bold text-white truncate">{d.subdomain}.selloutcrowds.fan</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-gray-500 font-mono truncate">
-                                            <ArrowRight size={12} className="flex-shrink-0" /> {d.target_url}
-                                        </div>
+                {/* SIDEBAR AREA */}
+                <div className="lg:col-span-4">
+                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
+                        
+                        {/* DOMAIN ALLOWANCE BOX */}
+                        <div className="mb-8 pb-8 border-b border-white/5">
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Domain Allowance</h3>
+                            {maxLinks === Infinity ? (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Your Administrator account includes <strong>unlimited custom domains</strong>.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Domains Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{currentLinks} / Unlimited</span>
                                     </div>
-                                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 border-t border-white/5 sm:border-none sm:pt-0">
-                                        <button onClick={() => copyToClipboard(d.subdomain)} className="flex-1 sm:flex-none p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors flex justify-center items-center" title="Copy Link">
-                                            <Copy size={14}/>
-                                        </button>
-                                        <button onClick={() => handleDelete(d.id, d.subdomain)} className="flex-1 sm:flex-none p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors flex justify-center items-center" title="Delete Link">
-                                            <Trash2 size={14}/>
-                                        </button>
+                                </>
+                            ) : maxLinks > 0 ? (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Your current plan includes <strong>{maxLinks} custom domain{maxLinks !== 1 && 's'}</strong>.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Domains Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{currentLinks} / {maxLinks}</span>
                                     </div>
-                                </div>
-                            ))}
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                        Your current plan does not include any custom domains.
+                                    </p>
+                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Domains Used</span>
+                                        <span className="text-sm font-black text-[#9df01c]">{currentLinks} / 0</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
-                    )}
+
+                        {/* DOMAIN BENEFITS BOX */}
+                        <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Domain Benefits</h3>
+                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
+                            Custom community URLs help you build a stronger brand presence and streamline your fan routing.
+                        </p>
+                        <div className="space-y-5">
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Globe size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Branded Subdomains</h4><p className="text-xs text-gray-500">Claim your unique namespace (e.g. yourname.selloutcrowds.fan).</p></div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><ArrowRight size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Seamless Routing</h4><p className="text-xs text-gray-500">Instantly redirect fans exactly where you want them to go.</p></div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><BadgeCheck size={18}/></div>
+                                <div><h4 className="text-sm font-bold text-white mb-1">Trust & Recognition</h4><p className="text-xs text-gray-500">Share clean, professional links directly on your social media profiles.</p></div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
 
@@ -371,6 +435,7 @@ export default function CommunityLinkApp({ session, unaData }) {
                     </div>
                 </div>
             )}
+            <HelpDrawer pageName="community_link" session={session} unaData={unaData} />
         </div>
     );
 }
