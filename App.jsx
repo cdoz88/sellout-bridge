@@ -598,7 +598,6 @@ export default function App() {
       }
   };
 
-  // --- THE ACL SECURITY GATEKEEPER HELPER FUNCTIONS ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isUserAdmin = unaData?.user && (Number(unaData.user.role) === 3 || ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
 
@@ -646,7 +645,8 @@ export default function App() {
           'linktree': 'bio_page',
           'assets': 'assets',
           'content': 'content',
-          'community-link': 'community_link'
+          'community-link': 'community_link',
+          'bridge': 'bridge'
       };
       
       const featureName = featureMap[appId];
@@ -736,18 +736,15 @@ export default function App() {
 
   const userRoleName = getRoleName(unaData?.user?.role);
 
-  // Hard block for Standard & Unconfirmed users platform-wide
   if (unaData.user && (Number(unaData.user.role) === 1 || Number(unaData.user.role) === 2)) {
       return <UpgradeScreen handleLogout={handleLogout} roleName={userRoleName} />;
   }
 
   const renderApp = () => {
-      // ACL GATEKEEPER INTERCEPTION
       if (!hasAccess(currentApp)) {
           return <UpgradeScreen handleLogout={handleLogout} toolName={getToolName(currentApp)} roleName={userRoleName} />;
       }
 
-      // STANDARD ROUTING
       switch (currentApp) {
           case 'dashboard':
               return <DashboardApp session={session} unaData={unaData} handleAppSwitch={handleAppSwitch} hasAccess={hasAccess} />;

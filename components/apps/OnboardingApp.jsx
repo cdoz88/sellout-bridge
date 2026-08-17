@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, CheckCircle2, Circle, ChevronUp, ChevronDown, ListChecks, ArrowRight, Save, Lock, X } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 const AVAILABLE_ROLES = [
     { id: 18, name: 'Teammate' },
@@ -18,7 +19,7 @@ export default function OnboardingApp({ session, unaData }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     
-    // --- NEW: State to control the video modal ---
+    // State to control the video modal
     const [showVideoModal, setShowVideoModal] = useState(false);
 
     const fetchOnboardingData = async () => {
@@ -329,6 +330,8 @@ export default function OnboardingApp({ session, unaData }) {
                     </div>
                 </div>
             )}
+
+            <HelpDrawer pageName="onboarding" session={session} unaData={unaData} />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, Lock, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload, RefreshCcw, CreditCard, Save } from 'lucide-react';
+import { Mail, Settings, Plus, AlignLeft, Type, Link as LinkIcon, Minus, ChevronUp, ChevronDown, Trash2, Edit3, Loader2, CheckCircle2, Send, Image as ImageIcon, BarChart3, PenTool, LayoutTemplate, Bold, Italic, UploadCloud, X, Copy, Users, Upload, RefreshCcw, CreditCard, Save } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
+import HelpDrawer from '../layout/HelpDrawer';
 
 const compileEmailHtml = (blocks) => {
     let html = `<div style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; padding: 30px; border-radius: 12px; color: #111111;">`;
@@ -44,17 +45,11 @@ const DEFAULT_SOCIAL_LINKS = [
 ];
 
 export default function NewsletterApp({ session, unaData, activeTab, setActiveTab }) {
-    const role = Number(unaData?.user?.role) || 1;
-    const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
-    const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    const canAccess = isAdmin || [12, 15, 16, 17].includes(role);
-
     const [campaigns, setCampaigns] = useState([]);
     const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '', social_links: DEFAULT_SOCIAL_LINKS, brand_color: '#9df01c', brand_logo: '' });
     const emailSettingsRef = useRef(emailSettings);
     useEffect(() => { emailSettingsRef.current = emailSettings; }, [emailSettings]);
 
-    // --- NEW: Audience & Billing State ---
     const [audienceLists, setAudienceLists] = useState([]);
     const [isParsingCsv, setIsParsingCsv] = useState(false);
     const [isSyncingUna, setIsSyncingUna] = useState(false);
@@ -100,7 +95,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
     }, []);
 
     const fetchEmailData = async () => {
-        if (!session || !canAccess) return;
+        if (!session) return;
         setIsLoadingEmail(true);
         try {
             const [campRes, setRes, listRes, billRes] = await Promise.all([
@@ -139,7 +134,7 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
 
     useEffect(() => {
         fetchEmailData();
-    }, [session, canAccess]);
+    }, [session]);
 
     const handleImageUpload = async (e, setUrlCallback, fieldType = 'default') => {
         const file = e.target.files[0];
@@ -220,7 +215,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         }, 0);
     };
 
-    // --- NEW: AUDIENCE LIST MANAGEMENT ---
     const handleCreateList = async () => {
         const listName = window.prompt("Enter a name for your new list (e.g. Website Leads):");
         if (!listName || !listName.trim()) return;
@@ -246,7 +240,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 body: JSON.stringify({ id })
             });
             
-            // Uncheck if deleted
             if (emailTargets.includes(`list_${id}`)) {
                 setEmailTargets(prev => prev.filter(t => t !== `list_${id}`));
             }
@@ -529,19 +522,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
         setActiveTab('compose');
     };
 
-    if (!canAccess) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 text-center animate-in fade-in flex flex-col items-center justify-center min-h-[70vh]">
-                <div className="bg-[#111] p-10 rounded-[2rem] border border-white/10 shadow-2xl relative overflow-hidden w-full">
-                    <Lock size={56} className="text-gray-500 mb-6 mx-auto" />
-                    <h3 className="text-3xl font-black uppercase italic tracking-tighter text-white mb-4">Premium Feature</h3>
-                    <p className="text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed">The Email Newsletter engine is exclusively available to premium subscribers. Build and blast custom HTML emails directly to your fans!</p>
-                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase tracking-widest hover:bg-[#8ce015]">Upgrade to Unlock</a>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             <div className="mb-8">
@@ -553,7 +533,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 </p>
             </div>
 
-            {/* --- NEW: BILLING TAB --- */}
             {activeTab === 'billing' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[60vh]">
                     <h3 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2 mb-2">
@@ -587,7 +566,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                 </div>
             )}
 
-            {/* --- UPDATED: AUDIENCE TAB --- */}
             {activeTab === 'audience' && (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[60vh]">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
@@ -830,7 +808,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
             {activeTab === 'compose' && (
                 <div className="animate-in fade-in duration-300">
                     
-                    {/* Top Horizontal Bar for Actions */}
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-4 sm:p-5 mb-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
                         <div className="flex items-center gap-3 px-2 w-full md:w-auto">
                             <span className="text-sm font-black uppercase tracking-tighter text-white">Campaign Actions</span>
@@ -850,7 +827,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                     </div>
 
                     <div className="grid lg:grid-cols-12 gap-6 h-[70vh] min-h-[600px]">
-                        {/* Left: Tools (Add Block) */}
                         <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl flex-1 flex flex-col h-full">
                                 <h3 className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-4">Add Block</h3>
@@ -868,7 +844,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             </div>
                         </div>
 
-                        {/* Center: Subject + Visual Canvas */}
                         <div className="lg:col-span-6 flex flex-col gap-4">
                             <div className="bg-[#111] rounded-3xl border border-white/5 p-2 shadow-xl flex-shrink-0 flex items-center gap-2">
                                 <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest whitespace-nowrap pl-4">Subject Line</label>
@@ -880,7 +855,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar relative bg-[#f3f4f6]">
                                     <div className="bg-white rounded-xl shadow-sm min-h-[400px] overflow-hidden">
                                         {emailBlocks.map((block, i) => {
-                                            // Real-time preview of the {first_name} tag
                                             let displayHtml = block.text;
                                             if (displayHtml && typeof displayHtml === 'string') {
                                                 displayHtml = displayHtml.replace(/{first_name}/gi, '<span class="bg-[#9df01c]/20 text-[#7bb814] px-1 rounded italic">John</span>');
@@ -939,7 +913,6 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                             </div>
                         </div>
 
-                        {/* Right: Actions & Audience */}
                         <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
                             <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 shadow-xl space-y-4">
                                 <h3 className="text-[10px] text-[#9df01c] font-black uppercase tracking-widest mb-2">Target Audience</h3>
@@ -1045,6 +1018,8 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
                     </div>
                 </div>
             )}
+            
+            <HelpDrawer pageName="newsletter" session={session} unaData={unaData} />
         </div>
     );
 }

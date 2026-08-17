@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp } from 'lucide-react';
 
-// Notice how activeTab and setActiveTab are ONLY coming from props now!
 export default function AdminDashboardApp({ session, unaData, activeTab = 'guides', setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const userEmail = unaData?.user?.email || '';
@@ -20,6 +19,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 'youtube_sync_dash', name: 'YouTube Sync - Dashboard' },
         { id: 'wordpress_plugin', name: 'WordPress Plugin Setup' },
         { id: 'stripe_payments', name: 'Stripe Payments Configuration' },
+        { id: 'bridge', name: 'Subscription Bridge' },
     ];
 
     const unaRoles = [
@@ -41,6 +41,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 'assets', name: 'Asset Library' },
         { id: 'content', name: 'Content Engine' },
         { id: 'community_link', name: 'Community Links' },
+        { id: 'bridge', name: 'Subscription Bridge' },
     ];
 
     const limitFeatures = [
@@ -277,7 +278,6 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                                         </td>
                                         {unaRoles.map(role => {
                                             const currentVal = aclMatrix.find(m => m.feature_name === feature.id && parseInt(m.level_id) === role.id);
-                                            // Default to True (1) if no record exists yet, just like UNA does
                                             const isActive = currentVal ? parseInt(currentVal.is_active) === 1 : true;
                                             
                                             return (

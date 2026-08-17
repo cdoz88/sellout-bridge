@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarClock, Image as ImageIcon, Send, Clock, CheckCircle2, AlertCircle, X, Trash2, UploadCloud, Loader2, Calendar, LayoutList, Lock } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 // Pre-generate the 15-minute intervals for our strict time picker
 const TIME_OPTIONS = [];
@@ -24,9 +25,6 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
     const role = Number(unaData?.user?.role) || 1;
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-    
-    // Feature unlocked for Admin(3), Commissioner Exempt(12), Rookie(15), All-Star(16), HOF(17)
-    const canAccess = isAdmin || [12, 15, 16, 17].includes(role);
 
     const [posts, setPosts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +47,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
     const [saveSuccess, setSaveSuccess] = useState(false);
 
     const fetchPosts = async () => {
-        if (!session || !canAccess) {
+        if (!session) {
             setIsLoading(false);
             return;
         }
@@ -72,7 +70,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
         } else {
             setIsLoading(false);
         }
-    }, [session, canAccess, activeTab]);
+    }, [session, activeTab]);
 
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -205,24 +203,6 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
             )}
         </div>
     );
-
-    if (!canAccess) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                    <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
-                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
-                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Post Scheduler allows you to draft posts and automate their delivery to your crowds and spaces. This feature is exclusively available to premium subscribers.
-                    </p>
-                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                        Upgrade to Unlock
-                    </a>
-                </div>
-            </div>
-        );
-    }
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
@@ -414,6 +394,7 @@ export default function ContentApp({ session, unaData, activeTab, setActiveTab }
                     )}
                 </div>
             )}
+            <HelpDrawer pageName="content" session={session} unaData={unaData} />
         </div>
     );
 }

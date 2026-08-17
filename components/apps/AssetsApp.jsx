@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Plus, Loader2, Trash2, Download, X, Folder } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function AssetsApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -253,6 +254,8 @@ export default function AssetsApp({ session, unaData, activeTab, setActiveTab })
                     </div>
                 </div>
             )}
+            
+            <HelpDrawer pageName="assets" session={session} unaData={unaData} />
         </div>
     );
 }

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase());
     
-    // Unlock for Premium accounts
     const roleId = Number(unaData?.user?.role);
-    const canAccess = isAdmin || [12, 16, 17, 18].includes(roleId); // Include role 18 (Teammate)
     const isTeammate = roleId === 18;
 
     // Data State
@@ -29,7 +28,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
     const [unaUsername, setUnaUsername] = useState(''); 
 
     useEffect(() => {
-        if (!session || !canAccess) {
+        if (!session) {
             setIsLoading(false);
             return;
         }
@@ -79,7 +78,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
         .catch(err => console.error("Failed to fetch settings"))
         .finally(() => setIsLoading(false));
 
-    }, [session, canAccess]);
+    }, [session]);
 
     const handleCopy = () => {
         if (!refLink) return;
@@ -145,24 +144,6 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
     };
 
     const pendingCredit = Math.max(0, parseFloat(stats.commission || 0) - parseFloat(lifetimeCredited || 0));
-
-    if (!canAccess) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 sm:px-8 text-center animate-in fade-in duration-300 min-h-[70vh] flex flex-col items-center justify-center">
-                <div className="bg-[#111] p-10 md:p-16 rounded-[2rem] border border-white/10 flex flex-col items-center shadow-2xl relative overflow-hidden w-full">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#9df01c]/5 blur-[100px] rounded-full pointer-events-none"></div>
-                    <Lock size={56} className="text-gray-500 mb-6 relative z-10" />
-                    <h3 className="text-3xl md:text-4xl font-black uppercase italic tracking-tighter text-white mb-4 relative z-10">Premium Feature</h3>
-                    <p className="text-sm md:text-base font-medium text-gray-400 mb-8 max-w-lg mx-auto relative z-10 leading-relaxed">
-                        The Scouting program allows you to recruit new creators to the platform and earn recurring revenue. This tool is exclusively available to our premium creators.
-                    </p>
-                    <a href="https://www.selloutcrowds.com/plans" target="_blank" rel="noopener noreferrer" className="bg-[#9df01c] text-black font-black py-4 px-10 rounded-xl uppercase text-[11px] tracking-widest hover:bg-[#8ce015] transition-colors shadow-lg shadow-[#9df01c]/20 relative z-10">
-                        Upgrade to Unlock
-                    </a>
-                </div>
-            </div>
-        );
-    }
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
@@ -506,7 +487,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                     )}
                 </div>
             )}
-
+            <HelpDrawer pageName="affiliates" session={session} unaData={unaData} />
         </div>
     );
 }

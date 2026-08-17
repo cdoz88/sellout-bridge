@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, X, FileText, ChevronDown, Video, Link2, Bold, Italic, Image as ImageIcon, Heading2, Newspaper, FileQuestion, LayoutList, Save, Pencil, Folder, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function GuidesApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -525,6 +526,8 @@ export default function GuidesApp({ session, unaData, activeTab, setActiveTab })
                     </div>
                 </div>
             )}
+            
+            <HelpDrawer pageName="guides" session={session} unaData={unaData} />
         </>
     );
 }

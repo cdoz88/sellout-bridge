@@ -6,6 +6,7 @@ import BridgeAliases from './bridge/BridgeAliases';
 import BridgeManual from './bridge/BridgeManual';
 import BridgeMappings from './bridge/BridgeMappings';
 import BridgeProviderSetup from './bridge/BridgeProviderSetup';
+import HelpDrawer from '../layout/HelpDrawer';
 
 export default function BridgeApp({ session, unaData, activeTab }) {
   const [stripeAccountId, setStripeAccountId] = useState(null); 
@@ -634,20 +635,8 @@ export default function BridgeApp({ session, unaData, activeTab }) {
     setTimeout(() => setWebhookCopied(false), 2000);
   };
 
-  const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
-  const roleNum = Number(unaData?.user?.role);
-  const isAdmin = roleNum === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
-  
-  const canUseBridge = isAdmin || [12, 16, 17].includes(roleNum);
-  const isRookie = roleNum === 15;
-  const canAccessApp = canUseBridge || isRookie;
-
-  if (!canAccessApp) {
-      return <BridgePremiumLock />;
-  }
-
-  if (!hasOptedIn || !canUseBridge) {
-      return <BridgeOptIn setHasOptedIn={setHasOptedIn} canUseBridge={canUseBridge} />;
+  if (!hasOptedIn) {
+      return <BridgeOptIn setHasOptedIn={setHasOptedIn} canUseBridge={true} />;
   }
 
   return (
@@ -668,7 +657,7 @@ export default function BridgeApp({ session, unaData, activeTab }) {
           </p>
       </div>
 
-      <div className="hidden lg:block max-w-7xl mx-auto py-12 px-8">
+      <div className="hidden lg:block max-w-7xl mx-auto py-12 px-8 relative">
           {activeTab === 'aliases' && (
               <BridgeAliases 
                   aliases={aliases} 
@@ -761,6 +750,9 @@ export default function BridgeApp({ session, unaData, activeTab }) {
                   patreonIcon={patreonIcon}
               />
           )}
+
+          {/* Contextual Help Drawer mapping */}
+          <HelpDrawer pageName={activeTab === 'stripe' ? 'stripe_payments' : 'bridge'} session={session} unaData={unaData} />
       </div>
     </>
   );
