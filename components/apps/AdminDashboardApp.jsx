@@ -32,6 +32,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
 
     const platformFeatures = [
         { id: 'youtube', name: 'YouTube Sync' },
+        { id: 'wordpress', name: 'WordPress Sync' },
         { id: 'newsletter', name: 'Newsletter' },
         { id: 'affiliates', name: 'Affiliates' },
         { id: 'teammates', name: 'Teammates' },

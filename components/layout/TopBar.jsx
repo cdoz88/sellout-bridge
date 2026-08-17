@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp, Youtube } from 'lucide-react';
+import WordPressIcon from '../icons/WordPressIcon';
 
 export default function TopBar({
     currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
@@ -19,6 +20,7 @@ export default function TopBar({
             case 'onboarding': return { name: 'Getting Started', icon: <ListChecks size={20} className="text-[#9df01c]" /> };
             case 'affiliate': return { name: 'Scouting', icon: <TrendingUp size={20} className="text-[#9df01c]" /> };
             case 'youtube': return { name: 'YouTube Sync', icon: <Youtube size={20} className="text-[#9df01c]" /> };
+            case 'wordpress': return { name: 'WordPress Sync', icon: <WordPressIcon size={20} className="text-[#9df01c]" /> };
             default: return { name: 'Front Office', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
@@ -80,6 +82,13 @@ export default function TopBar({
                                     <Youtube size={18} className={currentApp === 'youtube' ? 'text-[#9df01c]' : ''}/> YouTube Sync
                                 </div>
                                 {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                            </button>
+                            
+                            <button onClick={() => handleAppSwitch('wordpress', 'manage')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'wordpress' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <WordPressIcon size={18} className={currentApp === 'wordpress' ? 'text-[#9df01c]' : ''}/> WordPress Sync
+                                </div>
+                                {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
                             <button onClick={() => handleAppSwitch('newsletter', 'campaigns')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'newsletter' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>

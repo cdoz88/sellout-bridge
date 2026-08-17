@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube } from 'lucide-react';
+import WordPressIcon from '../icons/WordPressIcon';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {
     const [onboardingSteps, setOnboardingSteps] = useState([]);
@@ -47,7 +48,6 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
 
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
-    // We combine the new hasAccess() matrix logic with your original legacy checks
     const apps = [
         { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true },
         { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium },
@@ -55,6 +55,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
         { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: hasAccess ? hasAccess('community-link') : canAccessPremium },
         { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasAccess ? hasAccess('content') : hasContentAccess },
         { id: 'youtube', tab: 'manage', name: 'YouTube Sync', icon: Youtube, desc: 'Auto-import YouTube videos to communities.', canAccess: hasAccess ? hasAccess('youtube') : hasContentAccess },
+        { id: 'wordpress', tab: 'manage', name: 'WordPress Sync', icon: WordPressIcon, desc: 'Connect WP sites to auto-post articles.', canAccess: hasAccess ? hasAccess('wordpress') : canAccessPremium },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasAccess ? hasAccess('bridge') && canAccessPremium : canAccessPremium },
         { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: hasAccess ? hasAccess('affiliate') : canAccessPremium },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasAccess ? hasAccess('teammates') : hasBillingAccess },
@@ -87,7 +88,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                 </p>
             </div>
 
-            {/* --- LIVE USAGE ESTIMATE BANNER --- */}
+            {/* LIVE USAGE ESTIMATE BANNER */}
             {hasBillingAccess && !isBillingLoading && billingEstimate && (
                 <div className="mb-10 bg-[#111] border border-white/5 rounded-[2rem] p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-xl relative overflow-hidden group hover:border-[#9df01c]/30 transition-colors cursor-default">
                     <div className="absolute top-0 right-0 p-4 opacity-5 text-[#9df01c] pointer-events-none transition-transform group-hover:scale-110">

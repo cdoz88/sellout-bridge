@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, MonitorSmartphone } from 'lucide-react';
-import BridgePremiumLock from './bridge/BridgePremiumLock';
 import BridgeOptIn from './bridge/BridgeOptIn';
 import BridgeAliases from './bridge/BridgeAliases';
 import BridgeManual from './bridge/BridgeManual';

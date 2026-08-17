@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube, ShieldAlert, BookOpen } from 'lucide-react';
+import WordPressIcon from '../icons/WordPressIcon';
 
 export default function Sidebar({ 
     currentApp, activeTab, setActiveTab, unaData, 
@@ -69,12 +70,8 @@ export default function Sidebar({
     }, [session]);
 
     const handleNavClick = (tab) => {
-        if (currentApp === 'admin') {
-            if (handleAppSwitch) {
-                handleAppSwitch('admin', tab);
-            } else {
-                setActiveTab(tab);
-            }
+        if (handleAppSwitch && currentApp === 'admin') {
+            handleAppSwitch('admin', tab);
         } else {
             setActiveTab(tab);
         }
@@ -309,6 +306,19 @@ export default function Sidebar({
                                 </button>
                                 <button onClick={() => handleNavClick('settings')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'settings' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
                                     <Settings size={16} /> API Key Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {currentApp === 'wordpress' && (
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
+                            <div className="space-y-1">
+                                <button onClick={() => handleNavClick('manage')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'manage' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <WordPressIcon size={16} /> Connected Sites
                                 </button>
                             </div>
                         </div>

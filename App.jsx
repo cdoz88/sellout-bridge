@@ -18,6 +18,7 @@ import ContentApp from './components/apps/ContentApp';
 import NewsletterApp from './components/apps/NewsletterApp';
 import AffiliateApp from './components/apps/AffiliateApp';
 import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
+import WordpressSyncApp from './components/apps/WordpressSyncApp';
 import AdminDashboardApp from './components/apps/AdminDashboardApp';
 
 // Extracted Auth Components
@@ -598,6 +599,7 @@ export default function App() {
       }
   };
 
+  // --- THE ACL SECURITY GATEKEEPER HELPER FUNCTIONS ---
   const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
   const isUserAdmin = unaData?.user && (Number(unaData.user.role) === 3 || ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
 
@@ -617,6 +619,7 @@ export default function App() {
   const getToolName = (appId) => {
       const names = {
           'youtube': 'YouTube Sync',
+          'wordpress': 'WordPress Sync',
           'newsletter': 'Newsletter',
           'affiliate': 'Affiliates',
           'teammates': 'Teammates',
@@ -637,6 +640,7 @@ export default function App() {
       
       const featureMap = {
           'youtube': 'youtube',
+          'wordpress': 'wordpress',
           'newsletter': 'newsletter',
           'affiliate': 'affiliates',
           'teammates': 'teammates',
@@ -774,6 +778,8 @@ export default function App() {
               return <AffiliateApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} handleAppSwitch={handleAppSwitch} />;
           case 'youtube':
               return <YoutubeSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'wordpress':
+              return <WordpressSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'admin':
               return <AdminDashboardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           default:
