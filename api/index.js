@@ -13,6 +13,7 @@ import domainRoutes from '../server/routes/domains.js';
 import postsRoutes from '../server/routes/posts.js';
 import newsletterRoutes from '../server/routes/newsletter.js';
 import youtubeRoutes from '../server/routes/youtube.js';
+import adminBridgeRoutes from './admin-bridge.js'; // Added the missing import
 
 const app = express();
 
@@ -29,5 +30,6 @@ app.use('/', domainRoutes);
 app.use('/', postsRoutes);
 app.use('/', newsletterRoutes);
 app.use('/', youtubeRoutes);
+app.use('/', adminBridgeRoutes); // Mounted the route so the Front Office can reach it!
 
 export default app;

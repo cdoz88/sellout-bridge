@@ -5,6 +5,31 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 
 const router = express.Router();
 
+// --- ADMIN BRIDGE PROXY ENDPOINT (WORDPRESS SYNC) ---
+router.post('/api/admin-bridge', async (req, res) => {
+    try {
+        const payload = {
+            ...req.body,
+            secret: UNA_SECRET
+        };
+
+        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${UNA_SECRET}`
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("Admin Bridge Proxy Error:", error);
+        res.status(500).json({ error: "Failed to communicate with UNA bridge" });
+    }
+});
+
 router.get('/api/get-aliases', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -458,7 +483,6 @@ router.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
-// --- THE MISSING AFFILIATE ENDPOINT ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
