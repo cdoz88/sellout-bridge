@@ -8,12 +8,15 @@ const router = express.Router();
 // --- ADMIN BRIDGE PROXY ENDPOINT (WORDPRESS SYNC) ---
 router.post('/api/admin-bridge', async (req, res) => {
     try {
+        // PER YOUR CATCH: Hardcoding the Studio URL to guarantee it hits the UNA CMS database
+        const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
+        
         const payload = {
             ...req.body,
             secret: UNA_SECRET
         };
 
-        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+        const response = await fetch(STUDIO_URL, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -22,7 +25,15 @@ router.post('/api/admin-bridge', async (req, res) => {
             body: JSON.stringify(payload)
         });
         
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("Invalid JSON from bridge:", text.substring(0, 150));
+            return res.status(500).json({ error: "Invalid JSON from bridge" });
+        }
+        
         res.json(data);
     } catch (error) {
         console.error("Admin Bridge Proxy Error:", error);
