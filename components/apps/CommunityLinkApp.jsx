@@ -12,10 +12,15 @@ export default function CommunityLinkApp({ session, unaData }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
+    // Sync Communities State
+    const [communities, setCommunities] = useState({ crowds: [], spaces: [] });
+    const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
+
     // Single Add Modal
     const [showAddModal, setShowAddModal] = useState(false);
     const [subdomain, setSubdomain] = useState('');
     const [targetUrl, setTargetUrl] = useState('');
+    const [isCustomUrl, setIsCustomUrl] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     // Bulk Add Modal
@@ -58,10 +63,27 @@ export default function CommunityLinkApp({ session, unaData }) {
         }
     };
 
+    const fetchCommunities = async () => {
+        setIsLoadingCommunities(true);
+        try {
+            const res = await fetch('/api/get-communities', { 
+                headers: { 'Authorization': `Bearer ${session}` } 
+            });
+            const data = await res.json();
+            if (data.crowds || data.spaces) {
+                setCommunities({ crowds: data.crowds || [], spaces: data.spaces || [] });
+            }
+        } catch (e) {
+            console.error("Failed to load communities");
+        } finally {
+            setIsLoadingCommunities(false);
+        }
+    };
+
     useEffect(() => {
         if (!session) return;
         setIsLoading(true);
-        Promise.all([fetchDomains(), fetchLimits()]).finally(() => setIsLoading(false));
+        Promise.all([fetchDomains(), fetchLimits(), fetchCommunities()]).finally(() => setIsLoading(false));
     }, [session]);
 
     const handleSaveSingle = async () => {
@@ -83,6 +105,7 @@ export default function CommunityLinkApp({ session, unaData }) {
             } else {
                 setSubdomain('');
                 setTargetUrl('');
+                setIsCustomUrl(false);
                 setShowAddModal(false);
                 fetchDomains();
             }
@@ -99,12 +122,11 @@ export default function CommunityLinkApp({ session, unaData }) {
         setBulkResult(null);
         
         try {
-            // Parse text. Expected format: subdomain, url (separated by comma, space, or tab)
             const lines = bulkText.split('\n');
             const parsedLinks = [];
             
             lines.forEach(line => {
-                const parts = line.split(/[, \t]+/); // Split by comma, space, or tab
+                const parts = line.split(/[, \t]+/); 
                 const validParts = parts.filter(p => p.trim() !== '');
                 if (validParts.length >= 2) {
                     parsedLinks.push({
@@ -167,6 +189,17 @@ export default function CommunityLinkApp({ session, unaData }) {
     const copyToClipboard = (sub) => {
         navigator.clipboard.writeText(`https://${sub}.selloutcrowds.fan`);
         alert("Link copied!");
+    };
+
+    const handleCommunitySelection = (e) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+            setIsCustomUrl(true);
+            setTargetUrl('');
+        } else {
+            setIsCustomUrl(false);
+            setTargetUrl(val);
+        }
     };
 
     const filteredDomains = domains.filter(d => 
@@ -358,23 +391,76 @@ export default function CommunityLinkApp({ session, unaData }) {
                                     <span className="text-gray-500 font-bold text-xs whitespace-nowrap">.selloutcrowds.fan</span>
                                 </div>
                             </div>
+
+                            {/* UPDATED: Community Dropdown Selector */}
                             <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Target Community URL</label>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 flex justify-between">
+                                    <span>Target URL</span>
+                                    <button 
+                                        onClick={() => {
+                                            setIsCustomUrl(!isCustomUrl);
+                                            setTargetUrl('');
+                                        }} 
+                                        className="text-[#9df01c] hover:underline cursor-pointer"
+                                    >
+                                        {isCustomUrl ? 'Select Community' : 'Enter Custom URL'}
+                                    </button>
+                                </label>
+                                
                                 <div className="flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-xl px-4 py-3">
-                                    <Link2 size={14} className="text-gray-500" />
-                                    <input 
-                                        type="text" 
-                                        value={targetUrl} 
-                                        onChange={e => setTargetUrl(e.target.value)} 
-                                        placeholder="https://studio.selloutcrowds.com/..." 
-                                        className="bg-transparent text-white text-xs outline-none w-full flex-1" 
-                                    />
+                                    <Link2 size={14} className="text-gray-500 shrink-0" />
+                                    
+                                    {!isCustomUrl ? (
+                                        <select
+                                            onChange={handleCommunitySelection}
+                                            className="bg-transparent text-white text-xs outline-none w-full flex-1 appearance-none cursor-pointer"
+                                            disabled={isLoadingCommunities}
+                                            value={isCustomUrl ? 'custom' : targetUrl}
+                                        >
+                                            <option value="" disabled className="text-gray-500">
+                                                {isLoadingCommunities ? 'Loading...' : 'Select a connected community'}
+                                            </option>
+
+                                            {communities.crowds.length > 0 && (
+                                                <optgroup label="CROWDS" className="bg-[#111] text-gray-400 font-bold">
+                                                    {communities.crowds.map(c => (
+                                                        <option key={`crowd-${c.id}`} value={`https://selloutcrowds.com/page.php?i=spaces-view&id=${c.id}`} className="text-white">
+                                                            {c.title}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+
+                                            {communities.spaces.length > 0 && (
+                                                <optgroup label="SPACES" className="bg-[#111] text-gray-400 font-bold">
+                                                    {communities.spaces.map(s => (
+                                                        <option key={`space-${s.id}`} value={`https://selloutcrowds.com/page.php?i=groups-view&id=${s.id}`} className="text-white">
+                                                            {s.title}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            )}
+                                            
+                                            <optgroup label="OTHER" className="bg-[#111] text-gray-400 font-bold">
+                                                <option value="custom" className="text-white italic">Enter Custom URL...</option>
+                                            </optgroup>
+                                        </select>
+                                    ) : (
+                                        <input 
+                                            type="text" 
+                                            value={targetUrl} 
+                                            onChange={e => setTargetUrl(e.target.value)} 
+                                            placeholder="https://yourstore.com/..." 
+                                            className="bg-transparent text-white text-xs outline-none w-full flex-1" 
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                             </div>
                         </div>
 
                         <div className="pt-8">
-                            <button onClick={handleSaveSingle} disabled={isSaving || !subdomain || !targetUrl} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                            <button onClick={handleSaveSingle} disabled={isSaving || !subdomain || !targetUrl} className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Connection
                             </button>
                         </div>

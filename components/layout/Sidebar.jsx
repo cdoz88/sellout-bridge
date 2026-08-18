@@ -268,31 +268,6 @@ export default function Sidebar({
                                 <LayoutList size={16} /> Post History
                             </button>
                         </div>
-
-                        <div className="pt-2 pb-2">
-                            <button 
-                                onClick={() => syncCommunities()}
-                                disabled={isSyncingCommunities || !isAdmin}
-                                className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
-                                    !isAdmin 
-                                        ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
-                                        : 'bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'
-                                }`}>
-                                {isSyncingCommunities ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : !isAdmin ? (
-                                    <Lock className="w-4 h-4" />
-                                ) : (
-                                    <RefreshCcw className="w-4 h-4" />
-                                )}
-                                {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
-                            </button>
-                            <p className="text-[9px] text-gray-600 mt-2 text-center px-2 font-medium leading-relaxed">
-                                {isAdmin 
-                                    ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
-                                    : 'Commissioner Exempt subscription required to sync communities.'}
-                            </p>
-                        </div>
                     </div>
                 )}
 
@@ -377,31 +352,6 @@ export default function Sidebar({
                                     <Repeat size={16} /> Email to Email {!canAccessPremium && <Lock size={12} className="ml-auto opacity-50 shrink-0" />}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="pt-2 pb-2">
-                            <button 
-                                onClick={() => syncCommunities()}
-                                disabled={isSyncingCommunities || !isAdmin}
-                                className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
-                                    !isAdmin 
-                                        ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
-                                        : 'bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'
-                                }`}>
-                                {isSyncingCommunities ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : !isAdmin ? (
-                                    <Lock className="w-4 h-4" />
-                                ) : (
-                                    <RefreshCcw className="w-4 h-4" />
-                                )}
-                                {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
-                            </button>
-                            <p className="text-[9px] text-gray-600 mt-2 text-center px-2 font-medium leading-relaxed">
-                                {isAdmin 
-                                    ? 'Click to refresh your Space and Crowd lists if you recently added a new one on the main site.' 
-                                    : 'Commissioner Exempt subscription required to sync communities.'}
-                            </p>
                         </div>
                     </div>
                 )}
@@ -657,17 +607,40 @@ export default function Sidebar({
                 )}
             </div>
 
-            {isAdmin && (
-                <div className="p-4 border-t border-white/5 bg-[#0a0a0a] shrink-0">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Admin Tools</p>
-                    <button 
-                        onClick={() => handleAppSwitch && handleAppSwitch('admin', 'guides')} 
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${currentApp === 'admin' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-[#9df01c] bg-[#9df01c]/10 hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'}`}
-                    >
-                        <Settings size={16} /> Command Center
-                    </button>
-                </div>
-            )}
+            {/* GLOBAL TOOLS & ADMIN FOOTER */}
+            <div className="p-4 border-t border-white/5 bg-[#0a0a0a] shrink-0 space-y-2">
+                <button 
+                    onClick={() => syncCommunities()}
+                    disabled={isSyncingCommunities || !isAdmin}
+                    className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
+                        !isAdmin 
+                            ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
+                            : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
+                    }`}
+                    title={!isAdmin ? "Commissioner Exempt subscription required to sync communities." : "Sync your Space and Crowd lists"}
+                >
+                    {isSyncingCommunities ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : !isAdmin ? (
+                        <Lock className="w-4 h-4" />
+                    ) : (
+                        <RefreshCcw className="w-4 h-4" />
+                    )}
+                    {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
+                </button>
+
+                {isAdmin && (
+                    <>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-4 mb-3 px-2">Admin Tools</p>
+                        <button 
+                            onClick={() => handleAppSwitch && handleAppSwitch('admin', 'guides')} 
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${currentApp === 'admin' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-[#9df01c] bg-[#9df01c]/10 hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20'}`}
+                        >
+                            <Settings size={16} /> Command Center
+                        </button>
+                    </>
+                )}
+            </div>
         </div>
     );
 }
