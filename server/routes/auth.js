@@ -54,9 +54,51 @@ router.get('/api/get-communities', async (req, res) => {
         let userProfileUrl = meData.profile_link.replace('https://studio.', 'https://www.');
         if (!userProfileUrl.includes('www.')) userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com');
         
+        // --- OPTION A: THE UMBRELLA METHOD ---
+        let targetEmail = meData.email;
+        let targetProfileUrl = userProfileUrl;
+        
+        // Find if this user is mapped as a sub-account to a Brand Owner
+        let ownerId = null;
+        const manualRows = await sql`SELECT user_id FROM bridge_manual_users WHERE email = ${meData.email}`;
+        if (manualRows.length > 0) ownerId = manualRows[0].user_id;
+        
+        if (!ownerId) {
+            const customerRows = await sql`SELECT creator_id FROM bridge_customers WHERE email = ${meData.email}`;
+            if (customerRows.length > 0) ownerId = customerRows[0].creator_id;
+        }
+        if (!ownerId) {
+            const patreonRows = await sql`SELECT creator_id FROM bridge_patreon_users WHERE email = ${meData.email}`;
+            if (patreonRows.length > 0) ownerId = patreonRows[0].creator_id;
+        }
+        if (!ownerId) {
+            const aliasRows = await sql`SELECT user_id FROM bridge_email_aliases WHERE alias_email = ${meData.email}`;
+            if (aliasRows.length > 0) ownerId = aliasRows[0].user_id;
+        }
+
+        // If a Master Owner was found, securely swap out the details!
+        if (ownerId) {
+            const settingsRows = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${ownerId}`;
+            if (settingsRows.length > 0 && settingsRows[0].creator_email) {
+                targetEmail = settingsRows[0].creator_email;
+            }
+            
+            // Try to find the Master Owner's profile link to pull their privacy fields
+            const tokenRows = await sql`SELECT profile_link FROM wp_access_tokens WHERE user_id = ${ownerId} LIMIT 1`;
+            if (tokenRows.length > 0 && tokenRows[0].profile_link) {
+                targetProfileUrl = tokenRows[0].profile_link;
+            } else {
+                const postRows = await sql`SELECT profile_link FROM bridge_scheduled_posts WHERE user_id = ${ownerId} AND profile_link IS NOT NULL LIMIT 1`;
+                if (postRows.length > 0 && postRows[0].profile_link) {
+                    targetProfileUrl = postRows[0].profile_link;
+                }
+            }
+        }
+        // --- END UMBRELLA METHOD ---
+
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
-        formData.append('user', userProfileUrl);
+        formData.append('user', targetProfileUrl); // Use target Profile URL
         formData.append('domain', 'https://bridge.selloutcrowds.com');
 
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
@@ -68,9 +110,9 @@ router.get('/api/get-communities', async (req, res) => {
         let ownedSpaces = [];
         let ownedGroups = [];
         try {
-            if (meData.email) {
+            if (targetEmail) { // Use Target Email
                 const ownedRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, { 
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: meData.email, action: 'get_owned_profile_ids' }) 
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` }, body: JSON.stringify({ email: targetEmail, action: 'get_owned_profile_ids' }) 
                 });
                 const ownedData = await ownedRes.json();
                 if (ownedData.success) { ownedSpaces = ownedData.owned_spaces || []; ownedGroups = ownedData.owned_groups || []; }
@@ -166,29 +208,27 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link}, ${domain || ''})
         `;
 
-        // Retrieve the user's email to guarantee we find the right profile in UNA
         let userEmail = '';
         try {
             const userRows = await sql`SELECT email FROM users WHERE id = ${authCode.user_id}`;
             if (userRows.length > 0) userEmail = userRows[0].email;
         } catch(e) {}
 
-        // --- BULLETPROOF FIX: Sync to UNA Bridge with Secret & Email in the Body ---
         if (domain) {
             try {
                 await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${UNA_SECRET}` // Kept just in case the server accepts it
+                        'Authorization': `Bearer ${UNA_SECRET}` 
                     },
                     body: JSON.stringify({
                         action: 'register_wp_token',
-                        email: userEmail,          // Guarantees we find the profile ID
+                        email: userEmail,         
                         user: authCode.profile_link,
                         domain: domain,
                         token: accessToken,
-                        secret: UNA_SECRET         // Bypasses any server header stripping
+                        secret: UNA_SECRET        
                     })
                 });
             } catch (bridgeErr) {
@@ -216,10 +256,56 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
             return res.status(200).json({ error: "Missing access token" });
         }
 
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        const rows = await sql`SELECT user_id, profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
-        const targetUser = user || rows[0].profile_link || '';
+        let targetUser = user || rows[0].profile_link || '';
+        let targetEmail = '';
+
+        // Retrieve the actual user's email to run through the Umbrella Method
+        try {
+            const userRows = await sql`SELECT email FROM users WHERE id = ${rows[0].user_id}`;
+            if (userRows.length > 0) targetEmail = userRows[0].email;
+        } catch (e) {}
+
+        // --- OPTION A: UMBRELLA METHOD FOR WORDPRESS FIELDS ---
+        if (targetEmail) {
+            let ownerId = null;
+            const manualRows = await sql`SELECT user_id FROM bridge_manual_users WHERE email = ${targetEmail}`;
+            if (manualRows.length > 0) ownerId = manualRows[0].user_id;
+            
+            if (!ownerId) {
+                const customerRows = await sql`SELECT creator_id FROM bridge_customers WHERE email = ${targetEmail}`;
+                if (customerRows.length > 0) ownerId = customerRows[0].creator_id;
+            }
+            if (!ownerId) {
+                const patreonRows = await sql`SELECT creator_id FROM bridge_patreon_users WHERE email = ${targetEmail}`;
+                if (patreonRows.length > 0) ownerId = patreonRows[0].creator_id;
+            }
+            if (!ownerId) {
+                const aliasRows = await sql`SELECT user_id FROM bridge_email_aliases WHERE alias_email = ${targetEmail}`;
+                if (aliasRows.length > 0) ownerId = aliasRows[0].user_id;
+            }
+
+            if (ownerId) {
+                const settingsRows = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${ownerId}`;
+                if (settingsRows.length > 0 && settingsRows[0].creator_email) {
+                    targetEmail = settingsRows[0].creator_email;
+                }
+                
+                const tokenRows = await sql`SELECT profile_link FROM wp_access_tokens WHERE user_id = ${ownerId} LIMIT 1`;
+                if (tokenRows.length > 0 && tokenRows[0].profile_link) {
+                    targetUser = tokenRows[0].profile_link;
+                } else {
+                    const postRows = await sql`SELECT profile_link FROM bridge_scheduled_posts WHERE user_id = ${ownerId} AND profile_link IS NOT NULL LIMIT 1`;
+                    if (postRows.length > 0 && postRows[0].profile_link) {
+                        targetUser = postRows[0].profile_link;
+                    }
+                }
+            }
+        }
+        // --- END UMBRELLA METHOD ---
+
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
@@ -248,7 +334,7 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
                         'Content-Type': 'application/json', 
                         'Authorization': `Bearer ${UNA_SECRET}` 
                     },
-                    body: JSON.stringify({ user: targetUser, action: 'get_owned_profile_ids' })
+                    body: JSON.stringify({ user: targetUser, email: targetEmail, action: 'get_owned_profile_ids' }) // Passes targetEmail to bypass blocks!
                 });
                 const connectorData = await connectorRes.json();
 
@@ -292,15 +378,55 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
             return res.status(200).json({ error: "Missing access token" });
         }
         
-        const rows = await sql`SELECT profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
+        const rows = await sql`SELECT user_id, profile_link FROM wp_access_tokens WHERE token = ${access_token}`;
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
-        const targetUser = user || rows[0].profile_link || '';
+        let targetUser = user || rows[0].profile_link || '';
+        let targetEmail = '';
+
+        // --- OPTION A: UMBRELLA METHOD FOR WORDPRESS ACTIONS ---
+        try {
+            const userRows = await sql`SELECT email FROM users WHERE id = ${rows[0].user_id}`;
+            if (userRows.length > 0) targetEmail = userRows[0].email;
+        } catch (e) {}
+
+        if (targetEmail) {
+            let ownerId = null;
+            const manualRows = await sql`SELECT user_id FROM bridge_manual_users WHERE email = ${targetEmail}`;
+            if (manualRows.length > 0) ownerId = manualRows[0].user_id;
+            
+            if (!ownerId) {
+                const customerRows = await sql`SELECT creator_id FROM bridge_customers WHERE email = ${targetEmail}`;
+                if (customerRows.length > 0) ownerId = customerRows[0].creator_id;
+            }
+            if (!ownerId) {
+                const patreonRows = await sql`SELECT creator_id FROM bridge_patreon_users WHERE email = ${targetEmail}`;
+                if (patreonRows.length > 0) ownerId = patreonRows[0].creator_id;
+            }
+            if (!ownerId) {
+                const aliasRows = await sql`SELECT user_id FROM bridge_email_aliases WHERE alias_email = ${targetEmail}`;
+                if (aliasRows.length > 0) ownerId = aliasRows[0].user_id;
+            }
+
+            if (ownerId) {
+                const tokenRows = await sql`SELECT profile_link FROM wp_access_tokens WHERE user_id = ${ownerId} LIMIT 1`;
+                if (tokenRows.length > 0 && tokenRows[0].profile_link) {
+                    targetUser = tokenRows[0].profile_link;
+                } else {
+                    const postRows = await sql`SELECT profile_link FROM bridge_scheduled_posts WHERE user_id = ${ownerId} AND profile_link IS NOT NULL LIMIT 1`;
+                    if (postRows.length > 0 && postRows[0].profile_link) {
+                        targetUser = postRows[0].profile_link;
+                    }
+                }
+            }
+        }
+        // --- END UMBRELLA METHOD ---
+        
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser);
+        formData.append('user', targetUser); // Uses the master profile link!
         formData.append('domain', hubDomain);
 
         if (data && typeof data === 'object') {

@@ -12,6 +12,9 @@ export default function Sidebar({
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
+    // Teammate Role Check
+    const isTeammate = Number(unaData?.user?.role) === 18;
+
     const canAccessPremium = isAdmin || [16, 17].includes(Number(unaData?.user?.role));
     const canUseManual = isAdmin || [15, 16, 17].includes(Number(unaData?.user?.role));
 
@@ -609,25 +612,27 @@ export default function Sidebar({
 
             {/* GLOBAL TOOLS & ADMIN FOOTER */}
             <div className="p-4 border-t border-white/5 bg-[#0a0a0a] shrink-0 space-y-2">
-                <button 
-                    onClick={() => syncCommunities()}
-                    disabled={isSyncingCommunities || !isAdmin}
-                    className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
-                        !isAdmin 
-                            ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
-                            : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
-                    }`}
-                    title={!isAdmin ? "Commissioner Exempt subscription required to sync communities." : "Sync your Space and Crowd lists"}
-                >
-                    {isSyncingCommunities ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : !isAdmin ? (
-                        <Lock className="w-4 h-4" />
-                    ) : (
-                        <RefreshCcw className="w-4 h-4" />
-                    )}
-                    {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
-                </button>
+                {!isTeammate && (
+                    <button 
+                        onClick={() => syncCommunities()}
+                        disabled={isSyncingCommunities || !isAdmin}
+                        className={`w-full flex items-center justify-center gap-2 font-black py-3 px-4 rounded-xl text-[10px] uppercase tracking-widest transition-all ${
+                            !isAdmin 
+                                ? 'bg-[#111] text-gray-600 border border-white/5 cursor-not-allowed' 
+                                : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'
+                        }`}
+                        title={!isAdmin ? "Commissioner Exempt subscription required to sync communities." : "Sync your Space and Crowd lists"}
+                    >
+                        {isSyncingCommunities ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : !isAdmin ? (
+                            <Lock className="w-4 h-4" />
+                        ) : (
+                            <RefreshCcw className="w-4 h-4" />
+                        )}
+                        {isSyncingCommunities ? 'Syncing...' : 'Sync Communities'}
+                    </button>
+                )}
 
                 {isAdmin && (
                     <>
