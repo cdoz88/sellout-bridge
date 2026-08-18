@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Globe, Save, Loader2, CheckCircle2, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight, BadgeCheck } from 'lucide-react';
+import { Globe, Save, Loader2, CheckCircle2, Link2, Copy, Trash2, Plus, Upload, X, Search, AlertCircle, ArrowRight, BadgeCheck, ChevronDown } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function CommunityLinkApp({ session, unaData }) {
@@ -64,6 +64,7 @@ export default function CommunityLinkApp({ session, unaData }) {
     };
 
     const fetchCommunities = async () => {
+        if (!session) return;
         setIsLoadingCommunities(true);
         try {
             const res = await fetch('/api/get-communities', { 
@@ -122,11 +123,12 @@ export default function CommunityLinkApp({ session, unaData }) {
         setBulkResult(null);
         
         try {
+            // Parse text. Expected format: subdomain, url (separated by comma, space, or tab)
             const lines = bulkText.split('\n');
             const parsedLinks = [];
             
             lines.forEach(line => {
-                const parts = line.split(/[, \t]+/); 
+                const parts = line.split(/[, \t]+/); // Split by comma, space, or tab
                 const validParts = parts.filter(p => p.trim() !== '');
                 if (validParts.length >= 2) {
                     parsedLinks.push({
@@ -385,66 +387,68 @@ export default function CommunityLinkApp({ session, unaData }) {
                                         type="text" 
                                         value={subdomain} 
                                         onChange={e => setSubdomain(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())} 
-                                        placeholder="cowboys" 
+                                        placeholder="brandname" 
                                         className="flex-1 bg-transparent px-4 py-3 text-sm text-white font-bold outline-none" 
                                     />
                                     <span className="text-gray-500 font-bold text-xs whitespace-nowrap">.selloutcrowds.fan</span>
                                 </div>
                             </div>
-
-                            {/* UPDATED: Community Dropdown Selector */}
+                            
                             <div>
                                 <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 flex justify-between">
-                                    <span>Target URL</span>
+                                    <span>Target Community</span>
                                     <button 
                                         onClick={() => {
                                             setIsCustomUrl(!isCustomUrl);
                                             setTargetUrl('');
                                         }} 
-                                        className="text-[#9df01c] hover:underline cursor-pointer"
+                                        className="text-[#9df01c] hover:underline cursor-pointer lowercase"
                                     >
                                         {isCustomUrl ? 'Select Community' : 'Enter Custom URL'}
                                     </button>
                                 </label>
                                 
-                                <div className="flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-xl px-4 py-3">
+                                <div className="relative flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-xl px-4 py-3">
                                     <Link2 size={14} className="text-gray-500 shrink-0" />
                                     
                                     {!isCustomUrl ? (
-                                        <select
-                                            onChange={handleCommunitySelection}
-                                            className="bg-transparent text-white text-xs outline-none w-full flex-1 appearance-none cursor-pointer"
-                                            disabled={isLoadingCommunities}
-                                            value={isCustomUrl ? 'custom' : targetUrl}
-                                        >
-                                            <option value="" disabled className="text-gray-500">
-                                                {isLoadingCommunities ? 'Loading...' : 'Select a connected community'}
-                                            </option>
+                                        <>
+                                            <select
+                                                onChange={handleCommunitySelection}
+                                                className="bg-transparent text-white text-xs outline-none w-full flex-1 appearance-none cursor-pointer pr-6"
+                                                disabled={isLoadingCommunities}
+                                                value={isCustomUrl ? 'custom' : targetUrl}
+                                            >
+                                                <option value="" disabled className="text-gray-500">
+                                                    {isLoadingCommunities ? 'Loading...' : 'Select a connected community'}
+                                                </option>
 
-                                            {communities.crowds.length > 0 && (
-                                                <optgroup label="CROWDS" className="bg-[#111] text-gray-400 font-bold">
-                                                    {communities.crowds.map(c => (
-                                                        <option key={`crowd-${c.id}`} value={`https://selloutcrowds.com/page.php?i=spaces-view&id=${c.id}`} className="text-white">
-                                                            {c.title}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
+                                                {communities.crowds.length > 0 && (
+                                                    <optgroup label="CROWDS" className="bg-[#111] text-gray-400 font-bold">
+                                                        {communities.crowds.map(c => (
+                                                            <option key={`crowd-${c.id}`} value={`https://selloutcrowds.com/page.php?i=spaces-view&id=${c.id}`} className="text-white">
+                                                                {c.title}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
 
-                                            {communities.spaces.length > 0 && (
-                                                <optgroup label="SPACES" className="bg-[#111] text-gray-400 font-bold">
-                                                    {communities.spaces.map(s => (
-                                                        <option key={`space-${s.id}`} value={`https://selloutcrowds.com/page.php?i=groups-view&id=${s.id}`} className="text-white">
-                                                            {s.title}
-                                                        </option>
-                                                    ))}
+                                                {communities.spaces.length > 0 && (
+                                                    <optgroup label="SPACES" className="bg-[#111] text-gray-400 font-bold">
+                                                        {communities.spaces.map(s => (
+                                                            <option key={`space-${s.id}`} value={`https://selloutcrowds.com/page.php?i=groups-view&id=${s.id}`} className="text-white">
+                                                                {s.title}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+                                                
+                                                <optgroup label="OTHER" className="bg-[#111] text-gray-400 font-bold">
+                                                    <option value="custom" className="text-white italic">Enter Custom URL...</option>
                                                 </optgroup>
-                                            )}
-                                            
-                                            <optgroup label="OTHER" className="bg-[#111] text-gray-400 font-bold">
-                                                <option value="custom" className="text-white italic">Enter Custom URL...</option>
-                                            </optgroup>
-                                        </select>
+                                            </select>
+                                            <ChevronDown size={14} className="text-gray-500 absolute right-4 pointer-events-none" />
+                                        </>
                                     ) : (
                                         <input 
                                             type="text" 
