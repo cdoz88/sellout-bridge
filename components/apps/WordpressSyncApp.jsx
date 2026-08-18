@@ -32,11 +32,26 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
     const fetchWpData = async () => {
         setIsLoading(true);
         try {
+            // 1. Force the backend to initialize the database tables if they are missing
+            if (isAdmin) {
+                await fetch('/api/admin-bridge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'init_admin_tables', email: userEmail })
+                });
+            }
+
+            // 2. Fetch the connected WordPress sites
             const res = await fetch('/api/admin-bridge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get_wp_data', email: userEmail })
+                body: JSON.stringify({ 
+                    action: 'get_wp_data', 
+                    email: userEmail,
+                    user: unaData?.user?.url || unaData?.user?.profile_url || '' // Bulletproof ID resolution fallback
+                })
             });
+            
             const data = await res.json();
             if (data.success) {
                 if (data.tokens) setTokens(data.tokens);
@@ -114,7 +129,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
     };
 
     const formatDate = (dateInput) => {
-        if (!dateInput) return '---------';
+        if (!dateInput) return 'Just Now';
         const date = new Date(dateInput);
         if (isNaN(date.getTime())) return dateInput;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -217,15 +232,23 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
                         </span>
                     </h3>
 
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search domains..."
-                            className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
-                        />
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={fetchWpData}
+                            className="bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-colors"
+                        >
+                            Refresh
+                        </button>
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search domains..."
+                                className="w-full bg-black border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-[#9df01c] outline-none transition-colors"
+                            />
+                        </div>
                     </div>
                 </div>
 
