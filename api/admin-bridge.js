@@ -1,32 +1,27 @@
-import express from 'express';
-import { UNA_BASE_URL, UNA_SECRET } from '../server/config.js';
+export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
 
-const router = express.Router();
-
-router.post('/api/admin-bridge', async (req, res) => {
     try {
-        // INJECT THE SECRET DIRECTLY INTO THE BODY TO BYPASS HEADER STRIPPING
-        const payload = {
+        // Append the master secret to the payload so UNA accepts it securely
+        const bridgePayload = {
             ...req.body,
-            secret: UNA_SECRET
+            secret: "K2PKWb8JWe4g99DvtKze!pZu+RC9bYqRyFRa.3a,pvM.VwrC"
         };
 
-        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+        const response = await fetch('https://studio.selloutcrowds.com/bridge-connector.php', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                // Keep the header as a fallback just in case
-                'Authorization': `Bearer ${UNA_SECRET}`
+            headers: {
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(bridgePayload)
         });
-        
+
         const data = await response.json();
-        res.json(data);
+        return res.status(200).json(data);
     } catch (error) {
         console.error("Admin Bridge Error:", error);
-        res.status(500).json({ error: "Server error fetching from bridge-connector" });
+        return res.status(500).json({ error: 'Failed to communicate with the UNA server' });
     }
-});
-
-export default router;
+}
