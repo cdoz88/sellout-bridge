@@ -166,20 +166,29 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link}, ${domain || ''})
         `;
 
-        // --- NEW: Sync token & domain to the main UNA Bridge so the UI table can find it! ---
+        // Retrieve the user's email to guarantee we find the right profile in UNA
+        let userEmail = '';
+        try {
+            const userRows = await sql`SELECT email FROM users WHERE id = ${authCode.user_id}`;
+            if (userRows.length > 0) userEmail = userRows[0].email;
+        } catch(e) {}
+
+        // --- BULLETPROOF FIX: Sync to UNA Bridge with Secret & Email in the Body ---
         if (domain) {
             try {
                 await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${UNA_SECRET}`
+                        'Authorization': `Bearer ${UNA_SECRET}` // Kept just in case the server accepts it
                     },
                     body: JSON.stringify({
                         action: 'register_wp_token',
+                        email: userEmail,          // Guarantees we find the profile ID
                         user: authCode.profile_link,
                         domain: domain,
-                        token: accessToken
+                        token: accessToken,
+                        secret: UNA_SECRET         // Bypasses any server header stripping
                     })
                 });
             } catch (bridgeErr) {
