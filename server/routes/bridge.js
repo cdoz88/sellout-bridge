@@ -5,10 +5,11 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 
 const router = express.Router();
 
-// --- ADMIN BRIDGE PROXY ENDPOINT (WORDPRESS SYNC) ---
-router.post('/api/admin-bridge', async (req, res) => {
+// --- NEW WORDPRESS SYNC BRIDGE ---
+// Guaranteed to hit the studio domain and securely pass the secret
+router.post('/api/wp-sync-bridge', async (req, res) => {
     try {
-        // PER YOUR CATCH: Hardcoding the Studio URL to guarantee it hits the UNA CMS database
+        // Force the request to the Studio domain where the CMS lives!
         const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
         
         const payload = {
@@ -26,17 +27,15 @@ router.post('/api/admin-bridge', async (req, res) => {
         });
         
         const text = await response.text();
-        let data;
         try {
-            data = JSON.parse(text);
+            const data = JSON.parse(text);
+            res.json(data);
         } catch (e) {
-            console.error("Invalid JSON from bridge:", text.substring(0, 150));
-            return res.status(500).json({ error: "Invalid JSON from bridge" });
+            console.error("Invalid JSON from bridge:", text.substring(0, 200));
+            res.status(500).json({ error: "Invalid JSON from bridge" });
         }
-        
-        res.json(data);
     } catch (error) {
-        console.error("Admin Bridge Proxy Error:", error);
+        console.error("WP Sync Bridge Error:", error);
         res.status(500).json({ error: "Failed to communicate with UNA bridge" });
     }
 });

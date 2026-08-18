@@ -34,7 +34,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
         try {
             // 1. Force the backend to initialize the database tables if they are missing
             if (isAdmin) {
-                await fetch('/api/admin-bridge', {
+                await fetch('/api/wp-sync-bridge', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'init_admin_tables', email: userEmail })
@@ -42,7 +42,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
             }
 
             // 2. Fetch the connected WordPress sites
-            const res = await fetch('/api/admin-bridge', {
+            const res = await fetch('/api/wp-sync-bridge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -68,7 +68,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
         if (!window.confirm(`Are you sure you want to disconnect ${siteDomain}? Posts published on this WordPress site will no longer automatically sync to your communities.`)) return;
 
         try {
-            const res = await fetch('/api/admin-bridge', {
+            const res = await fetch('/api/wp-sync-bridge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'delete_wp_token', token_id: tokenId, email: userEmail })
@@ -99,7 +99,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
 
         setIsSavingAdmin(true);
         try {
-            const res = await fetch('/api/admin-bridge', {
+            const res = await fetch('/api/wp-sync-bridge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
