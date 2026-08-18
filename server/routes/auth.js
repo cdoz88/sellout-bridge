@@ -133,13 +133,21 @@ router.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
 
 router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
     try {
-        const { grant_type, client_id, code, redirect_uri } = req.body;
+        // 1. Extract the new domain parameter sent from the WordPress plugin
+        const { grant_type, client_id, code, redirect_uri, domain } = req.body;
 
         if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
             return res.status(400).json({ error: "invalid_request" });
         }
 
         await ensureSchema();
+
+        // 2. Failsafe: Ensure the table has a domain column so it doesn't crash if it's missing
+        try {
+            await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS domain TEXT`;
+        } catch (e) {
+            // Quietly continue if the column already exists
+        }
 
         const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
         
@@ -158,9 +166,10 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 
         const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
 
+        // 3. Save the domain to the database!
         await sql`
-            INSERT INTO wp_access_tokens (token, user_id, profile_link) 
-            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link})
+            INSERT INTO wp_access_tokens (token, user_id, profile_link, domain) 
+            VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link}, ${domain || ''})
         `;
 
         res.json({
