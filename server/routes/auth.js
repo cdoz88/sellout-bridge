@@ -19,7 +19,6 @@ router.post('/api/auth/callback', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed" }); }
 });
 
-// NEW: Silent Refresh Route
 router.post('/api/auth/refresh', async (req, res) => {
     try {
         const { refresh_token } = req.body;
@@ -133,7 +132,6 @@ router.post(['/api/oauth/approve', '/oauth/approve'], async (req, res) => {
 
 router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
     try {
-        // 1. Extract the new domain parameter sent from the WordPress plugin
         const { grant_type, client_id, code, redirect_uri, domain } = req.body;
 
         if (grant_type !== 'authorization_code' || client_id !== 'wordpress_global_app') {
@@ -142,12 +140,9 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 
         await ensureSchema();
 
-        // 2. Failsafe: Ensure the table has a domain column so it doesn't crash if it's missing
         try {
             await sql`ALTER TABLE wp_access_tokens ADD COLUMN IF NOT EXISTS domain TEXT`;
-        } catch (e) {
-            // Quietly continue if the column already exists
-        }
+        } catch (e) {}
 
         const rows = await sql`SELECT user_id, profile_link, redirect_uri, expires_at FROM wp_oauth_codes WHERE code = ${code}`;
         
@@ -166,11 +161,31 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
 
         const accessToken = 'sc_wp_' + crypto.randomBytes(24).toString('hex');
 
-        // 3. Save the domain to the database!
         await sql`
             INSERT INTO wp_access_tokens (token, user_id, profile_link, domain) 
             VALUES (${accessToken}, ${authCode.user_id}, ${authCode.profile_link}, ${domain || ''})
         `;
+
+        // --- NEW: Sync token & domain to the main UNA Bridge so the UI table can find it! ---
+        if (domain) {
+            try {
+                await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${UNA_SECRET}`
+                    },
+                    body: JSON.stringify({
+                        action: 'register_wp_token',
+                        user: authCode.profile_link,
+                        domain: domain,
+                        token: accessToken
+                    })
+                });
+            } catch (bridgeErr) {
+                console.error("Failed to sync new WP token to UNA bridge:", bridgeErr);
+            }
+        }
 
         res.json({
             access_token: accessToken,
@@ -196,7 +211,6 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid or expired access token. Please reconnect in settings." });
 
         const targetUser = user || rows[0].profile_link || '';
-
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
@@ -218,7 +232,6 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
-            // --- ADDED: FILTER COMMUNITIES TO ONLY OWNED ONES ---
             try {
                 const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
@@ -237,11 +250,9 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
                     ]);
 
                     json.allow_view_to.values = json.allow_view_to.values.filter(item => {
-                        // Keep section dividers/headers
                         if (item.type === 'group_header' || item.type === 'group_end') return true;
                         if (item.key === undefined || item.key === null) return true;
 
-                        // UNA privacy group keys are negative integers matching the profile ID
                         const profileId = Math.abs(parseInt(item.key, 10)).toString();
                         return ownedIds.has(profileId);
                     });
@@ -249,7 +260,6 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
             } catch (filterErr) {
                 console.error("Failed to filter owned communities:", filterErr);
             }
-            // --- END FILTER ---
 
             return res.json(json);
         } catch(e) {
@@ -277,7 +287,6 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         if (rows.length === 0) return res.status(200).json({ error: "Invalid access token" });
 
         const targetUser = user || rows[0].profile_link || '';
-        
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
