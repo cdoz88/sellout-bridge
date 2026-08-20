@@ -6,31 +6,6 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 const router = express.Router();
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
-// --- HELPER FUNCTION: EXECUTE AUTO-JOIN RULES ON ROLE CHANGE ---
-const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
-    try {
-        if (!userEmail || !userRoleId) return;
-        
-        const rules = await sql`SELECT * FROM bridge_auto_joins`;
-        if (!rules || rules.length === 0) return;
-
-        for (const rule of rules) {
-            const targetRoles = JSON.parse(rule.target_roles || '[]');
-            
-            if (targetRoles.includes(Number(userRoleId))) {
-                const urlObj = new URL(rule.target_url);
-                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
-                const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
-                const slug = pathParts[pathParts.length - 1];
-
-                await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
-            }
-        }
-    } catch (error) {
-        console.error("Auto-Join Execution Error:", error);
-    }
-};
-
 // --- AUTO-JOIN ROUTES ---
 router.get('/api/admin/auto-joins', async (req, res) => {
     try {
@@ -71,6 +46,39 @@ router.post('/api/admin/auto-joins/delete', async (req, res) => {
         await sql`DELETE FROM bridge_auto_joins WHERE id = ${req.body.id}`;
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// TEST SIMULATOR ENDPOINT
+router.post('/api/admin/auto-joins/simulate', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { email, roleId } = req.body;
+        if (!email || !roleId) return res.status(400).json({ error: "Missing email or role for simulation." });
+
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return res.json({ success: true, message: "No active rules found to trigger." });
+
+        let triggeredCount = 0;
+        for (const rule of rules) {
+            const targetRoles = JSON.parse(rule.target_roles || '[]');
+            
+            if (targetRoles.includes(Number(roleId))) {
+                const urlObj = new URL(rule.target_url);
+                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+                const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+                const slug = pathParts[pathParts.length - 1];
+
+                await grantCommunityAccess(email.trim().toLowerCase(), moduleType, slug);
+                triggeredCount++;
+            }
+        }
+
+        res.json({ success: true, message: `Successfully executed ${triggeredCount} auto-join rule(s) for ${email}!` });
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 // --- EXISTING BRIDGE ROUTES ---

@@ -4,6 +4,36 @@ import { sql, getAuthenticatedUser, ensureSchema, grantCommunityAccess, revokeCo
 
 const router = express.Router();
 
+// --- HELPER FUNCTION: EXECUTE AUTO-JOIN RULES ON ROLE CHANGE ---
+const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
+    try {
+        if (!userEmail || !userRoleId) return;
+        
+        // Fetch active auto-join rules
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return;
+
+        for (const rule of rules) {
+            const targetRoles = JSON.parse(rule.target_roles || '[]');
+            
+            // Check if the user's new role triggers this rule
+            if (targetRoles.includes(Number(userRoleId))) {
+                // Parse module and slug from URL (e.g. https://selloutcrowds.com/crowd/creator-coaching)
+                const urlObj = new URL(rule.target_url);
+                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+                
+                const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+                const slug = pathParts[pathParts.length - 1];
+
+                // Execute the auto-join
+                await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+            }
+        }
+    } catch (error) {
+        console.error("Auto-Join Execution Error:", error);
+    }
+};
+
 router.get('/api/cron/sync-meters', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -379,6 +409,14 @@ router.post('/api/stripe-webhook', async (req, res) => {
             if (customerId && customerEmail && userId) {
                 await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${customerId}, ${userId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status, creator_id = EXCLUDED.creator_id`;
             }
+
+            // TRIGGER AUTO-JOIN CHECK FOR THE CREATOR
+            if (customerEmail) {
+                const userRows = await sql`SELECT role FROM users WHERE email = ${customerEmail}`;
+                if (userRows.length > 0) {
+                    await triggerAutoJoinsForUser(customerEmail, userRows[0].role);
+                }
+            }
         } 
         else if (event.type === 'customer.subscription.deleted') {
             const sub = event.data.object;
@@ -432,6 +470,12 @@ router.post('/api/stripe-webhook', async (req, res) => {
                                  }
                                  const newStatus = allSuccess ? 'bridged' : 'pending';
                                  await sql`UPDATE bridge_customers SET bridge_status = ${newStatus} WHERE email = ${customerEmail}`;
+
+                                 // TRIGGER AUTO-JOIN CHECK FOR THE CREATOR
+                                 const userRows = await sql`SELECT role FROM users WHERE email = ${customerEmail}`;
+                                 if (userRows.length > 0) {
+                                     await triggerAutoJoinsForUser(customerEmail, userRows[0].role);
+                                 }
                              }
                          }
                      }
@@ -470,6 +514,14 @@ router.post('/api/paypal-webhook', async (req, res) => {
             }
             if (customerId && customerEmail && userId) {
                 await sql`INSERT INTO bridge_customers (stripe_customer_id, creator_id, email, bridge_status) VALUES (${customerId}, ${userId}, ${customerEmail}, ${bridgeStatus}) ON CONFLICT (stripe_customer_id) DO UPDATE SET email = ${customerEmail}, bridge_status = EXCLUDED.bridge_status, creator_id = EXCLUDED.creator_id`;
+            }
+
+            // TRIGGER AUTO-JOIN CHECK FOR THE CREATOR
+            if (customerEmail) {
+                const userRows = await sql`SELECT role FROM users WHERE email = ${customerEmail}`;
+                if (userRows.length > 0) {
+                    await triggerAutoJoinsForUser(customerEmail, userRows[0].role);
+                }
             }
         } 
         else if (['BILLING.SUBSCRIPTION.CANCELLED', 'BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.EXPIRED'].includes(event.event_type)) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp, Users, Link2, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp, Users, Link2, Trash2, CheckSquare, Square, Zap, Play } from 'lucide-react';
 
 export default function AdminDashboardApp({ session, unaData, activeTab = 'guides', setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -18,6 +18,12 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
     const [autoJoinRules, setAutoJoinRules] = useState([]);
     const [targetUrl, setTargetUrl] = useState('');
     const [selectedRoles, setSelectedRoles] = useState([]);
+
+    // Simulator State
+    const [testEmail, setTestEmail] = useState('');
+    const [testRole, setTestRole] = useState(15);
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [simMessage, setSimMessage] = useState(null);
 
     const platformPages = [
         { id: 'youtube_sync_api', name: 'YouTube Sync - API Settings' },
@@ -269,6 +275,37 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         }
     };
 
+    // Simulator Logic
+    const handleSimulate = async () => {
+        if (!testEmail.trim()) {
+            alert("Please enter a valid test email address.");
+            return;
+        }
+        setIsSimulating(true);
+        setSimMessage(null);
+        try {
+            const res = await fetch('/api/admin/auto-joins/simulate', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${session}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ email: testEmail, roleId: testRole })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSimMessage(data.message);
+                setTimeout(() => setSimMessage(null), 8000);
+            } else {
+                alert(data.error || "Simulation failed.");
+            }
+        } catch (error) {
+            alert("Network error during simulation.");
+        } finally {
+            setIsSimulating(false);
+        }
+    };
+
     if (!isAdmin) {
         return <div className="p-12 text-center text-red-500 font-bold uppercase tracking-widest text-xs">Access Denied</div>;
     }
@@ -430,8 +467,10 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                 </div>
             ) : activeTab === 'auto_joins' ? (
                 <div className="grid lg:grid-cols-12 gap-8">
-                    {/* CREATE NEW RULE FORM */}
-                    <div className="lg:col-span-5 space-y-6">
+                    {/* CREATE & TEST COLUMN */}
+                    <div className="lg:col-span-5 space-y-8">
+                        
+                        {/* CREATE NEW RULE FORM */}
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-2xl relative overflow-hidden">
                             <h3 className="text-lg font-black uppercase tracking-tight text-white mb-6">Create New Rule</h3>
                             
@@ -487,6 +526,56 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                                 </button>
                             </div>
                         </div>
+
+                        {/* TEST SIMULATOR CARD */}
+                        <div className="bg-[#111] rounded-[2rem] border border-[#9df01c]/20 p-6 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#9df01c]/10 blur-[50px] rounded-full pointer-events-none"></div>
+                            <h3 className="text-lg font-black uppercase tracking-tight text-[#9df01c] mb-6 flex items-center gap-2 relative z-10">
+                                <Zap size={18} /> Test Simulator
+                            </h3>
+
+                            <div className="space-y-4 relative z-10">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">Test User Email</label>
+                                    <input
+                                        type="email"
+                                        value={testEmail}
+                                        onChange={e => setTestEmail(e.target.value)}
+                                        placeholder="testuser@example.com"
+                                        className="bg-black border border-white/10 focus:border-[#9df01c] transition-colors rounded-xl px-4 py-3 text-white text-xs outline-none w-full"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">Simulate Role Upgrade</label>
+                                    <select
+                                        value={testRole}
+                                        onChange={e => setTestRole(Number(e.target.value))}
+                                        className="bg-black border border-white/10 focus:border-[#9df01c] transition-colors rounded-xl px-4 py-3 text-white text-xs outline-none w-full appearance-none"
+                                    >
+                                        {unaRoles.filter(r => r.id !== 18).map(role => (
+                                            <option key={role.id} value={role.id}>{role.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <button
+                                    onClick={handleSimulate}
+                                    disabled={isSimulating || !testEmail.trim()}
+                                    className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+                                >
+                                    {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                                    Run Test Upgrade
+                                </button>
+
+                                {simMessage && (
+                                    <div className="p-3 bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-xl mt-4">
+                                        <p className="text-xs text-[#9df01c] font-bold text-center">{simMessage}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                     </div>
 
                     {/* ACTIVE RULES LIST */}
