@@ -4,42 +4,51 @@ import crypto from 'crypto';
 import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, grantCommunityAccess, revokeCommunityAccess, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
+const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
-// --- NEW WORDPRESS SYNC BRIDGE ---
-// Guaranteed to hit the studio domain and securely pass the secret
-router.post('/api/wp-sync-bridge', async (req, res) => {
+// --- AUTO-JOIN ROUTES ---
+router.get('/api/admin/auto-joins', async (req, res) => {
     try {
-        // Force the request to the Studio domain where the CMS lives!
-        const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
-        
-        const payload = {
-            ...req.body,
-            secret: UNA_SECRET
-        };
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
 
-        const response = await fetch(STUDIO_URL, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${UNA_SECRET}`
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        const text = await response.text();
-        try {
-            const data = JSON.parse(text);
-            res.json(data);
-        } catch (e) {
-            console.error("Invalid JSON from bridge:", text.substring(0, 200));
-            res.status(500).json({ error: "Invalid JSON from bridge" });
-        }
-    } catch (error) {
-        console.error("WP Sync Bridge Error:", error);
-        res.status(500).json({ error: "Failed to communicate with UNA bridge" });
-    }
+        await sql`CREATE TABLE IF NOT EXISTS bridge_auto_joins (
+            id SERIAL PRIMARY KEY,
+            target_url TEXT NOT NULL,
+            target_roles TEXT NOT NULL
+        )`;
+        const rules = await sql`SELECT * FROM bridge_auto_joins ORDER BY id DESC`;
+        res.json({ rules });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+router.post('/api/admin/auto-joins', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { target_url, roles } = req.body;
+        await sql`CREATE TABLE IF NOT EXISTS bridge_auto_joins (
+            id SERIAL PRIMARY KEY,
+            target_url TEXT NOT NULL,
+            target_roles TEXT NOT NULL
+        )`;
+        await sql`INSERT INTO bridge_auto_joins (target_url, target_roles) VALUES (${target_url}, ${JSON.stringify(roles)})`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+router.post('/api/admin/auto-joins/delete', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        await sql`DELETE FROM bridge_auto_joins WHERE id = ${req.body.id}`;
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// --- EXISTING BRIDGE ROUTES ---
 router.get('/api/get-aliases', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);

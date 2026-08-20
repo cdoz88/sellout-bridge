@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp } from 'lucide-react';
+import { Settings, BookOpen, ShieldAlert, Loader2, Save, Check, TrendingUp, Users, Link2, Trash2, CheckSquare, Square } from 'lucide-react';
 
 export default function AdminDashboardApp({ session, unaData, activeTab = 'guides', setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -13,6 +13,11 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
     const [mappings, setMappings] = useState([]);
     const [aclMatrix, setAclMatrix] = useState([]);
     const [usageLimits, setUsageLimits] = useState([]);
+    
+    // Auto-Join State
+    const [autoJoinRules, setAutoJoinRules] = useState([]);
+    const [targetUrl, setTargetUrl] = useState('');
+    const [selectedRoles, setSelectedRoles] = useState([]);
 
     const platformPages = [
         { id: 'youtube_sync_api', name: 'YouTube Sync - API Settings' },
@@ -91,6 +96,15 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
             });
             const limitData = await limitRes.json();
             if (limitData.limits) setUsageLimits(limitData.limits);
+
+            // Fetch Auto-Join Rules
+            const autoJoinsRes = await fetch('/api/admin/auto-joins', {
+                headers: { 'Authorization': `Bearer ${session}` }
+            });
+            if (autoJoinsRes.ok) {
+                const autoJoinsData = await autoJoinsRes.json();
+                if (autoJoinsData.rules) setAutoJoinRules(autoJoinsData.rules);
+            }
 
         } catch (error) {
             console.error("Admin Fetch Error:", error);
@@ -183,13 +197,85 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         }
     };
 
+    // Auto-Join Logic
+    const toggleRole = (roleId) => {
+        setSelectedRoles(prev => 
+            prev.includes(roleId) 
+                ? prev.filter(id => id !== roleId)
+                : [...prev, roleId]
+        );
+    };
+
+    const handleSaveAutoJoin = async () => {
+        if (!targetUrl.trim() || selectedRoles.length === 0) {
+            alert("Please enter a URL and select at least one role.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const res = await fetch('/api/admin/auto-joins', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${session}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ 
+                    target_url: targetUrl, 
+                    roles: selectedRoles 
+                })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                setTargetUrl('');
+                setSelectedRoles([]);
+                
+                // Refresh list
+                const autoJoinsRes = await fetch('/api/admin/auto-joins', {
+                    headers: { 'Authorization': `Bearer ${session}` }
+                });
+                const autoJoinsData = await autoJoinsRes.json();
+                if (autoJoinsData.rules) setAutoJoinRules(autoJoinsData.rules);
+
+            } else {
+                alert(data.error || "Failed to save rule.");
+            }
+        } catch (error) {
+            alert("Network error. Please try again.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDeleteAutoJoin = async (ruleId) => {
+        if (!window.confirm("Are you sure you want to delete this routing rule? Future upgrades will no longer be auto-added to this community.")) return;
+
+        try {
+            const res = await fetch('/api/admin/auto-joins/delete', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${session}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ id: ruleId })
+            });
+            
+            if (res.ok) {
+                setAutoJoinRules(prev => prev.filter(r => r.id !== ruleId));
+            }
+        } catch (error) {
+            alert("Failed to delete rule.");
+        }
+    };
+
     if (!isAdmin) {
         return <div className="p-12 text-center text-red-500 font-bold uppercase tracking-widest text-xs">Access Denied</div>;
     }
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
-            <div className="mb-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="mb-10 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white flex items-center gap-3">
                         <Settings className="text-[#9df01c]" size={36} />
@@ -203,6 +289,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                     <button onClick={() => setActiveTab('guides')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'guides' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><BookOpen size={14}/> Guide Maps</button>
                     <button onClick={() => setActiveTab('acl')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'acl' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><ShieldAlert size={14}/> Access Control</button>
                     <button onClick={() => setActiveTab('limits')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'limits' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><TrendingUp size={14}/> Usage Limits</button>
+                    <button onClick={() => setActiveTab('auto_joins')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'auto_joins' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><Users size={14}/> Auto-Joins</button>
                 </div>
             </div>
 
@@ -345,6 +432,125 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            ) : activeTab === 'auto_joins' ? (
+                <div className="grid lg:grid-cols-12 gap-8">
+                    {/* CREATE NEW RULE FORM */}
+                    <div className="lg:col-span-5 space-y-6">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-2xl relative overflow-hidden">
+                            <h3 className="text-lg font-black uppercase tracking-tight text-white mb-6">Create New Rule</h3>
+                            
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">
+                                        Target Community URL
+                                    </label>
+                                    <div className="flex items-center gap-2 bg-black border border-white/10 focus-within:border-[#9df01c] transition-colors rounded-xl px-4 py-3">
+                                        <Link2 size={14} className="text-gray-500 shrink-0" />
+                                        <input 
+                                            type="text" 
+                                            value={targetUrl}
+                                            onChange={e => setTargetUrl(e.target.value)}
+                                            placeholder="https://selloutcrowds.com/crowd/coaching" 
+                                            className="bg-transparent text-white text-xs outline-none w-full flex-1" 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block mb-2">
+                                        Trigger For Roles
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {unaRoles.filter(r => r.id !== 18).map(role => {
+                                            const isSelected = selectedRoles.includes(role.id);
+                                            return (
+                                                <button
+                                                    key={role.id}
+                                                    onClick={() => toggleRole(role.id)}
+                                                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                                                        isSelected 
+                                                            ? 'bg-[#9df01c]/10 border-[#9df01c]/50 text-[#9df01c]' 
+                                                            : 'bg-black border-white/10 text-gray-400 hover:border-white/30'
+                                                    }`}
+                                                >
+                                                    {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                    {role.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={handleSaveAutoJoin} 
+                                    disabled={isSaving || !targetUrl.trim() || selectedRoles.length === 0}
+                                    className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                                >
+                                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+                                    Save Routing Rule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ACTIVE RULES LIST */}
+                    <div className="lg:col-span-7">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-2xl min-h-[400px] flex flex-col">
+                            <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/5">
+                                <h3 className="text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
+                                    Active Rules
+                                    <span className="bg-white/10 text-gray-300 text-xs px-2.5 py-0.5 rounded-lg">
+                                        {autoJoinRules.length}
+                                    </span>
+                                </h3>
+                            </div>
+
+                            <div className="flex-1">
+                                {autoJoinRules.length === 0 ? (
+                                    <div className="border-2 border-dashed border-white/5 rounded-2xl p-12 text-center h-full flex flex-col items-center justify-center">
+                                        <Users size={48} className="text-gray-600 mb-4 opacity-30" />
+                                        <p className="text-gray-400 font-bold text-sm">No Active Rules</p>
+                                        <p className="text-gray-600 text-[10px] uppercase tracking-widest mt-2">
+                                            Create a rule to automatically route upgraded users.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {autoJoinRules.map((rule) => {
+                                            const activeRoleIds = JSON.parse(rule.target_roles || '[]');
+                                            return (
+                                                <div key={rule.id} className="bg-black border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center hover:border-white/20 transition-colors">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono truncate mb-2">
+                                                            <Link2 size={12} className="flex-shrink-0" /> {rule.target_url}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {activeRoleIds.map(roleId => {
+                                                                const roleInfo = unaRoles.find(r => r.id === roleId);
+                                                                return roleInfo ? (
+                                                                    <span key={roleId} className="px-2 py-0.5 bg-white/10 border border-white/10 text-white rounded text-[9px] font-black uppercase tracking-widest">
+                                                                        {roleInfo.name}
+                                                                    </span>
+                                                                ) : null;
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => handleDeleteAutoJoin(rule.id)}
+                                                        className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-colors shrink-0" 
+                                                        title="Delete Rule"
+                                                    >
+                                                        <Trash2 size={14}/>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : null}
