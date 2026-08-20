@@ -6,6 +6,31 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 const router = express.Router();
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
+// --- HELPER FUNCTION: EXECUTE AUTO-JOIN RULES ON ROLE CHANGE ---
+const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
+    try {
+        if (!userEmail || !userRoleId) return;
+        
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return;
+
+        for (const rule of rules) {
+            const targetRoles = JSON.parse(rule.target_roles || '[]');
+            
+            if (targetRoles.includes(Number(userRoleId))) {
+                const urlObj = new URL(rule.target_url);
+                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+                const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+                const slug = pathParts[pathParts.length - 1];
+
+                await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+            }
+        }
+    } catch (error) {
+        console.error("Auto-Join Execution Error:", error);
+    }
+};
+
 // --- AUTO-JOIN ROUTES ---
 router.get('/api/admin/auto-joins', async (req, res) => {
     try {
