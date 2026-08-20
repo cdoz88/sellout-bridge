@@ -285,12 +285,6 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                         Global Platform Settings and Architecture
                     </p>
                 </div>
-                <div className="flex bg-[#111] p-1 rounded-xl border border-white/5 overflow-x-auto">
-                    <button onClick={() => setActiveTab('guides')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'guides' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><BookOpen size={14}/> Guide Maps</button>
-                    <button onClick={() => setActiveTab('acl')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'acl' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><ShieldAlert size={14}/> Access Control</button>
-                    <button onClick={() => setActiveTab('limits')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'limits' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><TrendingUp size={14}/> Usage Limits</button>
-                    <button onClick={() => setActiveTab('auto_joins')} className={`whitespace-nowrap px-6 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'auto_joins' ? 'bg-[#222] text-[#9df01c] shadow' : 'text-gray-500 hover:text-white'}`}><Users size={14}/> Auto-Joins</button>
-                </div>
             </div>
 
             {isLoading ? (
