@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function TeammatesApp({ session, unaData }) {
@@ -159,49 +159,77 @@ export default function TeammatesApp({ session, unaData }) {
         setSelectedCommunities(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
     };
 
-    const renderCommunityChecklist = (selectedArray, toggleFn) => (
-        <div className="max-h-40 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
-            {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
-                <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the Hub dashboard.</p>
-            ) : (
-                <>
-                    {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
-                    {(unaData?.crowds || []).map(c => {
-                        const combinedId = `bx_spaces_${c.id}`;
-                        const isSelected = selectedArray.includes(combinedId);
-                        return (
-                            <label key={combinedId} onClick={() => toggleFn(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
-                                        {isSelected && <CheckCircle2 size={12} className="text-black" />}
-                                    </div>
-                                    <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
-                                </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
-                            </label>
-                        );
-                    })}
+    const renderCommunityChecklist = (selectedArray, toggleFn, setFn) => {
+        const allIds = [
+            ...(unaData?.crowds || []).map(c => `bx_spaces_${c.id}`),
+            ...(unaData?.spaces || []).map(s => `bx_groups_${s.id}`)
+        ];
+        const isAllSelected = allIds.length > 0 && selectedArray.length === allIds.length;
 
-                    {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
-                    {(unaData?.spaces || []).map(s => {
-                        const combinedId = `bx_groups_${s.id}`;
-                        const isSelected = selectedArray.includes(combinedId);
-                        return (
-                            <label key={combinedId} onClick={() => toggleFn(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
-                                        {isSelected && <CheckCircle2 size={12} className="text-black" />}
-                                    </div>
-                                    <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
-                                </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
-                            </label>
-                        );
-                    })}
-                </>
-            )}
-        </div>
-    );
+        const handleToggleAll = () => {
+            if (isAllSelected) setFn([]);
+            else setFn(allIds);
+        };
+
+        return (
+            <div className="flex flex-col h-full min-h-0">
+                <div className="flex items-center justify-between mb-1 flex-shrink-0">
+                    <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest block">Grant Free Access To (Optional)</label>
+                    {allIds.length > 0 && (
+                        <button onClick={handleToggleAll} className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#9df01c] hover:text-white transition-colors">
+                            {isAllSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+                            {isAllSelected ? 'Deselect All' : 'Select All'}
+                        </button>
+                    )}
+                </div>
+                <p className="text-[10px] text-[#9df01c] font-medium mb-3 flex-shrink-0">
+                    Users added to communities here will automatically be granted "Team Member" permissions inside the Crowd/Space.
+                </p>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-1 bg-black border border-white/10 rounded-xl p-3">
+                    {(!unaData?.crowds || unaData.crowds.length === 0) && (!unaData?.spaces || unaData.spaces.length === 0) ? (
+                        <p className="text-xs text-gray-500 italic p-3 text-center border border-dashed border-white/10 rounded-xl">No communities found. Click "Sync Communities" on the Hub dashboard.</p>
+                    ) : (
+                        <>
+                            {unaData.crowds?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-2 mb-1 px-1 text-left">Crowds</div>}
+                            {(unaData?.crowds || []).map(c => {
+                                const combinedId = `bx_spaces_${c.id}`;
+                                const isSelected = selectedArray.includes(combinedId);
+                                return (
+                                    <label key={combinedId} onClick={() => toggleFn(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#9df01c]/10 border-[#9df01c]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#9df01c] border-[#9df01c]' : 'border-gray-500'}`}>
+                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                            </div>
+                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{c.title}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-[#9df01c]/10 px-2 py-0.5 rounded">Crowd</span>
+                                    </label>
+                                );
+                            })}
+
+                            {unaData.spaces?.length > 0 && <div className="text-[8px] text-gray-600 uppercase font-black tracking-widest mt-3 mb-1 px-1 text-left">Spaces</div>}
+                            {(unaData?.spaces || []).map(s => {
+                                const combinedId = `bx_groups_${s.id}`;
+                                const isSelected = selectedArray.includes(combinedId);
+                                return (
+                                    <label key={combinedId} onClick={() => toggleFn(combinedId)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors ${isSelected ? 'bg-[#38bdf8]/10 border-[#38bdf8]/50' : 'bg-black border-white/10 hover:border-white/30'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#38bdf8] border-[#38bdf8]' : 'border-gray-500'}`}>
+                                                {isSelected && <CheckCircle2 size={12} className="text-black" />}
+                                            </div>
+                                            <span className={`text-xs font-bold transition-colors ${isSelected ? 'text-white' : 'text-gray-300'}`}>{s.title}</span>
+                                        </div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#38bdf8] bg-[#38bdf8]/10 px-2 py-0.5 rounded">Space</span>
+                                    </label>
+                                );
+                            })}
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
@@ -338,8 +366,13 @@ export default function TeammatesApp({ session, unaData }) {
                     <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative flex flex-col max-h-[90vh]">
                         <button onClick={() => setShowInviteModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors z-10"><X size={20}/></button>
                         
-                        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c] flex-shrink-0"><UserPlus size={24}/></div>
-                        <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 flex-shrink-0">Add Teammate</h3>
+                        <div className="flex items-center gap-4 mb-4 flex-shrink-0">
+                            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[#9df01c] flex-shrink-0">
+                                <UserPlus size={24}/>
+                            </div>
+                            <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white m-0">Add Teammate</h3>
+                        </div>
+                        
                         <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
                             Enter the email address of an existing Sellout Crowds user to instantly upgrade their account to Teammate status.
                         </p>
@@ -367,22 +400,16 @@ export default function TeammatesApp({ session, unaData }) {
                             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold mb-4 flex-shrink-0">{inviteError}</div>
                         )}
 
-                        <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2 flex-1 min-h-0">
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">User's Email Address</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                                    <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="colleague@example.com" className="w-full bg-black border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none transition-colors" />
-                                </div>
+                        <div className="mb-4 flex-shrink-0">
+                            <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">User's Email Address</label>
+                            <div className="relative">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                                <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="colleague@example.com" className="w-full bg-black border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:border-[#9df01c] outline-none transition-colors" />
                             </div>
+                        </div>
 
-                            <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1 block">Grant Free Access To (Optional)</label>
-                                <p className="text-[10px] text-[#9df01c] font-medium mb-3">
-                                    Users added to communities here will automatically be granted "Team Member" permissions inside the Crowd/Space.
-                                </p>
-                                {renderCommunityChecklist(inviteCommunities, toggleInviteCommunity)}
-                            </div>
+                        <div className="flex-1 min-h-0 flex flex-col">
+                            {renderCommunityChecklist(inviteCommunities, toggleInviteCommunity, setInviteCommunities)}
                         </div>
 
                         <div className="pt-4 flex-shrink-0">
@@ -408,14 +435,19 @@ export default function TeammatesApp({ session, unaData }) {
                             </div>
                         ) : (
                             <>
-                                <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c] flex-shrink-0"><Key size={24}/></div>
-                                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 flex-shrink-0">Grant Free Access</h3>
+                                <div className="flex items-center gap-4 mb-4 flex-shrink-0">
+                                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[#9df01c] flex-shrink-0">
+                                        <Key size={24}/>
+                                    </div>
+                                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white m-0">Grant Free Access</h3>
+                                </div>
+                                
                                 <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
-                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee and will automatically be assigned the "Team Member" role inside!
+                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee!
                                 </p>
                                 
-                                <div className="mb-6 flex-1 min-h-0">
-                                    {renderCommunityChecklist(selectedCommunities, toggleCommunitySelection)}
+                                <div className="flex-1 min-h-0 flex flex-col mb-4">
+                                    {renderCommunityChecklist(selectedCommunities, toggleCommunitySelection, setSelectedCommunities)}
                                 </div>
                                 
                                 <button onClick={handleSaveMapping} disabled={isMapping} className="w-full py-4 flex-shrink-0 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20">
