@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square, AddressBook } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square, Contact } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function TeammatesApp({ session, unaData, activeTab, setActiveTab }) {
@@ -271,7 +271,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
             {currentTab === 'directory' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in duration-300">
                     <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
-                        <AddressBook size={20} className="text-[#9df01c]" /> Active Roster
+                        <Contact size={20} className="text-[#9df01c]" /> Active Roster
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
