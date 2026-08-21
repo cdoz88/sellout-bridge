@@ -9,28 +9,50 @@ const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
     try {
         if (!userEmail || !userRoleId) return;
         
-        // Fetch active auto-join rules
         const rules = await sql`SELECT * FROM bridge_auto_joins`;
         if (!rules || rules.length === 0) return;
 
         for (const rule of rules) {
             const targetRoles = JSON.parse(rule.target_roles || '[]');
             
-            // Check if the user's new role triggers this rule
             if (targetRoles.includes(Number(userRoleId))) {
-                // Parse module and slug from URL (e.g. https://selloutcrowds.com/crowd/creator-coaching)
                 const urlObj = new URL(rule.target_url);
                 const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
-                
                 const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
                 const slug = pathParts[pathParts.length - 1];
 
-                // Execute the auto-join
-                await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+                const result = await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+                if (!result.success) {
+                    console.error(`Auto-Join Execution Failed for ${userEmail}:`, result.error);
+                }
             }
         }
     } catch (error) {
         console.error("Auto-Join Execution Error:", error);
+    }
+};
+
+// --- HELPER FUNCTION: REVOKE AUTO-JOIN RULES ON DOWNGRADE ---
+const revokeAutoJoinsForUser = async (userEmail) => {
+    try {
+        if (!userEmail) return;
+        
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return;
+
+        for (const rule of rules) {
+            const urlObj = new URL(rule.target_url);
+            const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+            const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+            const slug = pathParts[pathParts.length - 1];
+
+            const result = await revokeCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+            if (!result.success) {
+                console.error(`Auto-Join Revocation Failed for ${userEmail}:`, result.error);
+            }
+        }
+    } catch (error) {
+        console.error("Auto-Join Revocation Error:", error);
     }
 };
 
@@ -437,6 +459,16 @@ router.post('/api/stripe-webhook', async (req, res) => {
                         }
                         await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
                     }
+
+                    // DOWNGRADE ACL ROLE AND REVOKE AUTO-JOINS
+                    try {
+                        await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                            body: JSON.stringify({ email: customerEmail, action: 'revoke_teammate' }) 
+                        });
+                        await revokeAutoJoinsForUser(customerEmail);
+                    } catch (e) { console.error("Failed to downgrade user:", e); }
                 }
             }
         }
@@ -462,6 +494,16 @@ router.post('/api/stripe-webhook', async (req, res) => {
                                      await revokeCommunityAccess(targetEmail, r.una_module, r.una_content_id);
                                  }
                                  await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
+
+                                 // DOWNGRADE ACL ROLE AND REVOKE AUTO-JOINS
+                                 try {
+                                     await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                                         method: 'POST',
+                                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                                         body: JSON.stringify({ email: customerEmail, action: 'revoke_teammate' }) 
+                                     });
+                                     await revokeAutoJoinsForUser(customerEmail);
+                                 } catch (e) { console.error("Failed to downgrade user:", e); }
                              } else if (status === 'active') {
                                  let allSuccess = true;
                                  for (const r of mapRows) {
@@ -543,6 +585,16 @@ router.post('/api/paypal-webhook', async (req, res) => {
                         }
                         await sql`UPDATE bridge_customers SET bridge_status = 'pending' WHERE email = ${customerEmail}`;
                     }
+
+                    // DOWNGRADE ACL ROLE AND REVOKE AUTO-JOINS
+                    try {
+                        await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                            body: JSON.stringify({ email: customerEmail, action: 'revoke_teammate' }) 
+                        });
+                        await revokeAutoJoinsForUser(customerEmail);
+                    } catch (e) { console.error("Failed to downgrade user:", e); }
                 }
             }
         }
