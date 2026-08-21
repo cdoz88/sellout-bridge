@@ -3,14 +3,29 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 
 const router = express.Router();
 
+// --- WORKSPACE ENGINE ---
+const getWorkspaceId = async (user) => {
+    if (Number(user.role) === 18 && user.email) {
+        const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+        if (seatRows.length > 0) return seatRows[0].owner_id;
+    }
+    return user.id;
+};
+
 router.get('/api/team', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
-        const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${user.id} ORDER BY created_at DESC`;
-        res.json({ limit: 999, used: rows.length, teammates: rows });
+        const workspaceId = await getWorkspaceId(user);
+        const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${workspaceId} ORDER BY created_at DESC`;
+        
+        // Fetch the Boss's email so they show up in the directory!
+        const ownerRows = await sql`SELECT email FROM users WHERE id = ${workspaceId}`;
+        const ownerEmail = ownerRows.length > 0 ? ownerRows[0].email : 'Account Owner';
+
+        res.json({ limit: 999, used: rows.length, teammates: rows, owner_email: ownerEmail });
     } catch (error) { res.status(500).json({ error: "Failed to fetch team data" }); }
 });
 
@@ -18,6 +33,7 @@ router.post('/api/team/invite', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
+        if (Number(user.role) === 18) return res.status(403).json({ error: "Only the account owner can manage the team." });
         
         const { email, communities } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required" });
@@ -64,7 +80,7 @@ router.post('/api/team/invite', async (req, res) => {
                 const mapResult = await grantCommunityAccess(cleanEmail, module, id);
                 const newStatus = mapResult.success ? 'bridged' : 'pending';
                 
-                // --- NEW: ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
+                // --- ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
                 if (mapResult.success) {
                     try {
                         await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -91,6 +107,8 @@ router.post('/api/team/revoke', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
+        if (Number(user.role) === 18) return res.status(403).json({ error: "Only the account owner can manage the team." });
+
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: "Email is required" });
 
@@ -144,6 +162,8 @@ router.post('/api/team/manual-map', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
+        if (Number(user.role) === 18) return res.status(403).json({ error: "Only the account owner can manage the team." });
+
         const { email, communities } = req.body;
         
         if (!email || !communities || communities.length === 0) return res.status(400).json({ error: "Missing array" });
@@ -167,7 +187,7 @@ router.post('/api/team/manual-map', async (req, res) => {
             
             if (!result.success) { allSuccess = false; lastError = result.error || "Failed access."; }
 
-            // --- NEW: ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
+            // --- ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
             if (result.success) {
                 try {
                     await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {

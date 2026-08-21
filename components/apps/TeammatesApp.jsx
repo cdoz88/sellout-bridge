@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square, AddressBook } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
-export default function TeammatesApp({ session, unaData }) {
+export default function TeammatesApp({ session, unaData, activeTab, setActiveTab }) {
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
     const isAdmin = Number(unaData?.user?.role) === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     const role = Number(unaData?.user?.role) || 1;
+    const isTeammate = role === 18;
+
+    // Force default to directory if no tab or if a teammate tries to access manage
+    const currentTab = (activeTab === 'manage' && isTeammate) ? 'directory' : (activeTab || 'directory');
 
     const [teammates, setTeammates] = useState([]);
+    const [ownerEmail, setOwnerEmail] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [freeSeats, setFreeSeats] = useState(0);
     
@@ -34,13 +39,16 @@ export default function TeammatesApp({ session, unaData }) {
             if (data.teammates) {
                 setTeammates(data.teammates);
             }
+            if (data.owner_email) {
+                setOwnerEmail(data.owner_email);
+            }
         } catch (err) {
             console.error("Failed to load teammates");
         }
     };
 
     const fetchLimits = async () => {
-        if (isAdmin) {
+        if (isAdmin || isTeammate) {
             setFreeSeats(Infinity);
             return;
         }
@@ -235,130 +243,179 @@ export default function TeammatesApp({ session, unaData }) {
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+            {isTeammate && (
+                <div className="mb-6 inline-flex items-center gap-2 bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    <Users size={14} /> Shared Team Workspace
+                </div>
+            )}
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">
                         My Team
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">
-                        Manage your staff, co-hosts, and moderators.
+                        {currentTab === 'directory' ? 'View the active roster for your shared workspace.' : 'Manage your staff, co-hosts, and moderators.'}
                     </p>
                 </div>
-                <div className="flex gap-3 w-full md:w-auto justify-end">
-                    <button onClick={() => { setNewEmail(''); setInviteCommunities([]); setShowInviteModal(true); }} className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
-                        <UserPlus size={14} /> Add Teammate
-                    </button>
-                </div>
+                {(!isTeammate && currentTab === 'manage') && (
+                    <div className="flex gap-3 w-full md:w-auto justify-end">
+                        <button onClick={() => { setNewEmail(''); setInviteCommunities([]); setShowInviteModal(true); }} className="px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center gap-2 shadow-lg shadow-[#9df01c]/20">
+                            <UserPlus size={14} /> Add Teammate
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div className="grid lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8">
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 min-h-[50vh]">
-                        <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2 mb-6">
-                            <Briefcase size={18} className="text-[#9df01c]"/> Active Roster
-                        </h3>
-
-                        {teammates.length > 0 ? (
-                            <div className="space-y-3">
-                                {teammates.map((member) => (
-                                    <div key={member.id} className="bg-black p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-white/10">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                                <Shield size={16} />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-bold text-white truncate">{member.teammate_email}</p>
-                                                <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-bold mt-1">Authorized Staff</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            <button onClick={() => openMapModal(member)} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-white/5">
-                                                <Key size={12}/> Grant Access
-                                            </button>
-                                            <button onClick={() => handleRevoke(member.teammate_email)} className="flex-1 sm:flex-none px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-red-500/20">
-                                                <Trash2 size={12}/> Revoke
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+            {currentTab === 'directory' ? (
+                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in duration-300">
+                    <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
+                        <AddressBook size={20} className="text-[#9df01c]" /> Active Roster
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* Boss Card */}
+                        <div className="bg-black border border-[#9df01c]/30 rounded-2xl p-5 flex items-center gap-4 hover:border-[#9df01c]/50 transition-colors">
+                            <div className="w-12 h-12 rounded-full bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center flex-shrink-0">
+                                <Briefcase size={20} />
                             </div>
-                        ) : (
-                            <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
-                                <Users size={32} className="mx-auto mb-3 opacity-20"/>
-                                <p className="text-sm font-medium">You haven't added any teammates yet.</p>
-                                <p className="text-[10px] mt-2">Click "Add Teammate" to invite someone to your roster.</p>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-white truncate">{ownerEmail}</p>
+                                <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Account Owner</p>
                             </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="lg:col-span-4">
-                    <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
-                        
-                        {/* --- NEW PLAN ALLOWANCE BOX --- */}
-                        <div className="mb-8 pb-8 border-b border-white/5">
-                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Seat Allowance</h3>
-                            {freeSeats === Infinity ? (
-                                <>
-                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
-                                        Your Administrator account includes <strong>unlimited free teammates</strong>.
-                                    </p>
-                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
-                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats} / Unlimited</span>
-                                    </div>
-                                </>
-                            ) : freeSeats > 0 ? (
-                                <>
-                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
-                                        Your current plan includes <strong>{freeSeats} free teammates</strong>. Additional seats are $2.00/mo.
-                                    </p>
-                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
-                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats} / {freeSeats} Free</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
-                                        Teammate seats are billed automatically at <strong>$2.00/mo</strong> per user.
-                                    </p>
-                                    <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
-                                        <span className="text-sm font-black text-[#9df01c]">{usedSeats}</span>
-                                    </div>
-                                </>
-                            )}
                         </div>
 
-                        <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Teammate Benefits</h3>
-                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
-                            When you upgrade a regular user to a Teammate, they unlock premium tools to help manage your brand.
-                        </p>
-                        <div className="space-y-5">
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><BadgeCheck size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Brand Badge</h4><p className="text-xs text-gray-500">They receive an official staff badge next to their name in your communities.</p></div>
+                        {/* Teammate Cards */}
+                        {teammates.map(tm => (
+                            <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
+                                <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0">
+                                    <Shield size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-white truncate">{tm.teammate_email}</p>
+                                    <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Teammate</p>
+                                </div>
                             </div>
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Pencil size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish posts, moderate comments, and manage content.</p></div>
+                        ))}
+                    </div>
+
+                    {teammates.length === 0 && (
+                        <div className="mt-8 text-center border-2 border-dashed border-white/5 rounded-2xl p-12 text-gray-500">
+                            <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                            <p className="text-sm font-medium">It's just the boss for now!</p>
+                            {!isTeammate && <p className="text-[10px] mt-2">Go to "Manage Team" to add your first teammate.</p>}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div className="grid lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
+                    <div className="lg:col-span-8">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 min-h-[50vh]">
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2 mb-6">
+                                <Briefcase size={18} className="text-[#9df01c]"/> Team Access Control
+                            </h3>
+
+                            {teammates.length > 0 ? (
+                                <div className="space-y-3">
+                                    {teammates.map((member) => (
+                                        <div key={member.id} className="bg-black p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-white/10">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                                    <Shield size={16} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-white truncate">{member.teammate_email}</p>
+                                                    <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-bold mt-1">Authorized Staff</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                <button onClick={() => openMapModal(member)} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-white/5">
+                                                    <Key size={12}/> Grant Access
+                                                </button>
+                                                <button onClick={() => handleRevoke(member.teammate_email)} className="flex-1 sm:flex-none px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-red-500/20">
+                                                    <Trash2 size={12}/> Revoke
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
+                                    <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                                    <p className="text-sm font-medium">You haven't added any teammates yet.</p>
+                                    <p className="text-[10px] mt-2">Click "Add Teammate" to invite someone to your roster.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-4">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
+                            
+                            {/* --- NEW PLAN ALLOWANCE BOX --- */}
+                            <div className="mb-8 pb-8 border-b border-white/5">
+                                <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Seat Allowance</h3>
+                                {freeSeats === Infinity ? (
+                                    <>
+                                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                            Your Administrator account includes <strong>unlimited free teammates</strong>.
+                                        </p>
+                                        <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                            <span className="text-sm font-black text-[#9df01c]">{usedSeats} / Unlimited</span>
+                                        </div>
+                                    </>
+                                ) : freeSeats > 0 ? (
+                                    <>
+                                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                            Your current plan includes <strong>{freeSeats} free teammates</strong>. Additional seats are $2.00/mo.
+                                        </p>
+                                        <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                            <span className="text-sm font-black text-[#9df01c]">{usedSeats} / {freeSeats} Free</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-xs text-gray-400 font-medium leading-relaxed mb-4">
+                                            Teammate seats are billed automatically at <strong>$2.00/mo</strong> per user.
+                                        </p>
+                                        <div className="flex items-center justify-between bg-black p-4 rounded-xl border border-white/5">
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Seats Used</span>
+                                            <span className="text-sm font-black text-[#9df01c]">{usedSeats}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Share2 size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card.</p></div>
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
-                                <div>
-                                    <h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4>
-                                    <p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge. They will automatically be assigned the "Team Member" role inside.</p>
+
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Teammate Benefits</h3>
+                            <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
+                                When you upgrade a regular user to a Teammate, they unlock premium tools to help manage your brand.
+                            </p>
+                            <div className="space-y-5">
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><BadgeCheck size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Brand Badge</h4><p className="text-xs text-gray-500">They receive an official staff badge next to their name in your communities.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Pencil size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish posts, moderate comments, and manage content.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Share2 size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4>
+                                        <p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge. They will automatically be assigned the "Team Member" role inside.</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* INVITE MODAL */}
             {showInviteModal && (
@@ -443,7 +500,7 @@ export default function TeammatesApp({ session, unaData }) {
                                 </div>
                                 
                                 <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
-                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee!
+                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee and will automatically be assigned the "Team Member" role inside!
                                 </p>
                                 
                                 <div className="flex-1 min-h-0 flex flex-col mb-4">
