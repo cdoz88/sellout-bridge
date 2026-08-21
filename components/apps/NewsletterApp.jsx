@@ -45,6 +45,9 @@ const DEFAULT_SOCIAL_LINKS = [
 ];
 
 export default function NewsletterApp({ session, unaData, activeTab, setActiveTab }) {
+    const role = Number(unaData?.user?.role) || 1;
+    const isTeammate = role === 18;
+
     const [campaigns, setCampaigns] = useState([]);
     const [emailSettings, setEmailSettings] = useState({ sender_name: '', reply_to_email: '', footer_text: '', social_links: DEFAULT_SOCIAL_LINKS, brand_color: '#9df01c', brand_logo: '' });
     const emailSettingsRef = useRef(emailSettings);
@@ -524,6 +527,11 @@ export default function NewsletterApp({ session, unaData, activeTab, setActiveTa
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
+            {isTeammate && (
+                <div className="mb-6 inline-flex items-center gap-2 bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    <Users size={14} /> Shared Team Workspace
+                </div>
+            )}
             <div className="mb-8">
                 <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 text-white flex items-center gap-3">
                     <Mail className="text-[#9df01c]" size={36} /> Email Newsletters

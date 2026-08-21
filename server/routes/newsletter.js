@@ -11,6 +11,15 @@ const sesClient = new SESClient({
 const PLATFORM_SENDER_EMAIL = process.env.SES_FROM_EMAIL || 'updates@selloutcrowds.com';
 const AWS_CONFIG_SET = 'SelloutCrowdsMetrics'; 
 
+// --- WORKSPACE ENGINE ---
+const getWorkspaceId = async (user) => {
+    if (Number(user.role) === 18 && user.email) {
+        const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+        if (seatRows.length > 0) return seatRows[0].owner_id;
+    }
+    return user.id;
+};
+
 const ensureNewsletterAnalytics = async () => {
     await ensureSchema();
     try {
@@ -26,7 +35,9 @@ router.get('/api/newsletter/settings', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureNewsletterAnalytics();
         
-        const rows = await sql`SELECT sender_name, reply_to_email, footer_text, social_links, brand_color, brand_logo FROM bridge_newsletter_settings WHERE user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const rows = await sql`SELECT sender_name, reply_to_email, footer_text, social_links, brand_color, brand_logo FROM bridge_newsletter_settings WHERE user_id = ${workspaceId}`;
         res.json({ settings: rows.length > 0 ? rows[0] : { sender_name: user.name || '', reply_to_email: user.email || '', footer_text: '', social_links: [], brand_color: '#9df01c', brand_logo: '' } });
     } catch (err) { res.status(500).json({ error: "Failed to fetch settings." }); }
 });
@@ -37,7 +48,9 @@ router.post('/api/newsletter/settings', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { sender_name, reply_to_email, footer_text, social_links, brand_color, brand_logo } = req.body;
         
-        const oldSettings = await sql`SELECT brand_logo FROM bridge_newsletter_settings WHERE user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const oldSettings = await sql`SELECT brand_logo FROM bridge_newsletter_settings WHERE user_id = ${workspaceId}`;
         if (oldSettings.length > 0 && oldSettings[0].brand_logo && oldSettings[0].brand_logo !== brand_logo) {
             try {
                 await fetch(`https://api.fytsolutions.com/api.php?action=delete_file&fileUrl=${encodeURIComponent(oldSettings[0].brand_logo)}`);
@@ -46,7 +59,7 @@ router.post('/api/newsletter/settings', async (req, res) => {
 
         await sql`
             INSERT INTO bridge_newsletter_settings (user_id, sender_name, reply_to_email, footer_text, social_links, brand_color, brand_logo) 
-            VALUES (${user.id}, ${sender_name}, ${reply_to_email}, ${footer_text || ''}, ${social_links ? JSON.stringify(social_links) : '[]'}, ${brand_color || '#9df01c'}, ${brand_logo || ''})
+            VALUES (${workspaceId}, ${sender_name}, ${reply_to_email}, ${footer_text || ''}, ${social_links ? JSON.stringify(social_links) : '[]'}, ${brand_color || '#9df01c'}, ${brand_logo || ''})
             ON CONFLICT (user_id) DO UPDATE SET 
             sender_name = EXCLUDED.sender_name, reply_to_email = EXCLUDED.reply_to_email, footer_text = EXCLUDED.footer_text, social_links = EXCLUDED.social_links, brand_color = EXCLUDED.brand_color, brand_logo = EXCLUDED.brand_logo
         `;
@@ -61,7 +74,9 @@ router.get('/api/newsletter/lists', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureNewsletterAnalytics();
         
-        const lists = await sql`SELECT id, name, created_at FROM bridge_newsletter_lists WHERE user_id = ${user.id} ORDER BY created_at DESC`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const lists = await sql`SELECT id, name, created_at FROM bridge_newsletter_lists WHERE user_id = ${workspaceId} ORDER BY created_at DESC`;
         
         for (let list of lists) {
             const subs = await sql`SELECT COUNT(*) FROM bridge_newsletter_subscribers WHERE list_id = ${list.id} AND status = 'subscribed'`;
@@ -79,7 +94,9 @@ router.post('/api/newsletter/lists', async (req, res) => {
         const { name } = req.body;
         if (!name) return res.status(400).json({ error: "List name required" });
 
-        const result = await sql`INSERT INTO bridge_newsletter_lists (user_id, name) VALUES (${user.id}, ${name}) RETURNING id`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const result = await sql`INSERT INTO bridge_newsletter_lists (user_id, name) VALUES (${workspaceId}, ${name}) RETURNING id`;
         res.json({ success: true, id: result[0].id });
     } catch (err) { res.status(500).json({ error: "Failed to create list." }); }
 });
@@ -90,8 +107,10 @@ router.post('/api/newsletter/lists/delete', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
         const { id } = req.body;
-        await sql`DELETE FROM bridge_newsletter_lists WHERE id = ${id} AND user_id = ${user.id}`;
-        await sql`DELETE FROM bridge_newsletter_subscribers WHERE list_id = ${id} AND user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        await sql`DELETE FROM bridge_newsletter_lists WHERE id = ${id} AND user_id = ${workspaceId}`;
+        await sql`DELETE FROM bridge_newsletter_subscribers WHERE list_id = ${id} AND user_id = ${workspaceId}`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed to delete list." }); }
 });
@@ -102,8 +121,9 @@ router.get('/api/newsletter/lists/:id/subscribers', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
         const listId = req.params.id;
-        // FIX: Replaced "ORDER BY created_at DESC" with "ORDER BY id DESC" since the table doesn't have a created_at column
-        const rows = await sql`SELECT id, email, first_name, last_name, status FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${user.id} ORDER BY id DESC`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const rows = await sql`SELECT id, email, first_name, last_name, status FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${workspaceId} ORDER BY id DESC`;
         res.json({ subscribers: rows });
     } catch (err) { res.status(500).json({ error: "Failed to fetch subscribers." }); }
 });
@@ -114,7 +134,9 @@ router.post('/api/newsletter/lists/subscribers/delete', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
         const { id } = req.body;
-        await sql`DELETE FROM bridge_newsletter_subscribers WHERE id = ${id} AND user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        await sql`DELETE FROM bridge_newsletter_subscribers WHERE id = ${id} AND user_id = ${workspaceId}`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed to delete subscriber." }); }
 });
@@ -127,6 +149,8 @@ router.post('/api/newsletter/lists/import', async (req, res) => {
         const { list_id, subscribers } = req.body;
         if (!list_id || !Array.isArray(subscribers)) return res.status(400).json({ error: "Invalid data" });
 
+        const workspaceId = await getWorkspaceId(user);
+
         let added = 0;
         for (const sub of subscribers) {
             if (!sub.email) continue;
@@ -135,7 +159,7 @@ router.post('/api/newsletter/lists/import', async (req, res) => {
             const lName = (sub.lastName || '').trim();
             
             try {
-                await sql`INSERT INTO bridge_newsletter_subscribers (user_id, list_id, email, first_name, last_name) VALUES (${user.id}, ${list_id}, ${email}, ${fName}, ${lName}) ON CONFLICT (list_id, email) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, status = 'subscribed'`;
+                await sql`INSERT INTO bridge_newsletter_subscribers (user_id, list_id, email, first_name, last_name) VALUES (${workspaceId}, ${list_id}, ${email}, ${fName}, ${lName}) ON CONFLICT (list_id, email) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, status = 'subscribed'`;
                 added++;
             } catch(e) {}
         }
@@ -148,7 +172,9 @@ router.post('/api/newsletter/sync-una', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
         const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
 
         const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -163,11 +189,11 @@ router.post('/api/newsletter/sync-una', async (req, res) => {
         
         if (data.members && Array.isArray(data.members)) {
             let listId;
-            const existList = await sql`SELECT id FROM bridge_newsletter_lists WHERE user_id = ${user.id} AND name = 'UNA Community Members'`;
+            const existList = await sql`SELECT id FROM bridge_newsletter_lists WHERE user_id = ${workspaceId} AND name = 'UNA Community Members'`;
             if (existList.length > 0) {
                 listId = existList[0].id;
             } else {
-                const newList = await sql`INSERT INTO bridge_newsletter_lists (user_id, name) VALUES (${user.id}, 'UNA Community Members') RETURNING id`;
+                const newList = await sql`INSERT INTO bridge_newsletter_lists (user_id, name) VALUES (${workspaceId}, 'UNA Community Members') RETURNING id`;
                 listId = newList[0].id;
             }
 
@@ -175,7 +201,7 @@ router.post('/api/newsletter/sync-una', async (req, res) => {
             for (const member of data.members) {
                 if (!member.email) continue;
                 try {
-                    await sql`INSERT INTO bridge_newsletter_subscribers (user_id, list_id, email, first_name, last_name) VALUES (${user.id}, ${listId}, ${member.email}, ${member.first_name || ''}, ${member.last_name || ''}) ON CONFLICT (list_id, email) DO UPDATE SET status = 'subscribed', first_name = EXCLUDED.first_name`;
+                    await sql`INSERT INTO bridge_newsletter_subscribers (user_id, list_id, email, first_name, last_name) VALUES (${workspaceId}, ${listId}, ${member.email}, ${member.first_name || ''}, ${member.last_name || ''}) ON CONFLICT (list_id, email) DO UPDATE SET status = 'subscribed', first_name = EXCLUDED.first_name`;
                     addedCount++;
                 } catch(e) {}
             }
@@ -192,10 +218,12 @@ router.get('/api/newsletter/billing', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
+        const workspaceId = await getWorkspaceId(user);
+
         const usage = await sql`
             SELECT COUNT(*) as sent_count 
             FROM bridge_email_logs 
-            WHERE user_id = ${user.id} 
+            WHERE user_id = ${workspaceId} 
             AND date_trunc('month', sent_at) = date_trunc('month', NOW())
         `;
         
@@ -219,7 +247,9 @@ router.get('/api/newsletter/campaigns', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        const rows = await sql`SELECT id, subject, content, status, recipient_count, open_count, click_count, sent_at, created_at FROM bridge_newsletters WHERE user_id = ${user.id} ORDER BY id DESC`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const rows = await sql`SELECT id, subject, content, status, recipient_count, open_count, click_count, sent_at, created_at FROM bridge_newsletters WHERE user_id = ${workspaceId} ORDER BY id DESC`;
         res.json({ campaigns: rows });
     } catch (err) { res.status(500).json({ error: "Failed to fetch campaigns." }); }
 });
@@ -229,7 +259,9 @@ router.get('/api/newsletter/campaigns/:id', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
-        const rows = await sql`SELECT * FROM bridge_newsletters WHERE id = ${req.params.id} AND user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const rows = await sql`SELECT * FROM bridge_newsletters WHERE id = ${req.params.id} AND user_id = ${workspaceId}`;
         if (rows.length === 0) return res.status(404).json({ error: "Not found" });
         res.json({ campaign: rows[0] });
     } catch (err) { res.status(500).json({ error: "Failed to fetch campaign." }); }
@@ -240,13 +272,14 @@ router.post('/api/newsletter/save', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
+        const workspaceId = await getWorkspaceId(user);
         const { id, subject, content, html_body } = req.body;
         
         if (id) {
-            await sql`UPDATE bridge_newsletters SET subject = ${subject}, content = ${content}, html_body = ${html_body} WHERE id = ${id} AND user_id = ${user.id}`;
+            await sql`UPDATE bridge_newsletters SET subject = ${subject}, content = ${content}, html_body = ${html_body} WHERE id = ${id} AND user_id = ${workspaceId}`;
             res.json({ success: true, id });
         } else {
-            const result = await sql`INSERT INTO bridge_newsletters (user_id, subject, content, html_body) VALUES (${user.id}, ${subject}, ${content}, ${html_body}) RETURNING id`;
+            const result = await sql`INSERT INTO bridge_newsletters (user_id, subject, content, html_body) VALUES (${workspaceId}, ${subject}, ${content}, ${html_body}) RETURNING id`;
             res.json({ success: true, id: result[0].id });
         }
     } catch (err) { res.status(500).json({ error: "Failed to save draft." }); }
@@ -257,8 +290,9 @@ router.post('/api/newsletter/delete', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
+        const workspaceId = await getWorkspaceId(user);
         const { id } = req.body;
-        await sql`DELETE FROM bridge_newsletters WHERE id = ${id} AND user_id = ${user.id}`;
+        await sql`DELETE FROM bridge_newsletters WHERE id = ${id} AND user_id = ${workspaceId}`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed to delete campaign." }); }
 });
@@ -302,11 +336,13 @@ router.post('/api/newsletter/send-test', async (req, res) => {
         const { id, test_email } = req.body;
         if (!id || !test_email) return res.status(400).json({ error: "Missing campaign ID or test email" });
 
-        const campaigns = await sql`SELECT * FROM bridge_newsletters WHERE id = ${id} AND user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const campaigns = await sql`SELECT * FROM bridge_newsletters WHERE id = ${id} AND user_id = ${workspaceId}`;
         if (campaigns.length === 0) return res.status(400).json({ error: "Invalid campaign." });
         const campaign = campaigns[0];
 
-        const settingsDb = await sql`SELECT * FROM bridge_newsletter_settings WHERE user_id = ${user.id}`;
+        const settingsDb = await sql`SELECT * FROM bridge_newsletter_settings WHERE user_id = ${workspaceId}`;
         const settings = settingsDb.length > 0 ? settingsDb[0] : { sender_name: user.name, reply_to_email: user.email, footer_text: '', social_links: [] };
 
         let finalHtml = buildFinalHtml(campaign, settings, '#');
@@ -343,13 +379,14 @@ router.post('/api/newsletter/send', async (req, res) => {
         const { id, target_lists } = req.body;
         if (!id) return res.status(400).json({ error: "Missing campaign ID" });
         
+        const workspaceId = await getWorkspaceId(user);
         const listsToTarget = target_lists || ['bridged'];
 
-        const campaigns = await sql`SELECT * FROM bridge_newsletters WHERE id = ${id} AND user_id = ${user.id}`;
+        const campaigns = await sql`SELECT * FROM bridge_newsletters WHERE id = ${id} AND user_id = ${workspaceId}`;
         if (campaigns.length === 0 || campaigns[0].status === 'sent') return res.status(400).json({ error: "Invalid or already sent campaign." });
         const campaign = campaigns[0];
 
-        const settingsDb = await sql`SELECT * FROM bridge_newsletter_settings WHERE user_id = ${user.id}`;
+        const settingsDb = await sql`SELECT * FROM bridge_newsletter_settings WHERE user_id = ${workspaceId}`;
         const settings = settingsDb.length > 0 ? settingsDb[0] : { sender_name: user.name, reply_to_email: user.email, footer_text: '', social_links: [] };
 
         let rawAudience = [];
@@ -357,11 +394,11 @@ router.post('/api/newsletter/send', async (req, res) => {
         // Check if we are sending to the default Bridged Users
         if (listsToTarget.includes('bridged')) {
             const audienceDb = await sql`
-                SELECT email FROM bridge_customers WHERE creator_id = ${user.id} AND bridge_status = 'bridged'
+                SELECT email FROM bridge_customers WHERE creator_id = ${workspaceId} AND bridge_status = 'bridged'
                 UNION
-                SELECT email FROM bridge_patreon_users WHERE creator_id = ${user.id} AND status = 'bridged'
+                SELECT email FROM bridge_patreon_users WHERE creator_id = ${workspaceId} AND status = 'bridged'
                 UNION
-                SELECT email FROM bridge_manual_users WHERE user_id = ${user.id} AND status = 'bridged'
+                SELECT email FROM bridge_manual_users WHERE user_id = ${workspaceId} AND status = 'bridged'
             `;
             rawAudience.push(...audienceDb.map(u => ({ email: u.email, first_name: null })));
         } 
@@ -370,7 +407,7 @@ router.post('/api/newsletter/send', async (req, res) => {
         for (const target of listsToTarget) {
             if (target.startsWith('list_')) {
                 const listId = parseInt(target.replace('list_', ''));
-                const subsDb = await sql`SELECT email, first_name FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${user.id} AND status = 'subscribed'`;
+                const subsDb = await sql`SELECT email, first_name FROM bridge_newsletter_subscribers WHERE list_id = ${listId} AND user_id = ${workspaceId} AND status = 'subscribed'`;
                 rawAudience.push(...subsDb.map(u => ({ email: u.email, first_name: u.first_name })));
             }
         }
@@ -384,7 +421,7 @@ router.post('/api/newsletter/send', async (req, res) => {
         });
         const deduplicatedAudience = Array.from(uniqueMap.values());
         
-        const unsubDb = await sql`SELECT email FROM bridge_newsletter_unsubscribes WHERE user_id = ${user.id}`;
+        const unsubDb = await sql`SELECT email FROM bridge_newsletter_unsubscribes WHERE user_id = ${workspaceId}`;
         const unsubSet = new Set(unsubDb.map(u => u.email.toLowerCase()));
         
         // Filter out unsubscribed emails and map to final array
@@ -399,7 +436,7 @@ router.post('/api/newsletter/send', async (req, res) => {
         
         for (const recipient of validRecipients) {
             const email = recipient.email;
-            const unsubToken = Buffer.from(JSON.stringify({ u: user.id, e: email })).toString('base64');
+            const unsubToken = Buffer.from(JSON.stringify({ u: workspaceId, e: email })).toString('base64');
             const unsubscribeLink = `https://bridge.selloutcrowds.com/api/newsletter/unsubscribe?token=${unsubToken}`;
             
             let finalHtml = buildFinalHtml(campaign, settings, unsubscribeLink);
@@ -421,18 +458,18 @@ router.post('/api/newsletter/send', async (req, res) => {
                 ConfigurationSetName: AWS_CONFIG_SET, 
                 Tags: [
                     { Name: 'campaign_id', Value: String(id) },
-                    { Name: 'user_id', Value: String(user.id) }
+                    { Name: 'user_id', Value: String(workspaceId) }
                 ]
             };
 
             try {
                 const command = new SendEmailCommand(params);
                 const result = await sesClient.send(command);
-                await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, aws_message_id) VALUES (${user.id}, ${id}, ${email}, ${result.MessageId})`;
+                await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, aws_message_id) VALUES (${workspaceId}, ${id}, ${email}, ${result.MessageId})`;
                 successCount++;
             } catch (err) {
                 lastError = err;
-                await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, status) VALUES (${user.id}, ${id}, ${email}, 'failed')`;
+                await sql`INSERT INTO bridge_email_logs (user_id, newsletter_id, recipient_email, status) VALUES (${workspaceId}, ${id}, ${email}, 'failed')`;
             }
         }
 

@@ -3,6 +3,15 @@ import { sql, getAuthenticatedUser, ensureSchema, UNA_BASE_URL, UNA_SECRET } fro
 
 const router = express.Router();
 
+// --- WORKSPACE ENGINE ---
+const getWorkspaceId = async (user) => {
+    if (Number(user.role) === 18 && user.email) {
+        const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+        if (seatRows.length > 0) return seatRows[0].owner_id;
+    }
+    return user.id;
+};
+
 // Helper to gracefully ensure we capture the user's profile link for the API
 const ensurePostsSchema = async () => {
     await ensureSchema();
@@ -18,7 +27,9 @@ router.get('/api/posts', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         
         await ensurePostsSchema();
-        const rows = await sql`SELECT * FROM bridge_scheduled_posts WHERE user_id = ${user.id} ORDER BY publish_time DESC`;
+        const workspaceId = await getWorkspaceId(user);
+
+        const rows = await sql`SELECT * FROM bridge_scheduled_posts WHERE user_id = ${workspaceId} ORDER BY publish_time DESC`;
         
         res.json({ posts: rows });
     } catch (error) { 
@@ -38,22 +49,31 @@ router.post('/api/posts/schedule', async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        // Format the user's profile URL 
+        await ensurePostsSchema();
+        const workspaceId = await getWorkspaceId(user);
+
+        // Format the profile URL for the database
         let userProfileUrl = user.profile_link || user.url || user.link || '';
+        if (workspaceId !== user.id) {
+            // If they are a teammate, fetch the boss's profile link to keep the DB clean
+            const bossRows = await sql`SELECT profile_link, url, link FROM users WHERE id = ${workspaceId}`;
+            if (bossRows.length > 0) {
+                userProfileUrl = bossRows[0].profile_link || bossRows[0].url || bossRows[0].link || '';
+            }
+        }
+
         if (userProfileUrl) {
             userProfileUrl = userProfileUrl.replace('https://studio.', 'https://www.');
             if (!userProfileUrl.includes('www.')) {
                 userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com');
             }
         }
-
-        await ensurePostsSchema();
         
         await sql`
             INSERT INTO bridge_scheduled_posts 
             (user_id, content, image_url, target_communities, publish_time, profile_link, status)
             VALUES 
-            (${user.id}, ${content || ''}, ${image_url || ''}, ${JSON.stringify(target_communities)}, ${publish_time}, ${userProfileUrl}, 'pending')
+            (${workspaceId}, ${content || ''}, ${image_url || ''}, ${JSON.stringify(target_communities)}, ${publish_time}, ${userProfileUrl}, 'pending')
         `;
         
         res.json({ success: true });
@@ -73,9 +93,10 @@ router.post('/api/posts/delete', async (req, res) => {
         if (!id) return res.status(400).json({ error: "Missing ID" });
 
         await ensurePostsSchema();
+        const workspaceId = await getWorkspaceId(user);
 
         // Check if there is an image to delete from your api.php server first
-        const rows = await sql`SELECT image_url FROM bridge_scheduled_posts WHERE id = ${id} AND user_id = ${user.id}`;
+        const rows = await sql`SELECT image_url FROM bridge_scheduled_posts WHERE id = ${id} AND user_id = ${workspaceId}`;
         if (rows.length > 0 && rows[0].image_url) {
             try {
                 await fetch(`https://api.fytsolutions.com/api.php?action=delete_file&fileUrl=${encodeURIComponent(rows[0].image_url)}`);
@@ -84,7 +105,7 @@ router.post('/api/posts/delete', async (req, res) => {
             }
         }
         
-        await sql`DELETE FROM bridge_scheduled_posts WHERE id = ${id} AND user_id = ${user.id}`;
+        await sql`DELETE FROM bridge_scheduled_posts WHERE id = ${id} AND user_id = ${workspaceId}`;
         
         res.json({ success: true });
     } catch (error) { 
