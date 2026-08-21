@@ -31,6 +31,8 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const usedSeats = teammates.length;
     const isNextSeatFree = usedSeats < freeSeats;
 
+    const myEmail = unaData?.user?.email?.toLowerCase() || '';
+
     const fetchTeammates = async () => {
         try {
             const res = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${session}` } });
@@ -279,7 +281,9 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                 <Briefcase size={20} />
                             </div>
                             <div className="min-w-0">
-                                <p className="text-sm font-bold text-white truncate">{ownerEmail}</p>
+                                <p className="text-sm font-bold text-white truncate">
+                                    {ownerEmail} {ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
+                                </p>
                                 <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Account Owner</p>
                             </div>
                         </div>
@@ -291,7 +295,9 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                     <Shield size={20} />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-sm font-bold text-white truncate">{tm.teammate_email}</p>
+                                    <p className="text-sm font-bold text-white truncate">
+                                        {tm.teammate_email} {tm.teammate_email.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
+                                    </p>
                                     <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Teammate</p>
                                 </div>
                             </div>

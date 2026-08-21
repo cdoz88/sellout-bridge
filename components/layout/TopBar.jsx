@@ -10,13 +10,10 @@ export default function TopBar({
     const role = Number(unaData?.user?.role);
     const isTeammate = role === 18;
     const showUpgrade = role && role !== 17 && !isTeammate;
-    
-    // We added the Teammate role (18) to these arrays so the lock icons disappear for them
     const canAccessPremium = role === 3 || [12, 16, 17, 18].includes(role);
     const canAccessContent = role === 3 || [12, 15, 16, 17, 18].includes(role);
 
     useEffect(() => {
-        // Automatically check if they have a Boss driving their shared workspace
         const token = session || localStorage.getItem('token') || localStorage.getItem('sellout_session');
         if (isTeammate && token) {
             fetch('/api/workspace-owner', {
@@ -140,7 +137,8 @@ export default function TopBar({
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
-                            <button onClick={() => handleAppSwitch('teammates', 'manage')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                            {/* Un-hid Teammates and set routing to 'directory' */}
+                            <button onClick={() => handleAppSwitch('teammates', 'directory')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <Users size={18} className={currentApp === 'teammates' ? 'text-[#9df01c]' : ''}/> Teammates
                             </button>
                             
