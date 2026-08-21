@@ -14,6 +14,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
     const role = Number(unaData?.user?.role) || 1;
     const isAdmin = role === 3 || (unaData?.user?.email && ADMIN_EMAILS.includes(unaData.user.email.toLowerCase()));
     
+    const isTeammate = role === 18;
     const canAccessPremium = isAdmin || [12, 16, 17].includes(role);
     const hasBillingAccess = isAdmin || [12, 15, 16, 17].includes(role);
     const hasContentAccess = isAdmin || [12, 15, 16, 17].includes(role);
@@ -72,6 +73,12 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
         displayApps = [...apps, onboardingApp]; 
     }
 
+    // Filter out restricted apps if the user is a Teammate
+    if (isTeammate) {
+        const hiddenForTeammates = ['community-link', 'youtube', 'wordpress', 'bridge', 'teammates', 'onboarding'];
+        displayApps = displayApps.filter(app => !hiddenForTeammates.includes(app.id));
+    }
+
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
     const monthlyTotal = billingEstimate?.isEnterprise ? 0 : ((billingEstimate?.billableTeamCount || 0) * 2) + ((billingEstimate?.bridgedCount || 0) * 0.50);
@@ -88,7 +95,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                 </p>
             </div>
 
-            {/* LIVE USAGE ESTIMATE BANNER */}
+            {/* LIVE USAGE ESTIMATE BANNER (Hidden for teammates via hasBillingAccess) */}
             {hasBillingAccess && !isBillingLoading && billingEstimate && (
                 <div className="mb-10 bg-[#111] border border-white/5 rounded-[2rem] p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 shadow-xl relative overflow-hidden group hover:border-[#9df01c]/30 transition-colors cursor-default">
                     <div className="absolute top-0 right-0 p-4 opacity-5 text-[#9df01c] pointer-events-none transition-transform group-hover:scale-110">

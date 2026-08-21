@@ -209,7 +209,7 @@ export default function Sidebar({
 
             <div className="flex-1 overflow-y-auto pt-6 pb-2 custom-scrollbar flex flex-col">
                 
-                {showProgressBar && (
+                {(!isTeammate && showProgressBar) && (
                     <div className="px-4 mb-6 cursor-pointer group" onClick={() => handleAppSwitch && handleAppSwitch('onboarding', 'checklist')}>
                         <div className="bg-[#111] border border-white/5 group-hover:border-[#9df01c]/50 rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg shadow-black/50">
                             <div className="absolute top-0 left-0 h-1 bg-[#9df01c] transition-all duration-500 ease-out" style={{ width: `${progressPercent}%` }}></div>

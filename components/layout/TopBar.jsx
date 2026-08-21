@@ -27,7 +27,8 @@ export default function TopBar({
     const config = getAppConfig();
     
     const role = Number(unaData?.user?.role);
-    const showUpgrade = role && role !== 17;
+    const isTeammate = role === 18;
+    const showUpgrade = role && role !== 17 && !isTeammate;
     const canAccessPremium = role === 3 || [12, 16, 17].includes(role);
     const canAccessContent = role === 3 || [12, 15, 16, 17].includes(role);
 
@@ -63,12 +64,14 @@ export default function TopBar({
                                 <Link2 size={18} className={currentApp === 'linktree' ? 'text-[#9df01c]' : ''}/> Link in Bio Page
                             </button>
 
-                            <button onClick={() => handleAppSwitch('community-link', 'setup')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'community-link' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <Globe size={18} className={currentApp === 'community-link' ? 'text-[#9df01c]' : ''}/> Custom Community URL
-                                </div>
-                                {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('community-link', 'setup')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'community-link' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <Globe size={18} className={currentApp === 'community-link' ? 'text-[#9df01c]' : ''}/> Custom Community URL
+                                    </div>
+                                    {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                                </button>
+                            )}
 
                             <button onClick={() => handleAppSwitch('content', 'compose')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'content' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
@@ -77,19 +80,23 @@ export default function TopBar({
                                 {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
-                            <button onClick={() => handleAppSwitch('youtube', 'manage')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'youtube' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <Youtube size={18} className={currentApp === 'youtube' ? 'text-[#9df01c]' : ''}/> YouTube Sync
-                                </div>
-                                {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('youtube', 'manage')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'youtube' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <Youtube size={18} className={currentApp === 'youtube' ? 'text-[#9df01c]' : ''}/> YouTube Sync
+                                    </div>
+                                    {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                                </button>
+                            )}
                             
-                            <button onClick={() => handleAppSwitch('wordpress', 'manage')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'wordpress' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <WordPressIcon size={18} className={currentApp === 'wordpress' ? 'text-[#9df01c]' : ''}/> WordPress Sync
-                                </div>
-                                {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('wordpress', 'manage')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'wordpress' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <WordPressIcon size={18} className={currentApp === 'wordpress' ? 'text-[#9df01c]' : ''}/> WordPress Sync
+                                    </div>
+                                    {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                                </button>
+                            )}
 
                             <button onClick={() => handleAppSwitch('newsletter', 'campaigns')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'newsletter' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
@@ -98,12 +105,14 @@ export default function TopBar({
                                 {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
-                            <button onClick={() => handleAppSwitch('bridge', 'mappings')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <div className="flex items-center gap-3">
-                                    <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
-                                </div>
-                                {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('bridge', 'mappings')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'bridge' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <CreditCard size={18} className={currentApp === 'bridge' ? 'text-[#9df01c]' : ''}/> Subscription Bridge
+                                    </div>
+                                    {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                                </button>
+                            )}
 
                             <button onClick={() => handleAppSwitch('affiliate', 'dashboard')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'affiliate' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
@@ -112,9 +121,11 @@ export default function TopBar({
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
-                            <button onClick={() => handleAppSwitch('teammates', 'manage')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
-                                <Users size={18} className={currentApp === 'teammates' ? 'text-[#9df01c]' : ''}/> Teammates
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('teammates', 'manage')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                    <Users size={18} className={currentApp === 'teammates' ? 'text-[#9df01c]' : ''}/> Teammates
+                                </button>
+                            )}
                             
                             <button onClick={() => handleAppSwitch('assets', 'cat_1')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'assets' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <ImageIcon size={18} className={currentApp === 'assets' ? 'text-[#9df01c]' : ''}/> SC Brand Assets
@@ -124,9 +135,11 @@ export default function TopBar({
                                 <FileText size={18} className={currentApp === 'guides' ? 'text-[#9df01c]' : ''}/> Help and Guides
                             </button>
 
-                            <button onClick={() => handleAppSwitch('onboarding', 'checklist')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors border-t border-white/5 ${currentApp === 'onboarding' ? 'bg-white/10 text-white' : 'text-[#9df01c] hover:bg-white/5'}`}>
-                                <ListChecks size={18} className="text-[#9df01c]" /> Getting Started
-                            </button>
+                            {!isTeammate && (
+                                <button onClick={() => handleAppSwitch('onboarding', 'checklist')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors border-t border-white/5 ${currentApp === 'onboarding' ? 'bg-white/10 text-white' : 'text-[#9df01c] hover:bg-white/5'}`}>
+                                    <ListChecks size={18} className="text-[#9df01c]" /> Getting Started
+                                </button>
+                            )}
 
                         </div>
                     </>
