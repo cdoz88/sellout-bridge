@@ -8,8 +8,19 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const role = Number(unaData?.user?.role) || 1;
     const isTeammate = role === 18;
 
-    // Strict tab control: Teammates can ONLY see directory. Bosses can toggle between directory & manage.
-    const currentTab = isTeammate ? 'directory' : (activeTab || 'directory');
+    // Smart Tab Detection: Reads activeTab prop OR parses ?tab= from browser URL bar directly
+    const getTab = () => {
+        if (isTeammate) return 'directory';
+        if (activeTab && (activeTab === 'manage' || activeTab === 'directory')) return activeTab;
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam === 'manage' || tabParam === 'directory') return tabParam;
+        }
+        return 'directory';
+    };
+
+    const currentTab = getTab();
 
     const [teammates, setTeammates] = useState([]);
     const [ownerEmail, setOwnerEmail] = useState('');
@@ -275,14 +286,14 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Boss Card (Highlighted in Blue) */}
-                        <div className="bg-black border border-[#38bdf8]/40 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8]/80 transition-colors shadow-lg shadow-[#38bdf8]/5">
-                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20">
+                        {/* Boss Card (Electric Blue Highlight) */}
+                        <div className="bg-black border border-[#38bdf8] rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10">
+                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/20 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/40">
                                 <Briefcase size={20} />
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm font-bold text-white truncate">
-                                    {ownerEmail} {ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
+                                    {ownerEmail || 'Account Owner'} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
                                 </p>
                                 <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
                             </div>
@@ -357,7 +368,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                     <div className="lg:col-span-4">
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
                             
-                            {/* --- NEW PLAN ALLOWANCE BOX --- */}
+                            {/* --- PLAN ALLOWANCE BOX --- */}
                             <div className="mb-8 pb-8 border-b border-white/5">
                                 <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-2">Seat Allowance</h3>
                                 {freeSeats === Infinity ? (
