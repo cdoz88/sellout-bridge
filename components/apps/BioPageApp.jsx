@@ -512,7 +512,7 @@ export default function BioPageApp({ session, activeTab, unaData }) {
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
             {isTeammate && (
-                <div className="mb-6 inline-flex items-center gap-2 bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                <div className="mb-6 inline-flex items-center gap-2 bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
                     <Users size={14} /> Shared Team Workspace
                 </div>
             )}

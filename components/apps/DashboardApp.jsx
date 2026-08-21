@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {
@@ -50,11 +50,12 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
     const apps = [
-        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true },
-        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium },
-        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: hasAccess ? hasAccess('linktree') : canAccessPremium },
+        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true, shared: true },
+        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium, shared: true },
+        { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: hasAccess ? hasAccess('linktree') : canAccessPremium, shared: true },
         { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: hasAccess ? hasAccess('community-link') : canAccessPremium },
-        { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasAccess ? hasAccess('content') : hasContentAccess },
+        { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasAccess ? hasAccess('content') : hasContentAccess, shared: true },
+        { id: 'newsletter', tab: 'campaigns', name: 'Email Newsletters', icon: Mail, desc: 'Draft and send emails to your crowd.', canAccess: hasAccess ? hasAccess('newsletter') : hasContentAccess, shared: true },
         { id: 'youtube', tab: 'manage', name: 'YouTube Sync', icon: Youtube, desc: 'Auto-import YouTube videos to communities.', canAccess: hasAccess ? hasAccess('youtube') : hasContentAccess },
         { id: 'wordpress', tab: 'manage', name: 'WordPress Sync', icon: WordPressIcon, desc: 'Connect WP sites to auto-post articles.', canAccess: hasAccess ? hasAccess('wordpress') : canAccessPremium },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasAccess ? hasAccess('bridge') && canAccessPremium : canAccessPremium },
@@ -160,7 +161,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                                 : 'bg-[#0a0a0a] border-white/5 opacity-60 hover:opacity-100 hover:border-[#9df01c]/30 shadow-none'
                         }`}
                     >
-                        <div className="flex items-center gap-4 mb-2 w-full">
+                        <div className="flex items-start gap-4 mb-2 w-full">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all shrink-0 ${
                                 app.canAccess 
                                     ? 'bg-black border-white/10 text-[#9df01c] group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-[#9df01c]/10' 
@@ -169,11 +170,19 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                                 <app.icon size={24} />
                             </div>
                             
-                            <h3 className={`text-lg sm:text-xl font-black uppercase tracking-tight transition-colors ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-500 group-hover:text-white'}`}>
-                                {app.name}
-                            </h3>
+                            <div className="flex flex-col min-w-0 pt-1">
+                                <h3 className={`text-lg sm:text-xl leading-none font-black uppercase tracking-tight transition-colors truncate ${app.canAccess ? 'text-white group-hover:text-[#9df01c]' : 'text-gray-500 group-hover:text-white'}`}>
+                                    {app.name}
+                                </h3>
+                                {isTeammate && app.shared && (
+                                    <div className="inline-flex items-center gap-1 text-[#38bdf8] mt-1.5">
+                                        <Users size={10} />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Shared Workspace</span>
+                                    </div>
+                                )}
+                            </div>
                             
-                            {!app.canAccess && <Lock size={16} className="text-gray-600 group-hover:text-[#9df01c] ml-auto shrink-0 transition-colors" />}
+                            {!app.canAccess && <Lock size={16} className="text-gray-600 group-hover:text-[#9df01c] ml-auto shrink-0 transition-colors mt-1" />}
                         </div>
                         
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-5 mt-1">
