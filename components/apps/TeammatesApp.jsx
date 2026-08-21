@@ -8,8 +8,8 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const role = Number(unaData?.user?.role) || 1;
     const isTeammate = role === 18;
 
-    // Force default to directory if no tab or if a teammate tries to access manage
-    const currentTab = (activeTab === 'manage' && isTeammate) ? 'directory' : (activeTab || 'directory');
+    // Strict tab control: Teammates can ONLY see directory. Bosses can toggle between directory & manage.
+    const currentTab = isTeammate ? 'directory' : (activeTab || 'directory');
 
     const [teammates, setTeammates] = useState([]);
     const [ownerEmail, setOwnerEmail] = useState('');
@@ -271,34 +271,34 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
             {currentTab === 'directory' ? (
                 <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in duration-300">
                     <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
-                        <Contact size={20} className="text-[#9df01c]" /> Active Roster
+                        <Contact size={20} className="text-[#38bdf8]" /> Active Roster
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Boss Card */}
-                        <div className="bg-black border border-[#9df01c]/30 rounded-2xl p-5 flex items-center gap-4 hover:border-[#9df01c]/50 transition-colors">
-                            <div className="w-12 h-12 rounded-full bg-[#9df01c]/10 text-[#9df01c] flex items-center justify-center flex-shrink-0">
+                        {/* Boss Card (Highlighted in Blue) */}
+                        <div className="bg-black border border-[#38bdf8]/40 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8]/80 transition-colors shadow-lg shadow-[#38bdf8]/5">
+                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20">
                                 <Briefcase size={20} />
                             </div>
                             <div className="min-w-0">
                                 <p className="text-sm font-bold text-white truncate">
                                     {ownerEmail} {ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
                                 </p>
-                                <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Account Owner</p>
+                                <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
                             </div>
                         </div>
 
                         {/* Teammate Cards */}
                         {teammates.map(tm => (
                             <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
-                                <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0">
+                                <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0 border border-white/10">
                                     <Shield size={20} />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-white truncate">
                                         {tm.teammate_email} {tm.teammate_email.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
                                     </p>
-                                    <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Teammate</p>
+                                    <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Teammate</p>
                                 </div>
                             </div>
                         ))}

@@ -137,7 +137,6 @@ export default function TopBar({
                                 {!canAccessPremium && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>
 
-                            {/* Un-hid Teammates and set routing to 'directory' */}
                             <button onClick={() => handleAppSwitch('teammates', 'directory')} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'teammates' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <Users size={18} className={currentApp === 'teammates' ? 'text-[#9df01c]' : ''}/> Teammates
                             </button>
@@ -173,7 +172,7 @@ export default function TopBar({
                         href="https://www.selloutcrowds.com/plans" 
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 bg-[#9df01c]/10 text-[#9df01c] hover:bg-[#9df01c] hover:text-black border border-[#9df01c]/20 px-3 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] transition-colors shadow-sm"
+                        className="flex items-center gap-1.5 bg-[#facc15]/10 text-[#facc15] hover:bg-[#facc15] hover:text-black border border-[#facc15]/30 px-3 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] transition-colors shadow-sm"
                         title="Upgrade Account"
                     >
                         <Zap size={14} className="fill-current" />
