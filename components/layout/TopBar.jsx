@@ -1,10 +1,33 @@
-import React from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp, Youtube } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp, Youtube, Shield } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function TopBar({
-    currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData
+    currentApp, handleAppSwitch, isAppSwitcherOpen, setIsAppSwitcherOpen, handleLogout, unaData, session
 }) {
+    const [workspaceOwner, setWorkspaceOwner] = useState('');
+
+    const role = Number(unaData?.user?.role);
+    const isTeammate = role === 18;
+    const showUpgrade = role && role !== 17 && !isTeammate;
+    const canAccessPremium = role === 3 || [12, 16, 17].includes(role);
+    const canAccessContent = role === 3 || [12, 15, 16, 17].includes(role);
+
+    useEffect(() => {
+        // Automatically check if they have a Boss driving their shared workspace
+        const token = session || localStorage.getItem('token') || localStorage.getItem('sellout_session');
+        if (isTeammate && token) {
+            fetch('/api/workspace-owner', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.name) setWorkspaceOwner(data.name);
+            })
+            .catch(err => console.error("Failed to fetch workspace owner"));
+        }
+    }, [isTeammate, session]);
+
     const getAppConfig = () => {
         switch(currentApp) {
             case 'business-card': return { name: 'Business Card', icon: <Contact size={20} className="text-[#9df01c]" /> };
@@ -25,12 +48,6 @@ export default function TopBar({
         }
     };
     const config = getAppConfig();
-    
-    const role = Number(unaData?.user?.role);
-    const isTeammate = role === 18;
-    const showUpgrade = role && role !== 17 && !isTeammate;
-    const canAccessPremium = role === 3 || [12, 16, 17].includes(role);
-    const canAccessContent = role === 3 || [12, 15, 16, 17].includes(role);
 
     return (
         <header className="h-16 flex items-center justify-between px-6 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-white/5 z-30 sticky top-0 flex-shrink-0">
@@ -147,6 +164,12 @@ export default function TopBar({
             </div>
 
             <div className="flex items-center gap-3">
+                {isTeammate && (
+                    <div className="hidden sm:flex items-center gap-1.5 bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/20 px-3 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-sm cursor-default">
+                        <Shield size={14} className="fill-current" />
+                        <span>{workspaceOwner ? `Connected to ${workspaceOwner}` : 'Managed Team Seat'}</span>
+                    </div>
+                )}
                 {showUpgrade && (
                     <a 
                         href="https://www.selloutcrowds.com/plans" 

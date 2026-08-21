@@ -4,7 +4,7 @@ import { sql, ensureSchema, getAuthenticatedUser, ADMIN_EMAILS } from '../config
 const router = express.Router();
 
 // --- WORKSPACE ENGINE ---
-// Intercepts the user ID and swaps it for the Boss's ID if they are a teammate
+// Intercepts the user ID and swaps it for the Boss's ID ONLY for shared apps
 const getWorkspaceId = async (user) => {
     if (Number(user.role) === 18 && user.email) {
         const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
@@ -13,14 +13,34 @@ const getWorkspaceId = async (user) => {
     return user.id;
 };
 
+// --- GET WORKSPACE OWNER NAME ---
+router.get('/api/workspace-owner', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        if (Number(user.role) === 18 && user.email) {
+            const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+            if (seatRows.length > 0) {
+                const ownerId = seatRows[0].owner_id;
+                const ownerRows = await sql`SELECT name, email FROM users WHERE id = ${ownerId}`;
+                if (ownerRows.length > 0) {
+                    return res.json({ name: ownerRows[0].name || ownerRows[0].email });
+                }
+            }
+        }
+        res.json({ name: null });
+    } catch (err) { res.status(500).json({ error: "Failed" }); }
+});
+
 router.get('/api/get-card', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
-        const workspaceId = await getWorkspaceId(user);
-        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${workspaceId}`;
+        // INDIVIDUAL APP: Uses user.id
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${user.id}`;
         res.json(rows.length > 0 ? { card: rows[0].card_data, slug: rows[0].custom_slug || '' } : { card: null, slug: '' });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -32,13 +52,12 @@ router.post('/api/save-card', async (req, res) => {
         const { card, slug } = req.body;
         await ensureSchema();
         
-        const workspaceId = await getWorkspaceId(user);
-        
+        // INDIVIDUAL APP: Uses user.id
         if (slug) {
-            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${workspaceId}`;
+            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
             if (slugCheck.length > 0) return res.status(400).json({ error: "Custom URL taken." });
         }
-        await sql`INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) VALUES (${workspaceId}, ${card}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug`;
+        await sql`INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) VALUES (${user.id}, ${card}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -58,6 +77,7 @@ router.get('/api/get-bio-page', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
+        // SHARED WORKSPACE APP: Uses workspaceId
         const workspaceId = await getWorkspaceId(user);
         const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${workspaceId}`;
         res.json(rows.length > 0 ? { page: rows[0].page_data, slug: rows[0].custom_slug || '' } : { page: null, slug: '' });
@@ -71,6 +91,7 @@ router.post('/api/save-bio-page', async (req, res) => {
         const { page, slug } = req.body;
         await ensureSchema();
         
+        // SHARED WORKSPACE APP: Uses workspaceId
         const workspaceId = await getWorkspaceId(user);
 
         if (slug) {
@@ -96,8 +117,10 @@ router.post('/api/public/contact-submit', async (req, res) => {
         const { slug, contact } = req.body;
         if (!slug || !contact || !contact.name) return res.status(400).json({ error: "Missing required fields" });
         await ensureSchema();
+        
         const cardRows = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug}`;
         if (cardRows.length === 0) return res.status(404).json({ error: "Card not found" });
+        
         await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${cardRows[0].user_id}, ${contact.name}, ${contact.title || ''}, ${contact.company || ''}, ${contact.phone || ''}, ${contact.email || ''}, ${contact.website || ''}, ${contact.notes || ''}, ${contact.photo || ''})`;
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: "Failed" }); }
@@ -109,8 +132,8 @@ router.get('/api/contacts', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
 
-        const workspaceId = await getWorkspaceId(user);
-        const rows = await sql`SELECT * FROM bridge_address_book WHERE user_id = ${workspaceId} ORDER BY created_at DESC`;
+        // INDIVIDUAL APP: Uses user.id
+        const rows = await sql`SELECT * FROM bridge_address_book WHERE user_id = ${user.id} ORDER BY created_at DESC`;
         res.json({ contacts: rows });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -122,12 +145,11 @@ router.post('/api/contacts', async (req, res) => {
         const { id, name, title, company, phone, email, website, notes, photo } = req.body;
         await ensureSchema();
 
-        const workspaceId = await getWorkspaceId(user);
-
+        // INDIVIDUAL APP: Uses user.id
         if (id) {
-            await sql`UPDATE bridge_address_book SET name=${name}, title=${title}, company=${company}, phone=${phone}, email=${email}, website=${website}, notes=${notes}, photo=${photo} WHERE id=${id} AND user_id=${workspaceId}`;
+            await sql`UPDATE bridge_address_book SET name=${name}, title=${title}, company=${company}, phone=${phone}, email=${email}, website=${website}, notes=${notes}, photo=${photo} WHERE id=${id} AND user_id=${user.id}`;
         } else {
-            await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${workspaceId}, ${name}, ${title}, ${company}, ${phone}, ${email}, ${website}, ${notes}, ${photo})`;
+            await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${user.id}, ${name}, ${title}, ${company}, ${phone}, ${email}, ${website}, ${notes}, ${photo})`;
         }
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
@@ -138,8 +160,8 @@ router.post('/api/contacts/delete', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-        const workspaceId = await getWorkspaceId(user);
-        await sql`DELETE FROM bridge_address_book WHERE id=${req.body.id} AND user_id=${workspaceId}`;
+        // INDIVIDUAL APP: Uses user.id
+        await sql`DELETE FROM bridge_address_book WHERE id=${req.body.id} AND user_id=${user.id}`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });

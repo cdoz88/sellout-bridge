@@ -50,8 +50,8 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
     const progressPercent = onboardingSteps.length > 0 ? Math.round((completedSteps.length / onboardingSteps.length) * 100) : 0;
     
     const apps = [
-        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true, shared: true },
-        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium, shared: true },
+        { id: 'business-card', tab: 'builder', name: 'Business Card', icon: Contact, desc: 'Create and manage your digital card.', canAccess: hasAccess ? hasAccess('business-card') : true },
+        { id: 'address-book', tab: 'contacts', name: 'Address Book', icon: Users, desc: 'Manage and export your saved contacts.', canAccess: hasAccess ? hasAccess('address-book') : canAccessPremium },
         { id: 'linktree', tab: 'links', name: 'Link in Bio Page', icon: Link2, desc: 'Create a custom landing page for your links.', canAccess: hasAccess ? hasAccess('linktree') : canAccessPremium, shared: true },
         { id: 'community-link', tab: 'setup', name: 'Custom Community URL', icon: Globe, desc: 'Create a custom branded redirect domain for your community.', canAccess: hasAccess ? hasAccess('community-link') : canAccessPremium },
         { id: 'content', tab: 'compose', name: 'Post Scheduler', icon: CalendarClock, desc: 'Draft and schedule automated posts.', canAccess: hasAccess ? hasAccess('content') : hasContentAccess, shared: true },
@@ -59,7 +59,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
         { id: 'youtube', tab: 'manage', name: 'YouTube Sync', icon: Youtube, desc: 'Auto-import YouTube videos to communities.', canAccess: hasAccess ? hasAccess('youtube') : hasContentAccess },
         { id: 'wordpress', tab: 'manage', name: 'WordPress Sync', icon: WordPressIcon, desc: 'Connect WP sites to auto-post articles.', canAccess: hasAccess ? hasAccess('wordpress') : canAccessPremium },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasAccess ? hasAccess('bridge') && canAccessPremium : canAccessPremium },
-        { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: hasAccess ? hasAccess('affiliate') : canAccessPremium },
+        { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: hasAccess ? hasAccess('affiliate') : canAccessPremium, shared: true },
         { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasAccess ? hasAccess('teammates') : hasBillingAccess },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: hasAccess ? hasAccess('assets') : true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
