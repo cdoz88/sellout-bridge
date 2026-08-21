@@ -322,7 +322,10 @@ export default function TeammatesApp({ session, unaData }) {
                             </div>
                             <div className="flex gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
-                                <div><h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4><p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge.</p></div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4>
+                                    <p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge. They will automatically be assigned the "Team Member" role inside.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -374,7 +377,10 @@ export default function TeammatesApp({ session, unaData }) {
                             </div>
 
                             <div>
-                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2 block">Grant Free Access To (Optional)</label>
+                                <label className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-1 block">Grant Free Access To (Optional)</label>
+                                <p className="text-[10px] text-[#9df01c] font-medium mb-3">
+                                    Users added to communities here will automatically be granted "Team Member" permissions inside the Crowd/Space.
+                                </p>
                                 {renderCommunityChecklist(inviteCommunities, toggleInviteCommunity)}
                             </div>
                         </div>
@@ -398,14 +404,14 @@ export default function TeammatesApp({ session, unaData }) {
                             <div className="text-center py-8">
                                 <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
                                 <h3 className="text-xl font-black uppercase tracking-tight mb-2 text-white">Access Granted!</h3>
-                                <p className="text-xs font-medium text-gray-400">Your teammate has been securely added to the selected communities.</p>
+                                <p className="text-xs font-medium text-gray-400">Your teammate has been securely added to the selected communities as a Team Member.</p>
                             </div>
                         ) : (
                             <>
                                 <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mb-6 text-[#9df01c] flex-shrink-0"><Key size={24}/></div>
                                 <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white mb-2 flex-shrink-0">Grant Free Access</h3>
                                 <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6 flex-shrink-0">
-                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee!
+                                    Select the paid communities you want to grant <strong>{selectedTeammate.teammate_email}</strong> access to. Because they are on your payroll, they bypass the metered $0.50/user bridging fee and will automatically be assigned the "Team Member" role inside!
                                 </p>
                                 
                                 <div className="mb-6 flex-1 min-h-0">

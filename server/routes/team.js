@@ -64,6 +64,17 @@ router.post('/api/team/invite', async (req, res) => {
                 const mapResult = await grantCommunityAccess(cleanEmail, module, id);
                 const newStatus = mapResult.success ? 'bridged' : 'pending';
                 
+                // --- NEW: ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
+                if (mapResult.success) {
+                    try {
+                        await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                            body: JSON.stringify({ email: cleanEmail, action: 'set_community_role', module: module, space_id: id })
+                        });
+                    } catch (roleErr) { console.error("Internal role upgrade failed", roleErr); }
+                }
+
                 await sql`
                     INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status, is_free_teammate)
                     VALUES (${user.id}, ${cleanEmail}, ${module}, ${id}, ${newStatus}, TRUE)
@@ -103,6 +114,25 @@ router.post('/api/team/revoke', async (req, res) => {
             body: JSON.stringify({ email: cleanEmail, action: 'revoke_teammate', level_id: 18 }) 
         });
 
+        // Pull communities they were mapped to as a teammate
+        const mappedRows = await sql`SELECT una_module, una_content_id FROM bridge_manual_users WHERE user_id = ${user.id} AND email = ${cleanEmail} AND is_free_teammate = TRUE`;
+        
+        for (const row of mappedRows) {
+            // Revoke standard Crowd access
+            await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                body: JSON.stringify({ email: cleanEmail, action: 'remove', module: row.una_module, space_id: row.una_content_id })
+            });
+
+            // Strip them of Team Member Crowd Role just in case
+            await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                body: JSON.stringify({ email: cleanEmail, action: 'revoke_community_role', module: row.una_module, space_id: row.una_content_id })
+            });
+        }
+
         await sql`DELETE FROM bridge_team_seats WHERE owner_id = ${user.id} AND teammate_email = ${cleanEmail}`;
         await sql`DELETE FROM bridge_manual_users WHERE user_id = ${user.id} AND email = ${cleanEmail} AND is_free_teammate = TRUE`;
 
@@ -136,6 +166,17 @@ router.post('/api/team/manual-map', async (req, res) => {
             const newStatus = result.success ? 'bridged' : 'pending';
             
             if (!result.success) { allSuccess = false; lastError = result.error || "Failed access."; }
+
+            // --- NEW: ASSIGN "TEAM MEMBER" ROLE INSIDE THE CROWD ---
+            if (result.success) {
+                try {
+                    await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                        body: JSON.stringify({ email: cleanEmail, action: 'set_community_role', module: module, space_id: id })
+                    });
+                } catch (roleErr) { console.error("Internal role upgrade failed", roleErr); }
+            }
 
             await sql`
                 INSERT INTO bridge_manual_users (user_id, email, una_module, una_content_id, status, is_free_teammate)
