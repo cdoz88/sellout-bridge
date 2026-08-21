@@ -8,19 +8,8 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const role = Number(unaData?.user?.role) || 1;
     const isTeammate = role === 18;
 
-    // Smart Tab Detection: Reads activeTab prop OR parses ?tab= from browser URL bar directly
-    const getTab = () => {
-        if (isTeammate) return 'directory';
-        if (activeTab && (activeTab === 'manage' || activeTab === 'directory')) return activeTab;
-        if (typeof window !== 'undefined') {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tabParam = urlParams.get('tab');
-            if (tabParam === 'manage' || tabParam === 'directory') return tabParam;
-        }
-        return 'directory';
-    };
-
-    const currentTab = getTab();
+    // Strict tab control: Teammates can ONLY see directory. Bosses trust the activeTab passed from the Sidebar.
+    const currentTab = isTeammate ? 'directory' : (activeTab === 'manage' ? 'manage' : 'directory');
 
     const [teammates, setTeammates] = useState([]);
     const [ownerEmail, setOwnerEmail] = useState('');
@@ -286,12 +275,13 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Boss Card (Electric Blue Highlight) */}
-                        <div className="bg-black border border-[#38bdf8] rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10">
-                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/20 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/40">
+                        {/* Boss Card (Highlighted in Blue) */}
+                        <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none"></div>
+                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10">
                                 <Briefcase size={20} />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 relative z-10">
                                 <p className="text-sm font-bold text-white truncate">
                                     {ownerEmail || 'Account Owner'} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
                                 </p>
