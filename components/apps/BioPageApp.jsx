@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag, Podcast, Download, Lock } from 'lucide-react';
+import { Save, Loader2, Share2, QrCode, Link2, MonitorSmartphone, UploadCloud, X, Palette, Image as ImageIcon, Phone, Mail, Globe, Linkedin, Facebook, Youtube, Instagram, ArrowRight, Type, Megaphone, GripVertical, Trash2, Plus, ShoppingBag, Podcast, Download, Lock, Users } from 'lucide-react';
 import SelloutIcon from '../icons/SelloutIcon';
 import HelpDrawer from '../layout/HelpDrawer';
 
@@ -245,6 +245,9 @@ export const PublicBioView = ({ data, isFullScreen = false }) => {
 };
 
 export default function BioPageApp({ session, activeTab, unaData }) {
+    const role = Number(unaData?.user?.role) || 1;
+    const isTeammate = role === 18;
+
     const [cardData, setCardData] = useState(DEFAULT_BIO_PAGE);
     const [slug, setSlug] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -508,6 +511,11 @@ export default function BioPageApp({ session, activeTab, unaData }) {
 
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8">
+            {isTeammate && (
+                <div className="mb-6 inline-flex items-center gap-2 bg-[#9df01c]/10 text-[#9df01c] border border-[#9df01c]/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">
+                    <Users size={14} /> Shared Team Workspace
+                </div>
+            )}
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 sm:gap-6">
                 <div>
                     <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none mb-2 md:mb-4 text-white">

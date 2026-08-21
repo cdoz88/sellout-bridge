@@ -3,12 +3,24 @@ import { sql, ensureSchema, getAuthenticatedUser, ADMIN_EMAILS } from '../config
 
 const router = express.Router();
 
+// --- WORKSPACE ENGINE ---
+// Intercepts the user ID and swaps it for the Boss's ID if they are a teammate
+const getWorkspaceId = async (user) => {
+    if (Number(user.role) === 18 && user.email) {
+        const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+        if (seatRows.length > 0) return seatRows[0].owner_id;
+    }
+    return user.id;
+};
+
 router.get('/api/get-card', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
-        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${user.id}`;
+        
+        const workspaceId = await getWorkspaceId(user);
+        const rows = await sql`SELECT card_data, custom_slug FROM bridge_business_cards WHERE user_id = ${workspaceId}`;
         res.json(rows.length > 0 ? { card: rows[0].card_data, slug: rows[0].custom_slug || '' } : { card: null, slug: '' });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -19,11 +31,14 @@ router.post('/api/save-card', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { card, slug } = req.body;
         await ensureSchema();
+        
+        const workspaceId = await getWorkspaceId(user);
+        
         if (slug) {
-            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            const slugCheck = await sql`SELECT user_id FROM bridge_business_cards WHERE custom_slug = ${slug} AND user_id != ${workspaceId}`;
             if (slugCheck.length > 0) return res.status(400).json({ error: "Custom URL taken." });
         }
-        await sql`INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) VALUES (${user.id}, ${card}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug`;
+        await sql`INSERT INTO bridge_business_cards (user_id, card_data, custom_slug) VALUES (${workspaceId}, ${card}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET card_data = EXCLUDED.card_data, custom_slug = EXCLUDED.custom_slug`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -42,7 +57,9 @@ router.get('/api/get-bio-page', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
-        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${user.id}`;
+        
+        const workspaceId = await getWorkspaceId(user);
+        const rows = await sql`SELECT page_data, custom_slug FROM bridge_bio_pages WHERE user_id = ${workspaceId}`;
         res.json(rows.length > 0 ? { page: rows[0].page_data, slug: rows[0].custom_slug || '' } : { page: null, slug: '' });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -53,11 +70,14 @@ router.post('/api/save-bio-page', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { page, slug } = req.body;
         await ensureSchema();
+        
+        const workspaceId = await getWorkspaceId(user);
+
         if (slug) {
-            const slugCheck = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${user.id}`;
+            const slugCheck = await sql`SELECT user_id FROM bridge_bio_pages WHERE custom_slug = ${slug} AND user_id != ${workspaceId}`;
             if (slugCheck.length > 0) return res.status(400).json({ error: "Custom URL taken." });
         }
-        await sql`INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) VALUES (${user.id}, ${page}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug`;
+        await sql`INSERT INTO bridge_bio_pages (user_id, page_data, custom_slug) VALUES (${workspaceId}, ${page}, ${slug}) ON CONFLICT (user_id) DO UPDATE SET page_data = EXCLUDED.page_data, custom_slug = EXCLUDED.custom_slug`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -88,7 +108,9 @@ router.get('/api/contacts', async (req, res) => {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
-        const rows = await sql`SELECT * FROM bridge_address_book WHERE user_id = ${user.id} ORDER BY created_at DESC`;
+
+        const workspaceId = await getWorkspaceId(user);
+        const rows = await sql`SELECT * FROM bridge_address_book WHERE user_id = ${workspaceId} ORDER BY created_at DESC`;
         res.json({ contacts: rows });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
@@ -99,10 +121,13 @@ router.post('/api/contacts', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         const { id, name, title, company, phone, email, website, notes, photo } = req.body;
         await ensureSchema();
+
+        const workspaceId = await getWorkspaceId(user);
+
         if (id) {
-            await sql`UPDATE bridge_address_book SET name=${name}, title=${title}, company=${company}, phone=${phone}, email=${email}, website=${website}, notes=${notes}, photo=${photo} WHERE id=${id} AND user_id=${user.id}`;
+            await sql`UPDATE bridge_address_book SET name=${name}, title=${title}, company=${company}, phone=${phone}, email=${email}, website=${website}, notes=${notes}, photo=${photo} WHERE id=${id} AND user_id=${workspaceId}`;
         } else {
-            await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${user.id}, ${name}, ${title}, ${company}, ${phone}, ${email}, ${website}, ${notes}, ${photo})`;
+            await sql`INSERT INTO bridge_address_book (user_id, name, title, company, phone, email, website, notes, photo) VALUES (${workspaceId}, ${name}, ${title}, ${company}, ${phone}, ${email}, ${website}, ${notes}, ${photo})`;
         }
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
@@ -112,7 +137,9 @@ router.post('/api/contacts/delete', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
-        await sql`DELETE FROM bridge_address_book WHERE id=${req.body.id} AND user_id=${user.id}`;
+
+        const workspaceId = await getWorkspaceId(user);
+        await sql`DELETE FROM bridge_address_book WHERE id=${req.body.id} AND user_id=${workspaceId}`;
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
