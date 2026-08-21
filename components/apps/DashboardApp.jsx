@@ -60,7 +60,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
         { id: 'wordpress', tab: 'manage', name: 'WordPress Sync', icon: WordPressIcon, desc: 'Connect WP sites to auto-post articles.', canAccess: hasAccess ? hasAccess('wordpress') : canAccessPremium },
         { id: 'bridge', tab: 'stripe', name: 'Subscription Bridge', icon: CreditCard, desc: 'Manage automated community access.', canAccess: hasAccess ? hasAccess('bridge') && canAccessPremium : canAccessPremium },
         { id: 'affiliate', tab: 'dashboard', name: 'Scouting', icon: TrendingUp, desc: 'Recruit creators and earn revenue.', canAccess: hasAccess ? hasAccess('affiliate') : canAccessPremium, shared: true },
-        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasAccess ? hasAccess('teammates') : hasBillingAccess },
+        { id: 'teammates', tab: 'manage', name: 'Teammates', icon: Users, desc: 'Manage dashboard access for your team.', canAccess: hasAccess ? hasAccess('teammates') : (hasBillingAccess || isTeammate), shared: true },
         { id: 'assets', tab: 'cat_1', name: 'SC Brand Assets', icon: ImageIcon, desc: 'Download official brand resources.', canAccess: hasAccess ? hasAccess('assets') : true },
         { id: 'guides', tab: 'library', name: 'Help & Guides', icon: FileText, desc: 'Browse articles to master the platform.', canAccess: true }
     ];
@@ -76,7 +76,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
 
     // Filter out restricted apps if the user is a Teammate
     if (isTeammate) {
-        const hiddenForTeammates = ['community-link', 'youtube', 'wordpress', 'bridge', 'teammates', 'onboarding'];
+        const hiddenForTeammates = ['community-link', 'youtube', 'wordpress', 'bridge', 'onboarding'];
         displayApps = displayApps.filter(app => !hiddenForTeammates.includes(app.id));
     }
 
