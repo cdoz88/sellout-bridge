@@ -6,6 +6,34 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 const router = express.Router();
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
+// --- HELPER FUNCTION: EXECUTE AUTO-JOIN RULES ON ROLE CHANGE ---
+const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
+    try {
+        if (!userEmail || !userRoleId) return;
+        
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return;
+
+        for (const rule of rules) {
+            const targetRoles = JSON.parse(rule.target_roles || '[]');
+            
+            if (targetRoles.includes(Number(userRoleId))) {
+                const urlObj = new URL(rule.target_url);
+                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+                const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+                const slug = pathParts[pathParts.length - 1];
+
+                const result = await grantCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+                if (!result.success) {
+                    console.error(`Auto-Join Execution Failed for ${userEmail}:`, result.error);
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Auto-Join Execution Error:", error);
+    }
+};
+
 // --- AUTO-JOIN ROUTES ---
 router.get('/api/admin/auto-joins', async (req, res) => {
     try {
@@ -48,7 +76,7 @@ router.post('/api/admin/auto-joins/delete', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// TEST SIMULATOR ENDPOINT
+// TEST SIMULATOR ENDPOINT (WITH FULL ROLE UPGRADE)
 router.post('/api/admin/auto-joins/simulate', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -57,8 +85,25 @@ router.post('/api/admin/auto-joins/simulate', async (req, res) => {
         const { email, roleId } = req.body;
         if (!email || !roleId) return res.status(400).json({ error: "Missing email or role for simulation." });
 
+        // 1. UPGRADE THE USER'S ROLE IN UNA FIRST (Reuses the generic assign endpoint)
+        const upgradeRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({ 
+                email: email.trim().toLowerCase(), 
+                action: 'assign_teammate', 
+                level_id: Number(roleId) 
+            })
+        });
+        const upgradeData = await upgradeRes.json();
+        
+        if (!upgradeData.success) {
+            return res.status(400).json({ error: `UNA Bridge Error (Role Upgrade): ${upgradeData.error || 'Failed to connect.'}` });
+        }
+
+        // 2. RUN THE AUTO-JOIN ROUTING RULES
         const rules = await sql`SELECT * FROM bridge_auto_joins`;
-        if (!rules || rules.length === 0) return res.json({ success: true, message: "No active rules found to trigger." });
+        if (!rules || rules.length === 0) return res.json({ success: true, message: `User upgraded to role ${roleId}, but no active rules found to trigger.` });
 
         let triggeredCount = 0;
         for (const rule of rules) {
@@ -70,12 +115,20 @@ router.post('/api/admin/auto-joins/simulate', async (req, res) => {
                 const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
                 const slug = pathParts[pathParts.length - 1];
 
-                await grantCommunityAccess(email.trim().toLowerCase(), moduleType, slug);
-                triggeredCount++;
+                const result = await grantCommunityAccess(email.trim().toLowerCase(), moduleType, slug);
+                if (result.success) {
+                    triggeredCount++;
+                } else {
+                    return res.status(400).json({ error: `UNA Bridge Error (Community Join): ${result.error || 'Failed to connect.'}` });
+                }
             }
         }
 
-        res.json({ success: true, message: `Successfully executed ${triggeredCount} auto-join rule(s) for ${email}!` });
+        if (triggeredCount === 0) {
+            return res.json({ success: true, message: `User upgraded successfully, but no auto-join rules matched this specific role.` });
+        }
+
+        res.json({ success: true, message: `Success! User upgraded and ${triggeredCount} auto-join rule(s) executed for ${email}!` });
     } catch (error) { 
         res.status(500).json({ error: error.message }); 
     }
