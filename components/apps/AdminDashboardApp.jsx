@@ -276,7 +276,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
     };
 
     // Simulator Logic
-    const handleSimulate = async () => {
+    const handleSimulate = async (actionType) => {
         if (!testEmail.trim()) {
             alert("Please enter a valid test email address.");
             return;
@@ -284,7 +284,11 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         setIsSimulating(true);
         setSimMessage(null);
         try {
-            const res = await fetch('/api/admin/auto-joins/simulate', {
+            const endpoint = actionType === 'upgrade' 
+                ? '/api/admin/auto-joins/simulate' 
+                : '/api/admin/auto-joins/simulate-downgrade';
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${session}`, 
@@ -485,7 +489,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                                             type="text" 
                                             value={targetUrl}
                                             onChange={e => setTargetUrl(e.target.value)}
-                                            placeholder="https://selloutcrowds.com/crowd/coaching" 
+                                            placeholder="https://selloutcrowds.com/crowd/667" 
                                             className="bg-transparent text-white text-xs outline-none w-full flex-1" 
                                         />
                                     </div>
@@ -559,14 +563,24 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
                                     </select>
                                 </div>
 
-                                <button
-                                    onClick={handleSimulate}
-                                    disabled={isSimulating || !testEmail.trim()}
-                                    className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-white/10 text-white hover:bg-white/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
-                                >
-                                    {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-                                    Run Test Upgrade
-                                </button>
+                                <div className="flex gap-3 mt-2">
+                                    <button
+                                        onClick={() => handleSimulate('upgrade')}
+                                        disabled={isSimulating || !testEmail.trim()}
+                                        className="flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-[#9df01c] text-black hover:bg-[#8ce015] transition-colors flex items-center justify-center gap-2 shadow-lg shadow-[#9df01c]/20 disabled:opacity-50"
+                                    >
+                                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                                        Test Upgrade
+                                    </button>
+                                    <button
+                                        onClick={() => handleSimulate('downgrade')}
+                                        disabled={isSimulating || !testEmail.trim()}
+                                        className="flex-1 py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSimulating ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                        Test Downgrade
+                                    </button>
+                                </div>
 
                                 {simMessage && (
                                     <div className="p-3 bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-xl mt-4">

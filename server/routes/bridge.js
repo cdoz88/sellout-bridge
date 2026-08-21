@@ -34,6 +34,30 @@ const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
     }
 };
 
+// --- HELPER FUNCTION: REVOKE AUTO-JOIN RULES ON DOWNGRADE ---
+const revokeAutoJoinsForUser = async (userEmail) => {
+    try {
+        if (!userEmail) return;
+        
+        const rules = await sql`SELECT * FROM bridge_auto_joins`;
+        if (!rules || rules.length === 0) return;
+
+        for (const rule of rules) {
+            const urlObj = new URL(rule.target_url);
+            const pathParts = urlObj.pathname.split('/').filter(p => p.length > 0);
+            const moduleType = pathParts[0] === 'crowd' ? 'bx_spaces' : 'bx_groups';
+            const slug = pathParts[pathParts.length - 1];
+
+            const result = await revokeCommunityAccess(userEmail.trim().toLowerCase(), moduleType, slug);
+            if (!result.success) {
+                console.error(`Auto-Join Revocation Failed for ${userEmail}:`, result.error);
+            }
+        }
+    } catch (error) {
+        console.error("Auto-Join Revocation Error:", error);
+    }
+};
+
 // --- AUTO-JOIN ROUTES ---
 router.get('/api/admin/auto-joins', async (req, res) => {
     try {
@@ -76,7 +100,7 @@ router.post('/api/admin/auto-joins/delete', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// TEST SIMULATOR ENDPOINT (WITH FULL ROLE UPGRADE)
+// TEST SIMULATOR ENDPOINT (UPGRADE)
 router.post('/api/admin/auto-joins/simulate', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -129,6 +153,39 @@ router.post('/api/admin/auto-joins/simulate', async (req, res) => {
         }
 
         res.json({ success: true, message: `Success! User upgraded and ${triggeredCount} auto-join rule(s) executed for ${email}!` });
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
+});
+
+// TEST SIMULATOR ENDPOINT (DOWNGRADE)
+router.post('/api/admin/auto-joins/simulate-downgrade', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user || !ADMIN_EMAILS.includes(user.email.toLowerCase())) return res.status(401).json({ error: "Unauthorized" });
+
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: "Missing email for simulation." });
+
+        // 1. DOWNGRADE THE USER'S ROLE IN UNA FIRST
+        const downgradeRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({ 
+                email: email.trim().toLowerCase(), 
+                action: 'revoke_teammate' 
+            })
+        });
+        const downgradeData = await downgradeRes.json();
+        
+        if (!downgradeData.success) {
+            return res.status(400).json({ error: `UNA Bridge Error (Role Downgrade): ${downgradeData.error || 'Failed to connect.'}` });
+        }
+
+        // 2. RUN THE AUTO-JOIN REVOCATION RULES
+        await revokeAutoJoinsForUser(email);
+
+        res.json({ success: true, message: `Success! User downgraded to Fan and removed from associated auto-join communities!` });
     } catch (error) { 
         res.status(500).json({ error: error.message }); 
     }
