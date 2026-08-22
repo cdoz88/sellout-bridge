@@ -144,8 +144,8 @@ router.get('/api/cron/issue-credits', async (req, res) => {
                     totalEarned += parseFloat(ownerData.stats.commission || 0);
                 }
 
-                // 2. Get Teammate Auto-Pool Stats
-                const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id} AND status = 'active'`;
+                // 2. Get Teammate Auto-Pool Stats (REMOVED CRASHING STATUS CHECK)
+                const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id}`;
                 for (const tm of teammates) {
                     try {
                         const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -220,9 +220,23 @@ router.get('/api/affiliates/stats', async (req, res) => {
         }
 
         // 2. Get Teammate Stats (Auto-Pooling)
-        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id} AND status = 'active'`;
+        // REMOVED THE CRASHING "STATUS = 'active'" CHECK
+        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
 
         if (teammates.length > 0) {
+            // Batch fetch profiles to get names and avatars safely
+            let profiles = {};
+            try {
+                const emails = teammates.map(t => t.teammate_email);
+                const pRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                    body: JSON.stringify({ action: 'get_profiles', emails })
+                });
+                const pData = await pRes.json();
+                if (pData.success) profiles = pData.profiles;
+            } catch(e) {}
+
             for (const tm of teammates) {
                 try {
                     const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -231,10 +245,14 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         body: JSON.stringify({ action: 'get_affiliate_stats', email: tm.teammate_email })
                     });
                     const tmData = await tmRes.json();
+                    
+                    let tClicks = 0, tJoins = 0, tComm = 0;
+                    let tmLink = tmData.link || '';
+
                     if (tmData.success && tmData.stats) {
-                        const tClicks = parseInt(tmData.stats.clicks || 0);
-                        const tJoins = parseInt(tmData.stats.joins || 0);
-                        const tComm = parseFloat(tmData.stats.commission || 0);
+                        tClicks = parseInt(tmData.stats.clicks || 0);
+                        tJoins = parseInt(tmData.stats.joins || 0);
+                        tComm = parseFloat(tmData.stats.commission || 0);
                         
                         totalStats.clicks += tClicks;
                         totalStats.joins += tJoins;
@@ -242,16 +260,29 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         
                         const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
                         allReferrals = [...allReferrals, ...tmRefs];
-
-                        if (tClicks > 0 || tJoins > 0 || tComm > 0) {
-                            teamBreakdown.push({
-                                email: tm.teammate_email,
-                                clicks: tClicks,
-                                joins: tJoins,
-                                commission: tComm
-                            });
-                        }
                     }
+
+                    // Check if they set up a custom slug
+                    try {
+                        const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${tm.teammate_email}`;
+                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
+                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
+                        }
+                    } catch(e) {}
+
+                    const prof = profiles[tm.teammate_email] || {};
+
+                    // REMOVED THE > 0 FILTER. EVERYONE GETS PUSHED TO THE BOARD NOW.
+                    teamBreakdown.push({
+                        email: tm.teammate_email,
+                        name: prof.name || tm.teammate_email,
+                        avatar: prof.avatar || null,
+                        link: tmLink,
+                        clicks: tClicks,
+                        joins: tJoins,
+                        commission: tComm
+                    });
+                    
                 } catch(e) {}
             }
         }
