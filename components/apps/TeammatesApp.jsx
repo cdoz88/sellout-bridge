@@ -8,8 +8,34 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const role = Number(unaData?.user?.role) || 1;
     const isTeammate = role === 18;
 
-    // Strict tab control: Teammates can ONLY see directory. Bosses trust the activeTab passed from the Sidebar.
-    const currentTab = isTeammate ? 'directory' : (activeTab === 'manage' ? 'manage' : 'directory');
+    // --- SMART COMPONENT ROUTING ---
+    const [currentTab, setCurrentTab] = useState('directory');
+
+    useEffect(() => {
+        // Teammates are strictly locked to the directory
+        if (isTeammate) {
+            setCurrentTab('directory');
+            return;
+        }
+
+        // Trust the activeTab prop passed down from the Sidebar first
+        if (activeTab === 'manage' || activeTab === 'directory') {
+            setCurrentTab(activeTab);
+            return;
+        }
+
+        // Fallback to reading the URL directly if the prop drops during a hard reload
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam === 'manage') {
+                setCurrentTab('manage');
+                return;
+            }
+        }
+        
+        setCurrentTab('directory');
+    }, [activeTab, isTeammate]);
 
     const [teammates, setTeammates] = useState([]);
     const [ownerEmail, setOwnerEmail] = useState('');
@@ -275,7 +301,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                     </h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Boss Card (Highlighted in Blue) */}
+                        {/* Boss Card (Highlighted in Electric Blue) */}
                         <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none"></div>
                             <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10">

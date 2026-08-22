@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube, ShieldAlert, BookOpen } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube, ShieldAlert, BookOpen, AddressBook } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function Sidebar({ 
@@ -72,10 +72,14 @@ export default function Sidebar({
         return () => window.removeEventListener('onboarding-updated', handleUpdate);
     }, [session]);
 
+    // --- BULLETPROOF NAVIGATION SYNC ---
     const handleNavClick = (tab) => {
-        if (handleAppSwitch && currentApp === 'admin') {
-            handleAppSwitch('admin', tab);
-        } else {
+        // 1. Force the global URL router to update
+        if (handleAppSwitch) {
+            handleAppSwitch(currentApp, tab);
+        }
+        // 2. Force the local React tree to update and re-render
+        if (setActiveTab) {
             setActiveTab(tab);
         }
         if (setIsMobileMenuOpen) setIsMobileMenuOpen(false);
