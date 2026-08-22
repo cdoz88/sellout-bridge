@@ -7,6 +7,10 @@ export default function Sidebar({
     syncCommunities, isSyncingCommunities, setIsMobileMenuOpen, session, handleAppSwitch
 }) {
     const iconUrl = "https://admin.beasellout.com/wp-content/uploads/2025/04/cropped-Icon.png";
+    
+    // Safely look for the user's avatar from UNA, otherwise fallback to the default icon
+    const userAvatar = unaData?.user?.picture || unaData?.user?.avatar || iconUrl;
+
     const patreonIcon = "https://static.vecteezy.com/system/resources/previews/065/386/613/non_2x/patreon-white-logo-icon-app-transparent-background-premium-social-media-design-for-digital-download-free-png.png";
 
     const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
@@ -200,8 +204,8 @@ export default function Sidebar({
     return (
         <div className="w-64 bg-[#0a0a0a] border-r border-white/5 flex flex-col h-full shadow-xl flex-shrink-0 z-40 relative pb-16 lg:pb-0">
             <div className="p-5 border-b border-white/5 flex items-center gap-3 flex-shrink-0">
-                <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/10 flex items-center justify-center text-black overflow-hidden p-1.5 flex-shrink-0">
-                    <img src={iconUrl} alt="SC Icon" className="w-full h-full object-contain" />
+                <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/10 flex items-center justify-center text-black overflow-hidden flex-shrink-0">
+                    <img src={userAvatar} alt="Profile" className={`w-full h-full ${userAvatar === iconUrl ? 'object-contain p-1.5' : 'object-cover'}`} />
                 </div>
                 <div className="overflow-hidden">
                     <span className="block font-black uppercase tracking-tighter text-sm italic leading-none text-white truncate">{unaData.user?.name || 'Creator'}</span>

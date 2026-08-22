@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square, Contact } from 'lucide-react';
+import { Users, UserPlus, Trash2, Key, Loader2, Mail, Shield, AlertCircle, Briefcase, BadgeCheck, Pencil, Share2, CheckCircle2, X, CheckSquare, Square, Contact, ExternalLink } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function TeammatesApp({ session, unaData, activeTab, setActiveTab }) {
@@ -61,7 +61,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
             const data = await res.json();
             if (data.teammates) setTeammates(data.teammates);
             if (data.owner_email) setOwnerEmail(data.owner_email);
-            if (data.profiles) setProfiles(data.profiles); // Save the loaded profiles
+            if (data.profiles) setProfiles(data.profiles); 
         } catch (err) {
             console.error("Failed to load teammates");
         }
@@ -261,11 +261,6 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
-    // Process Profile Data for Boss
-    const ownerProf = profiles[ownerEmail] || {};
-    const ownerName = ownerProf.name || ownerEmail || 'Account Owner';
-    const ownerAvatar = ownerProf.avatar;
-
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             {isTeammate && (
@@ -300,34 +295,47 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                             </h3>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Boss Card (Highlighted in Electric Blue with Rich Profile Support) */}
-                                <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none"></div>
-                                    
-                                    <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10 overflow-hidden">
-                                        {ownerAvatar ? (
-                                            <img src={ownerAvatar} alt={ownerName} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <Briefcase size={20} />
-                                        )}
-                                    </div>
-                                    <div className="min-w-0 relative z-10">
-                                        <p className="text-sm font-bold text-white truncate">
-                                            {ownerName} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
-                                        </p>
-                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{ownerEmail !== ownerName ? ownerEmail : ''}</p>
-                                        <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
-                                    </div>
-                                </div>
+                                {/* Boss Card */}
+                                {(() => {
+                                    const ownerProf = profiles[ownerEmail] || {};
+                                    const ownerName = ownerProf.name || ownerEmail || 'Account Owner';
+                                    const ownerAvatar = ownerProf.avatar;
+                                    const ownerUrl = ownerProf.url || 'https://selloutcrowds.com';
 
-                                {/* Teammate Cards (with Rich Profile Support) */}
+                                    return (
+                                        <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none transition-all group-hover:scale-110"></div>
+                                            
+                                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10 overflow-hidden">
+                                                {ownerAvatar ? (
+                                                    <img src={ownerAvatar} alt={ownerName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <Briefcase size={20} />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 relative z-10 flex-1">
+                                                <p className="text-sm font-bold text-white truncate">
+                                                    {ownerName} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
+                                                </p>
+                                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{ownerEmail !== ownerName ? ownerEmail : ''}</p>
+                                                <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
+                                            </div>
+                                            <a href={ownerUrl} target="_blank" rel="noopener noreferrer" className="ml-auto relative z-10 p-2 text-gray-500 hover:text-[#38bdf8] bg-white/5 hover:bg-white/10 rounded-lg transition-colors shrink-0" title="View Profile">
+                                                <ExternalLink size={16} />
+                                            </a>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Teammate Cards */}
                                 {teammates.map(tm => {
                                     const tmProf = profiles[tm.teammate_email] || {};
                                     const tmName = tmProf.name || tm.teammate_email;
                                     const tmAvatar = tmProf.avatar;
+                                    const tmUrl = tmProf.url || 'https://selloutcrowds.com';
 
                                     return (
-                                        <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
+                                        <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors group">
                                             <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0 border border-white/10 overflow-hidden">
                                                 {tmAvatar ? (
                                                     <img src={tmAvatar} alt={tmName} className="w-full h-full object-cover" />
@@ -335,13 +343,16 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                                     <Shield size={20} />
                                                 )}
                                             </div>
-                                            <div className="min-w-0">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-bold text-white truncate">
                                                     {tmName} {tm.teammate_email.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
                                                 </p>
                                                 <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{tm.teammate_email !== tmName ? tm.teammate_email : ''}</p>
                                                 <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Teammate</p>
                                             </div>
+                                            <a href={tmUrl} target="_blank" rel="noopener noreferrer" className="ml-auto relative z-10 p-2 text-gray-500 hover:text-[#9df01c] bg-white/5 hover:bg-white/10 rounded-lg transition-colors shrink-0" title="View Profile">
+                                                <ExternalLink size={16} />
+                                            </a>
                                         </div>
                                     );
                                 })}
