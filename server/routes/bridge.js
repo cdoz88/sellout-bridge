@@ -703,31 +703,8 @@ router.get('/api/resolve-scout/:slug', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-
-// KEEPING THIS AS A FALLBACK IN CASE ANY OTHER FILE NEEDS IT
+// --- UPDATED STATS ROUTE WITH BULLETPROOF TEAM POOLING ---
 router.get('/api/affiliates/stats', async (req, res) => {
-    try {
-        const user = await getAuthenticatedUser(req.headers.authorization);
-        if (!user) return res.status(401).json({ error: "Not authenticated" });
-
-        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
-        const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
-
-        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({ action: 'get_affiliate_stats', email: creatorEmail })
-        });
-        
-        const data = await response.json();
-        res.json(data);
-    } catch (e) { 
-        res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
-    }
-});
-
-// --- BRAND NEW DEDICATED ROUTE TO BYPASS ROUTER CONFLICTS ---
-router.get('/api/scout/team-stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
@@ -745,23 +722,31 @@ router.get('/api/scout/team-stats', async (req, res) => {
         }
 
         // Get the Boss's email
-        let ownerEmail = '';
+        let creatorEmail = myEmail;
         const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
         if (settings.length > 0 && settings[0].creator_email) {
-            ownerEmail = settings[0].creator_email.trim().toLowerCase();
-        } else if (!isTeammate) {
-            ownerEmail = myEmail;
+            creatorEmail = settings[0].creator_email.trim().toLowerCase();
         }
 
-        // Fetch team emails safely directly from the seats table
-        const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${workspaceId}`;
-        const teamEmails = teamRows.map(r => r.teammate_email.trim().toLowerCase());
+        // Gather Team Roster
+        let emailsToFetch = [myEmail];
+        let teamEmails = [];
 
-        let emailsToFetch = [];
-        if (ownerEmail) emailsToFetch.push(ownerEmail);
-        if (!isTeammate) emailsToFetch.push(myEmail);
-        emailsToFetch = [...emailsToFetch, ...teamEmails];
-        
+        // If it's the Boss viewing the page, pull ALL teammates explicitly from the database
+        if (!isTeammate) {
+            if (creatorEmail !== myEmail) emailsToFetch.push(creatorEmail);
+            
+            // NO status filter! We want everyone!
+            const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${workspaceId}`;
+            teamRows.forEach(r => {
+                if (r.teammate_email) {
+                    const clean = r.teammate_email.toLowerCase().trim();
+                    emailsToFetch.push(clean);
+                    teamEmails.push(clean);
+                }
+            });
+        }
+
         const uniqueEmails = [...new Set(emailsToFetch)].filter(Boolean);
 
         // Fetch custom slugs
@@ -833,7 +818,7 @@ router.get('/api/scout/team-stats', async (req, res) => {
                         
                         const taggedRefs = (data.referrals || []).map(r => ({
                             ...r,
-                            recruited_by: (targetEmail === ownerEmail || targetEmail === myEmail) ? 'You' : targetEmail
+                            recruited_by: (targetEmail === creatorEmail || targetEmail === myEmail) ? 'You' : targetEmail
                         }));
                         combinedReferrals = [...combinedReferrals, ...taggedRefs];
 
@@ -868,6 +853,7 @@ router.get('/api/scout/team-stats', async (req, res) => {
         });
 
     } catch (e) { 
+        console.error(e);
         res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
     }
 });
