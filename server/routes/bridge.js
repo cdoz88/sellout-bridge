@@ -6,6 +6,16 @@ import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, 
 const router = express.Router();
 const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
+// --- WORKSPACE ENGINE ---
+// Mirrors the exact same logic used in the Team Directory to guarantee we find your roster
+const getWorkspaceId = async (user) => {
+    if (Number(user.role) === 18 && user.email) {
+        const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+        if (seatRows.length > 0) return seatRows[0].owner_id;
+    }
+    return user.id;
+};
+
 // --- HELPER FUNCTION: EXECUTE AUTO-JOIN RULES ON ROLE CHANGE ---
 const triggerAutoJoinsForUser = async (userEmail, userRoleId) => {
     try {
@@ -708,8 +718,11 @@ router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
 
-        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
+        const workspaceId = await getWorkspaceId(user);
+        
+        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
         const creatorEmail = settings.length > 0 && settings[0].creator_email ? settings[0].creator_email.trim().toLowerCase() : user.email.trim().toLowerCase();
         const myEmail = user.email.trim().toLowerCase();
 
@@ -725,12 +738,14 @@ router.get('/api/affiliates/stats', async (req, res) => {
             emailsToFetch.push(creatorEmail);
             emailsToFetch.push(myEmail);
             
-            // Explicitly track the actual team roster to avoid ownership mixups
-            const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+            // Explicitly track the actual team roster from the workspace owner
+            const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${workspaceId}`;
             teamRows.forEach(r => {
-                const clean = r.teammate_email.toLowerCase().trim();
-                emailsToFetch.push(clean);
-                teamEmails.push(clean);
+                if (r.teammate_email) {
+                    const clean = r.teammate_email.toLowerCase().trim();
+                    emailsToFetch.push(clean);
+                    teamEmails.push(clean);
+                }
             });
         }
 
@@ -743,8 +758,8 @@ router.get('/api/affiliates/stats', async (req, res) => {
         const slugMap = {};
         slugs.forEach(s => slugMap[s.email.toLowerCase().trim()] = s.custom_slug);
 
-        // Fetch Rich Profiles
-        const uniqueEmails = [...new Set(emailsToFetch)];
+        // Fetch Rich Profiles for all potential users
+        const uniqueEmails = [...new Set(emailsToFetch)].filter(Boolean);
         let profiles = {};
         try {
             const profileRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -787,29 +802,23 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         const defaultUsername = urlParts[urlParts.length - 1];
                         activeLink = `https://scout.selloutcrowds.com/${defaultUsername}`;
                     } else if (tProf.url) {
-                        // Backup: use the profile URL fetched from UNA!
                         const urlParts = tProf.url.split('/');
                         const defaultUsername = urlParts[urlParts.length - 1];
                         activeLink = `https://scout.selloutcrowds.com/${defaultUsername}`;
                     }
-                } catch (linkParseErr) {
-                    console.error("Failed to parse link", linkParseErr);
-                }
+                } catch (linkParseErr) {}
 
-                // If this is the logged-in user, capture their link for the top box
                 if (targetEmail === creatorEmail || targetEmail === myEmail) {
                     myLink = activeLink || myLink;
                 }
 
                 if (data.success && data.stats) {
                     if (isTeammate) {
-                        // Teammates only see their individual generation stats
                         if (targetEmail === myEmail) {
                             combinedStats = data.stats;
                             combinedReferrals = data.referrals;
                         }
                     } else {
-                        // Boss: accumulate stats if it's the boss OR a teammate
                         combinedStats.joins += (data.stats.joins || 0);
                         combinedStats.commission += parseFloat(data.stats.commission || 0);
                         
@@ -823,11 +832,9 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         tCommission = data.stats.commission || 0;
                     }
                 }
-            } catch (err) {
-                console.error(`Failed to fetch stats for ${targetEmail}`, err);
-            }
+            } catch (err) {}
 
-            // GUARANTEE EVERY TEAMMATE IS PUSHED TO THE LEADERBOARD (even if they have 0 stats or no link yet)
+            // EXPLICIT MATCH: If target is in the team emails array, guarantee they get pushed to the board!
             if (!isTeammate && teamEmails.includes(targetEmail)) {
                 teamBreakdown.push({
                     email: targetEmail,
