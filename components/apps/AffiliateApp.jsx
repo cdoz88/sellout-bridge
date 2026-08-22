@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw, ExternalLink } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw, ExternalLink, Shield } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
@@ -19,7 +19,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
     
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
-    const [copiedLinkStr, setCopiedLinkStr] = useState(null); // For leaderboard copying
+    const [copiedLinkStr, setCopiedLinkStr] = useState(null); 
 
     // Editing State
     const [isEditingLink, setIsEditingLink] = useState(false);
@@ -174,7 +174,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
             {/* ========================================== */}
             {activeTab === 'dashboard' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    
+
                     {/* Link & Masking Section */}
                     <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl mb-8 relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-4 opacity-5 text-[#9df01c] pointer-events-none">
@@ -251,7 +251,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                         {linkError && <p className="text-red-500 text-[10px] font-bold mt-2 uppercase tracking-widest relative z-10">{linkError}</p>}
                     </div>
 
-                    {/* Info Callout Section */}
+                    {/* Info Callout Block */}
                     {isTeammate ? (
                         <div className="bg-[#38bdf8]/10 border border-[#38bdf8]/20 rounded-2xl p-5 sm:p-6 mb-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
                             <div className="flex items-start gap-3">
@@ -371,7 +371,21 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                         <tbody>
                                             {teamBreakdown.map((tm, idx) => (
                                                 <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                                                    <td className="py-4 text-xs font-bold text-white">{tm.email}</td>
+                                                    <td className="py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 overflow-hidden flex-shrink-0">
+                                                                {tm.avatar ? (
+                                                                    <img src={tm.avatar} alt={tm.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <Shield size={14} />
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-bold text-white truncate">{tm.name}</p>
+                                                                <p className="text-[9px] text-gray-500 font-mono truncate">{tm.email !== tm.name ? tm.email : ''}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td className="py-4 text-xs font-mono text-gray-400">
                                                         <div className="flex items-center gap-2">
                                                             <a href={tm.link} target="_blank" rel="noreferrer" className="text-[#38bdf8] hover:text-white transition-colors truncate max-w-[200px]">
@@ -388,8 +402,8 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="py-4 text-xs font-mono text-gray-400 text-center">{tm.joins}</td>
-                                                    <td className="py-4 text-sm font-black text-[#9df01c] text-right">+${parseFloat(tm.commission).toFixed(2)}</td>
+                                                    <td className="py-4 text-xs font-mono text-gray-400 text-center">{tm.joins || 0}</td>
+                                                    <td className="py-4 text-sm font-black text-[#9df01c] text-right">+${parseFloat(tm.commission || 0).toFixed(2)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

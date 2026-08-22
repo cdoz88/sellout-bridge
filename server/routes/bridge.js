@@ -710,7 +710,7 @@ router.get('/api/affiliates/stats', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
 
         const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
-        const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
+        const creatorEmail = settings.length > 0 && settings[0].creator_email ? settings[0].creator_email.trim().toLowerCase() : user.email.trim().toLowerCase();
         const myEmail = user.email.trim().toLowerCase();
 
         const roleId = Number(user.role);
@@ -723,7 +723,7 @@ router.get('/api/affiliates/stats', async (req, res) => {
         } else {
             emailsToFetch.push(creatorEmail);
             const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
-            teamRows.forEach(r => emailsToFetch.push(r.teammate_email.toLowerCase()));
+            teamRows.forEach(r => emailsToFetch.push(r.teammate_email.toLowerCase().trim()));
         }
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (
@@ -733,15 +733,29 @@ router.get('/api/affiliates/stats', async (req, res) => {
         )`;
         const slugs = await sql`SELECT email, custom_slug FROM bridge_scout_links`;
         const slugMap = {};
-        slugs.forEach(s => slugMap[s.email] = s.custom_slug);
+        slugs.forEach(s => slugMap[s.email.toLowerCase().trim()] = s.custom_slug);
+
+        // Fetch Rich Profiles
+        const uniqueEmails = [...new Set(emailsToFetch)];
+        let profiles = {};
+        try {
+            const profileRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                body: JSON.stringify({ action: 'get_profiles', emails: uniqueEmails })
+            });
+            const profileData = await profileRes.json();
+            if (profileData.success && profileData.profiles) {
+                profiles = profileData.profiles;
+            }
+        } catch(e) { console.error(e); }
 
         let combinedStats = { clicks: 0, joins: 0, commission: 0 };
         let combinedReferrals = [];
         let teamBreakdown = [];
         let myLink = '';
 
-        // Iterate through all required emails and pull their unique stats from UNA
-        for (const targetEmail of emailsToFetch) {
+        for (const targetEmail of uniqueEmails) {
             let activeLink = '';
             let tJoins = 0;
             let tCommission = 0;
@@ -759,7 +773,6 @@ router.get('/api/affiliates/stats', async (req, res) => {
                     const defaultUrlObj = new URL(data.link);
                     const defaultUsername = defaultUrlObj.pathname.split('/').pop();
                     
-                    // Route to the frontend domain instead of the default UNA backend link
                     activeLink = customSlug ? `https://scout.selloutcrowds.com/${customSlug}` : `https://scout.selloutcrowds.com/${defaultUsername}`;
 
                     if (targetEmail === creatorEmail || (isTeammate && targetEmail === myEmail)) {
@@ -767,13 +780,11 @@ router.get('/api/affiliates/stats', async (req, res) => {
                     }
 
                     if (isTeammate) {
-                        // Teammates only see their individual generation stats
                         if (targetEmail === myEmail) {
                             combinedStats = data.stats;
                             combinedReferrals = data.referrals;
                         }
                     } else {
-                        // The Boss sees the combined, pooled revenue from the entire team
                         combinedStats.joins += data.stats.joins;
                         combinedStats.commission += parseFloat(data.stats.commission);
                         
@@ -792,9 +803,14 @@ router.get('/api/affiliates/stats', async (req, res) => {
             }
 
             // GUARANTEE TEAMMATES ARE PUSHED TO THE TABLE (even if they have 0 stats or no link)
-            if (!isTeammate && targetEmail !== creatorEmail) {
+            const isOwner = targetEmail === creatorEmail || targetEmail === myEmail;
+            
+            if (!isTeammate && !isOwner) {
+                const tProf = profiles[targetEmail] || {};
                 teamBreakdown.push({
                     email: targetEmail,
+                    name: tProf.name || targetEmail,
+                    avatar: tProf.avatar || null,
                     link: activeLink,
                     joins: tJoins,
                     commission: tCommission
@@ -802,7 +818,6 @@ router.get('/api/affiliates/stats', async (req, res) => {
             }
         }
 
-        // Format and sort all data before sending to the client
         combinedStats.commission = combinedStats.commission.toFixed(2);
         combinedReferrals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
