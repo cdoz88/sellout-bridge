@@ -755,21 +755,21 @@ export default function App() {
           case 'business-card':
               return <BusinessCardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'address-book':
-              return <AddressBookApp session={session} unaData={unaData} />;
+              return <AddressBookApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'linktree':
               return <BioPageApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'community-link':
-              return <CommunityLinkApp session={session} unaData={unaData} />;
+              return <CommunityLinkApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'bridge':
-              return <BridgeApp session={session} unaData={unaData} activeTab={activeTab} />;
+              return <BridgeApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'teammates':
-              return <TeammatesApp session={session} unaData={unaData} />;
+              return <TeammatesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'assets':
               return <AssetsApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'guides':
               return <GuidesApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'onboarding':
-              return <OnboardingApp session={session} unaData={unaData} />;
+              return <OnboardingApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'content':
               return <ContentApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'newsletter':
