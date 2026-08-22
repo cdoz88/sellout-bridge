@@ -703,7 +703,7 @@ router.get('/api/resolve-scout/:slug', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false }); }
 });
 
-// --- UPDATED STATS ROUTE WITH TEAM POOLING ---
+// --- UPDATED STATS ROUTE WITH TEAM POOLING (BULLETPROOF LEADERBOARD) ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -717,13 +717,21 @@ router.get('/api/affiliates/stats', async (req, res) => {
         const isTeammate = roleId === 18;
 
         let emailsToFetch = [];
+        let teamEmails = []; 
         
         if (isTeammate) {
             emailsToFetch.push(myEmail);
         } else {
             emailsToFetch.push(creatorEmail);
+            emailsToFetch.push(myEmail);
+            
+            // Explicitly track the actual team roster to avoid ownership mixups
             const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
-            teamRows.forEach(r => emailsToFetch.push(r.teammate_email.toLowerCase().trim()));
+            teamRows.forEach(r => {
+                const clean = r.teammate_email.toLowerCase().trim();
+                emailsToFetch.push(clean);
+                teamEmails.push(clean);
+            });
         }
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (
@@ -759,6 +767,8 @@ router.get('/api/affiliates/stats', async (req, res) => {
             let activeLink = '';
             let tJoins = 0;
             let tCommission = 0;
+            const customSlug = slugMap[targetEmail];
+            const tProf = profiles[targetEmail] || {};
 
             try {
                 const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -768,45 +778,57 @@ router.get('/api/affiliates/stats', async (req, res) => {
                 });
                 const data = await response.json();
                 
-                if (data.success && data.link) {
-                    const customSlug = slugMap[targetEmail];
-                    const defaultUrlObj = new URL(data.link);
-                    const defaultUsername = defaultUrlObj.pathname.split('/').pop();
-                    
-                    activeLink = customSlug ? `https://scout.selloutcrowds.com/${customSlug}` : `https://scout.selloutcrowds.com/${defaultUsername}`;
-
-                    if (targetEmail === creatorEmail || (isTeammate && targetEmail === myEmail)) {
-                        myLink = activeLink;
+                // Smart Link Fallback Logic!
+                try {
+                    if (customSlug) {
+                        activeLink = `https://scout.selloutcrowds.com/${customSlug}`;
+                    } else if (data.success && data.link) {
+                        const urlParts = data.link.split('/');
+                        const defaultUsername = urlParts[urlParts.length - 1];
+                        activeLink = `https://scout.selloutcrowds.com/${defaultUsername}`;
+                    } else if (tProf.url) {
+                        // Backup: use the profile URL fetched from UNA!
+                        const urlParts = tProf.url.split('/');
+                        const defaultUsername = urlParts[urlParts.length - 1];
+                        activeLink = `https://scout.selloutcrowds.com/${defaultUsername}`;
                     }
+                } catch (linkParseErr) {
+                    console.error("Failed to parse link", linkParseErr);
+                }
 
+                // If this is the logged-in user, capture their link for the top box
+                if (targetEmail === creatorEmail || targetEmail === myEmail) {
+                    myLink = activeLink || myLink;
+                }
+
+                if (data.success && data.stats) {
                     if (isTeammate) {
+                        // Teammates only see their individual generation stats
                         if (targetEmail === myEmail) {
                             combinedStats = data.stats;
                             combinedReferrals = data.referrals;
                         }
                     } else {
-                        combinedStats.joins += data.stats.joins;
-                        combinedStats.commission += parseFloat(data.stats.commission);
+                        // Boss: accumulate stats if it's the boss OR a teammate
+                        combinedStats.joins += (data.stats.joins || 0);
+                        combinedStats.commission += parseFloat(data.stats.commission || 0);
                         
                         const taggedRefs = (data.referrals || []).map(r => ({
                             ...r,
-                            recruited_by: targetEmail === creatorEmail ? 'You' : targetEmail
+                            recruited_by: (targetEmail === creatorEmail || targetEmail === myEmail) ? 'You' : targetEmail
                         }));
                         combinedReferrals = [...combinedReferrals, ...taggedRefs];
 
-                        tJoins = data.stats.joins;
-                        tCommission = data.stats.commission;
+                        tJoins = data.stats.joins || 0;
+                        tCommission = data.stats.commission || 0;
                     }
                 }
             } catch (err) {
                 console.error(`Failed to fetch stats for ${targetEmail}`, err);
             }
 
-            // GUARANTEE TEAMMATES ARE PUSHED TO THE TABLE (even if they have 0 stats or no link)
-            const isOwner = targetEmail === creatorEmail || targetEmail === myEmail;
-            
-            if (!isTeammate && !isOwner) {
-                const tProf = profiles[targetEmail] || {};
+            // GUARANTEE EVERY TEAMMATE IS PUSHED TO THE LEADERBOARD (even if they have 0 stats or no link yet)
+            if (!isTeammate && teamEmails.includes(targetEmail)) {
                 teamBreakdown.push({
                     email: targetEmail,
                     name: tProf.name || targetEmail,
