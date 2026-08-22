@@ -21,12 +21,24 @@ router.get('/api/team', async (req, res) => {
         const workspaceId = await getWorkspaceId(user);
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${workspaceId} ORDER BY created_at DESC`;
         
-        // Fetch the Boss's email so they show up in the directory!
-        const ownerRows = await sql`SELECT email FROM users WHERE id = ${workspaceId}`;
-        const ownerEmail = ownerRows.length > 0 ? ownerRows[0].email : 'Account Owner';
+        // Fetch the Boss's email safely without querying non-existent tables!
+        let ownerEmail = user.email; // Default to the logged-in user's email
+        
+        // If a teammate is viewing this, fetch the boss's email from bridge_settings
+        if (user.id !== workspaceId) {
+            const ownerRows = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
+            if (ownerRows.length > 0 && ownerRows[0].creator_email) {
+                ownerEmail = ownerRows[0].creator_email;
+            } else {
+                ownerEmail = 'Account Owner';
+            }
+        }
 
         res.json({ limit: 999, used: rows.length, teammates: rows, owner_email: ownerEmail });
-    } catch (error) { res.status(500).json({ error: "Failed to fetch team data" }); }
+    } catch (error) { 
+        console.error("Team API Error:", error);
+        res.status(500).json({ error: "Failed to fetch team data" }); 
+    }
 });
 
 router.post('/api/team/invite', async (req, res) => {
