@@ -300,7 +300,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                     const ownerProf = profiles[ownerEmail] || {};
                                     const ownerName = ownerProf.name || ownerEmail || 'Account Owner';
                                     const ownerAvatar = ownerProf.avatar;
-                                    const ownerUrl = ownerProf.url || 'https://selloutcrowds.com';
+                                    const ownerUrl = (ownerProf.url || 'https://selloutcrowds.com').replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
 
                                     return (
                                         <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden group">
@@ -332,7 +332,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                     const tmProf = profiles[tm.teammate_email] || {};
                                     const tmName = tmProf.name || tm.teammate_email;
                                     const tmAvatar = tmProf.avatar;
-                                    const tmUrl = tmProf.url || 'https://selloutcrowds.com';
+                                    const tmUrl = (tmProf.url || 'https://selloutcrowds.com').replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
 
                                     return (
                                         <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors group">
