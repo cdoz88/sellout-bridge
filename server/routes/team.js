@@ -21,10 +21,8 @@ router.get('/api/team', async (req, res) => {
         const workspaceId = await getWorkspaceId(user);
         const rows = await sql`SELECT * FROM bridge_team_seats WHERE owner_id = ${workspaceId} ORDER BY created_at DESC`;
         
-        // Fetch the Boss's email safely without querying non-existent tables!
-        let ownerEmail = user.email; // Default to the logged-in user's email
-        
-        // If a teammate is viewing this, fetch the boss's email from bridge_settings
+        // Fetch the Boss's email safely
+        let ownerEmail = user.email; 
         if (user.id !== workspaceId) {
             const ownerRows = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
             if (ownerRows.length > 0 && ownerRows[0].creator_email) {
@@ -34,7 +32,25 @@ router.get('/api/team', async (req, res) => {
             }
         }
 
-        res.json({ limit: 999, used: rows.length, teammates: rows, owner_email: ownerEmail });
+        // --- FETCH RICH PROFILES FROM UNA ---
+        const allEmails = [ownerEmail, ...rows.map(r => r.teammate_email)].filter(Boolean);
+        let profiles = {};
+        
+        try {
+            const profileRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                body: JSON.stringify({ action: 'get_profiles', emails: allEmails })
+            });
+            const profileData = await profileRes.json();
+            if (profileData.success && profileData.profiles) {
+                profiles = profileData.profiles;
+            }
+        } catch (e) {
+            console.error("Failed to fetch rich profiles from UNA", e);
+        }
+
+        res.json({ limit: 999, used: rows.length, teammates: rows, owner_email: ownerEmail, profiles });
     } catch (error) { 
         console.error("Team API Error:", error);
         res.status(500).json({ error: "Failed to fetch team data" }); 

@@ -12,19 +12,14 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
     const [currentTab, setCurrentTab] = useState('directory');
 
     useEffect(() => {
-        // Teammates are strictly locked to the directory
         if (isTeammate) {
             setCurrentTab('directory');
             return;
         }
-
-        // Trust the activeTab prop passed down from the Sidebar first
         if (activeTab === 'manage' || activeTab === 'directory') {
             setCurrentTab(activeTab);
             return;
         }
-
-        // Fallback to reading the URL directly if the prop drops during a hard reload
         if (typeof window !== 'undefined') {
             const urlParams = new URLSearchParams(window.location.search);
             const tabParam = urlParams.get('tab');
@@ -33,12 +28,12 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                 return;
             }
         }
-        
         setCurrentTab('directory');
     }, [activeTab, isTeammate]);
 
     const [teammates, setTeammates] = useState([]);
     const [ownerEmail, setOwnerEmail] = useState('');
+    const [profiles, setProfiles] = useState({}); // Stores the rich UNA profiles
     const [isLoading, setIsLoading] = useState(true);
     const [freeSeats, setFreeSeats] = useState(0);
     
@@ -64,12 +59,9 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
             const res = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${session}` } });
             if (res.status === 401) { window.dispatchEvent(new Event('unauthorized')); return; }
             const data = await res.json();
-            if (data.teammates) {
-                setTeammates(data.teammates);
-            }
-            if (data.owner_email) {
-                setOwnerEmail(data.owner_email);
-            }
+            if (data.teammates) setTeammates(data.teammates);
+            if (data.owner_email) setOwnerEmail(data.owner_email);
+            if (data.profiles) setProfiles(data.profiles); // Save the loaded profiles
         } catch (err) {
             console.error("Failed to load teammates");
         }
@@ -269,6 +261,11 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
 
     if (isLoading) return <div className="p-12 text-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin mx-auto"/></div>;
 
+    // Process Profile Data for Boss
+    const ownerProf = profiles[ownerEmail] || {};
+    const ownerName = ownerProf.name || ownerEmail || 'Account Owner';
+    const ownerAvatar = ownerProf.avatar;
+
     return (
         <div className="max-w-7xl mx-auto py-6 px-4 sm:py-12 sm:px-8 animate-in fade-in duration-300">
             {isTeammate && (
@@ -295,49 +292,100 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
             </div>
 
             {currentTab === 'directory' ? (
-                <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh] animate-in fade-in duration-300">
-                    <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
-                        <Contact size={20} className="text-[#38bdf8]" /> Active Roster
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Boss Card (Highlighted in Electric Blue) */}
-                        <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none"></div>
-                            <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10">
-                                <Briefcase size={20} />
-                            </div>
-                            <div className="min-w-0 relative z-10">
-                                <p className="text-sm font-bold text-white truncate">
-                                    {ownerEmail || 'Account Owner'} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
-                                </p>
-                                <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
-                            </div>
-                        </div>
+                <div className="grid lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
+                    <div className="lg:col-span-8">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 sm:p-8 shadow-2xl min-h-[50vh]">
+                            <h3 className="text-xl font-black uppercase tracking-tight text-white mb-6 border-b border-white/5 pb-4 flex items-center gap-2">
+                                <Contact size={20} className="text-[#38bdf8]" /> Active Roster
+                            </h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Boss Card (Highlighted in Electric Blue with Rich Profile Support) */}
+                                <div className="bg-black border-2 border-[#38bdf8]/50 rounded-2xl p-5 flex items-center gap-4 hover:border-[#38bdf8] transition-colors shadow-lg shadow-[#38bdf8]/10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-16 h-16 bg-[#38bdf8]/5 rounded-bl-full pointer-events-none"></div>
+                                    
+                                    <div className="w-12 h-12 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center flex-shrink-0 border border-[#38bdf8]/20 relative z-10 overflow-hidden">
+                                        {ownerAvatar ? (
+                                            <img src={ownerAvatar} alt={ownerName} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Briefcase size={20} />
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 relative z-10">
+                                        <p className="text-sm font-bold text-white truncate">
+                                            {ownerName} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{ownerEmail !== ownerName ? ownerEmail : ''}</p>
+                                        <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
+                                    </div>
+                                </div>
 
-                        {/* Teammate Cards */}
-                        {teammates.map(tm => (
-                            <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
-                                <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0 border border-white/10">
-                                    <Shield size={20} />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-bold text-white truncate">
-                                        {tm.teammate_email} {tm.teammate_email.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
-                                    </p>
-                                    <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Teammate</p>
-                                </div>
+                                {/* Teammate Cards (with Rich Profile Support) */}
+                                {teammates.map(tm => {
+                                    const tmProf = profiles[tm.teammate_email] || {};
+                                    const tmName = tmProf.name || tm.teammate_email;
+                                    const tmAvatar = tmProf.avatar;
+
+                                    return (
+                                        <div key={tm.id} className="bg-black border border-white/10 rounded-2xl p-5 flex items-center gap-4 hover:border-white/20 transition-colors">
+                                            <div className="w-12 h-12 rounded-full bg-white/5 text-gray-400 flex items-center justify-center flex-shrink-0 border border-white/10 overflow-hidden">
+                                                {tmAvatar ? (
+                                                    <img src={tmAvatar} alt={tmName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <Shield size={20} />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-white truncate">
+                                                    {tmName} {tm.teammate_email.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : ''}
+                                                </p>
+                                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{tm.teammate_email !== tmName ? tm.teammate_email : ''}</p>
+                                                <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-black mt-1">Teammate</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                        ))}
+
+                            {teammates.length === 0 && (
+                                <div className="mt-8 text-center border-2 border-dashed border-white/5 rounded-2xl p-12 text-gray-500">
+                                    <Users size={32} className="mx-auto mb-3 opacity-20"/>
+                                    <p className="text-sm font-medium">It's just the boss for now!</p>
+                                    {!isTeammate && <p className="text-[10px] mt-2">Go to "Manage Team" to add your first teammate.</p>}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
-                    {teammates.length === 0 && (
-                        <div className="mt-8 text-center border-2 border-dashed border-white/5 rounded-2xl p-12 text-gray-500">
-                            <Users size={32} className="mx-auto mb-3 opacity-20"/>
-                            <p className="text-sm font-medium">It's just the boss for now!</p>
-                            {!isTeammate && <p className="text-[10px] mt-2">Go to "Manage Team" to add your first teammate.</p>}
+                    <div className="lg:col-span-4">
+                        <div className="bg-[#111] rounded-[2rem] border border-white/5 p-5 sm:p-8 sticky top-24">
+                            <h3 className="text-lg font-black uppercase tracking-tighter text-white mb-6">Teammate Benefits</h3>
+                            <p className="text-xs text-gray-400 font-medium leading-relaxed mb-6">
+                                When you upgrade a regular user to a Teammate, they unlock premium tools to help manage your brand.
+                            </p>
+                            <div className="space-y-5">
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><BadgeCheck size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Brand Badge</h4><p className="text-xs text-gray-500">They receive an official staff badge next to their name in your communities.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Pencil size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Post Content</h4><p className="text-xs text-gray-500">They can publish posts, moderate comments, and manage content.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Share2 size={18}/></div>
+                                    <div><h4 className="text-sm font-bold text-white mb-1">Digital Business Card</h4><p className="text-xs text-gray-500">They unlock their own shareable, premium digital business card.</p></div>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#9df01c] flex-shrink-0"><Key size={18}/></div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-white mb-1">Free Community Access</h4>
+                                        <p className="text-xs text-gray-500">You can manually grant them access to your paid spaces at no extra charge. They will automatically be assigned the "Team Member" role inside.</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             ) : (
                 <div className="grid lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
@@ -349,27 +397,38 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
 
                             {teammates.length > 0 ? (
                                 <div className="space-y-3">
-                                    {teammates.map((member) => (
-                                        <div key={member.id} className="bg-black p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-white/10">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                                    <Shield size={16} />
+                                    {teammates.map((member) => {
+                                        const mProf = profiles[member.teammate_email] || {};
+                                        const mName = mProf.name || member.teammate_email;
+                                        const mAvatar = mProf.avatar;
+
+                                        return (
+                                            <div key={member.id} className="bg-black p-4 sm:p-5 rounded-2xl border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-white/10">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 flex-shrink-0 overflow-hidden">
+                                                        {mAvatar ? (
+                                                            <img src={mAvatar} alt={mName} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Shield size={16} />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-white truncate">{mName}</p>
+                                                        <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{member.teammate_email !== mName ? member.teammate_email : ''}</p>
+                                                        <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-bold mt-1">Authorized Staff</p>
+                                                    </div>
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-bold text-white truncate">{member.teammate_email}</p>
-                                                    <p className="text-[10px] text-[#9df01c] uppercase tracking-widest font-bold mt-1">Authorized Staff</p>
+                                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                                    <button onClick={() => openMapModal(member)} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-white/5">
+                                                        <Key size={12}/> Grant Access
+                                                    </button>
+                                                    <button onClick={() => handleRevoke(member.teammate_email)} className="flex-1 sm:flex-none px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-red-500/20">
+                                                        <Trash2 size={12}/> Revoke
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                                <button onClick={() => openMapModal(member)} className="flex-1 sm:flex-none px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-white/5">
-                                                    <Key size={12}/> Grant Access
-                                                </button>
-                                                <button onClick={() => handleRevoke(member.teammate_email)} className="flex-1 sm:flex-none px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1.5 border border-red-500/20">
-                                                    <Trash2 size={12}/> Revoke
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-center p-12 border-2 border-dashed border-white/5 rounded-2xl text-gray-500">
