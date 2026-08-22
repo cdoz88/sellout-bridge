@@ -144,9 +144,10 @@ router.get('/api/cron/issue-credits', async (req, res) => {
                     totalEarned += parseFloat(ownerData.stats.commission || 0);
                 }
 
-                // 2. Get Teammate Auto-Pool Stats - REMOVED BROKEN STATUS FILTER
+                // 2. Get Teammate Auto-Pool Stats (REMOVED BROKEN STATUS FILTER)
                 const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id}`;
                 for (const tm of teammates) {
+                    if(!tm.teammate_email) continue;
                     try {
                         const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                             method: 'POST',
@@ -191,7 +192,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- REWRITTEN Affiliate Stats API (With Bulletproof Team Pooling) ---
+// --- UPDATED STATS ROUTE WITH BULLETPROOF TEAM POOLING ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -341,11 +342,13 @@ router.get('/api/affiliates/stats', async (req, res) => {
         });
 
     } catch (e) { 
+        console.error(e);
         res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
     }
 });
 
 // --- Custom Scout Link APIs ---
+
 router.post('/api/scout/custom-link', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);

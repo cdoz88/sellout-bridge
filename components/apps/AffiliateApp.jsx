@@ -34,6 +34,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
             return;
         }
 
+        // Hitting the newly repaired endpoint in billing.js
         fetch('/api/affiliates/stats', {
             headers: { 'Authorization': `Bearer ${session}` }
         })
