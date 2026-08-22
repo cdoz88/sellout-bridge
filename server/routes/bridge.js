@@ -742,6 +742,10 @@ router.get('/api/affiliates/stats', async (req, res) => {
 
         // Iterate through all required emails and pull their unique stats from UNA
         for (const targetEmail of emailsToFetch) {
+            let activeLink = '';
+            let tJoins = 0;
+            let tCommission = 0;
+
             try {
                 const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
@@ -756,7 +760,7 @@ router.get('/api/affiliates/stats', async (req, res) => {
                     const defaultUsername = defaultUrlObj.pathname.split('/').pop();
                     
                     // Route to the frontend domain instead of the default UNA backend link
-                    const activeLink = customSlug ? `https://scout.selloutcrowds.com/${customSlug}` : `https://scout.selloutcrowds.com/${defaultUsername}`;
+                    activeLink = customSlug ? `https://scout.selloutcrowds.com/${customSlug}` : `https://scout.selloutcrowds.com/${defaultUsername}`;
 
                     if (targetEmail === creatorEmail || (isTeammate && targetEmail === myEmail)) {
                         myLink = activeLink;
@@ -779,19 +783,22 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         }));
                         combinedReferrals = [...combinedReferrals, ...taggedRefs];
 
-                        // Build the breakdown for the Boss's Team Leaderboard
-                        if (targetEmail !== creatorEmail) {
-                            teamBreakdown.push({
-                                email: targetEmail,
-                                link: activeLink,
-                                joins: data.stats.joins,
-                                commission: data.stats.commission
-                            });
-                        }
+                        tJoins = data.stats.joins;
+                        tCommission = data.stats.commission;
                     }
                 }
             } catch (err) {
                 console.error(`Failed to fetch stats for ${targetEmail}`, err);
+            }
+
+            // GUARANTEE TEAMMATES ARE PUSHED TO THE TABLE (even if they have 0 stats or no link)
+            if (!isTeammate && targetEmail !== creatorEmail) {
+                teamBreakdown.push({
+                    email: targetEmail,
+                    link: activeLink,
+                    joins: tJoins,
+                    commission: tCommission
+                });
             }
         }
 
