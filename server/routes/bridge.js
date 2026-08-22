@@ -645,6 +645,65 @@ router.post('/api/toggle-user-access', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Failed to toggle access." }); }
 });
 
+// --- CUSTOM SCOUT LINK ROUTES ---
+router.post('/api/scout/custom-link', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        const { customSlug, unaUsername } = req.body;
+        
+        const cleanSlug = customSlug.replace(/[^a-z0-9-]/g, '').toLowerCase().trim();
+        if (!cleanSlug) return res.status(400).json({ error: "Invalid slug" });
+
+        await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (
+            email VARCHAR(255) PRIMARY KEY,
+            custom_slug VARCHAR(255) UNIQUE,
+            una_username VARCHAR(255)
+        )`;
+
+        const existing = await sql`SELECT email FROM bridge_scout_links WHERE custom_slug = ${cleanSlug} AND email != ${user.email.trim().toLowerCase()}`;
+        if (existing.length > 0) return res.status(400).json({ error: "That custom link is already taken by another scout." });
+
+        await sql`INSERT INTO bridge_scout_links (email, custom_slug, una_username) VALUES (${user.email.trim().toLowerCase()}, ${cleanSlug}, ${unaUsername}) ON CONFLICT (email) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username`;
+
+        res.json({ success: true, slug: cleanSlug });
+    } catch (e) { res.status(500).json({ error: "Failed to save link." }); }
+});
+
+router.post('/api/scout/custom-link/delete', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (email VARCHAR(255) PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
+        await sql`DELETE FROM bridge_scout_links WHERE email = ${user.email.trim().toLowerCase()}`;
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Failed to delete link." }); }
+});
+
+router.get('/api/scout/custom-link', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        
+        await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (email VARCHAR(255) PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
+        const rows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${user.email.trim().toLowerCase()}`;
+        if (rows.length > 0 && rows[0].custom_slug) res.json({ success: true, slug: rows[0].custom_slug });
+        else res.json({ success: false });
+    } catch (e) { res.status(500).json({ error: "Failed" }); }
+});
+
+router.get('/api/resolve-scout/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (email VARCHAR(255) PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
+        const rows = await sql`SELECT una_username FROM bridge_scout_links WHERE custom_slug = ${slug.toLowerCase()}`;
+        if (rows.length > 0 && rows[0].una_username) res.json({ success: true, username: rows[0].una_username });
+        else res.json({ success: false });
+    } catch (e) { res.status(500).json({ success: false }); }
+});
+
+// --- UPDATED STATS ROUTE WITH TEAM POOLING ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -652,16 +711,104 @@ router.get('/api/affiliates/stats', async (req, res) => {
 
         const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${user.id}`;
         const creatorEmail = settings.length > 0 ? settings[0].creator_email : user.email;
+        const myEmail = user.email.trim().toLowerCase();
 
-        const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({ action: 'get_affiliate_stats', email: creatorEmail })
-        });
+        const roleId = Number(user.role);
+        const isTeammate = roleId === 18;
+
+        let emailsToFetch = [];
         
-        const data = await response.json();
-        res.json(data);
+        if (isTeammate) {
+            emailsToFetch.push(myEmail);
+        } else {
+            emailsToFetch.push(creatorEmail);
+            const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+            teamRows.forEach(r => emailsToFetch.push(r.teammate_email.toLowerCase()));
+        }
+
+        await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (
+            email VARCHAR(255) PRIMARY KEY,
+            custom_slug VARCHAR(255) UNIQUE,
+            una_username VARCHAR(255)
+        )`;
+        const slugs = await sql`SELECT email, custom_slug FROM bridge_scout_links`;
+        const slugMap = {};
+        slugs.forEach(s => slugMap[s.email] = s.custom_slug);
+
+        let combinedStats = { clicks: 0, joins: 0, commission: 0 };
+        let combinedReferrals = [];
+        let teamBreakdown = [];
+        let myLink = '';
+
+        // Iterate through all required emails and pull their unique stats from UNA
+        for (const targetEmail of emailsToFetch) {
+            try {
+                const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                    body: JSON.stringify({ action: 'get_affiliate_stats', email: targetEmail })
+                });
+                const data = await response.json();
+                
+                if (data.success && data.link) {
+                    const customSlug = slugMap[targetEmail];
+                    const defaultUrlObj = new URL(data.link);
+                    const defaultUsername = defaultUrlObj.pathname.split('/').pop();
+                    
+                    // Route to the frontend domain instead of the default UNA backend link
+                    const activeLink = customSlug ? `https://scout.selloutcrowds.com/${customSlug}` : `https://scout.selloutcrowds.com/${defaultUsername}`;
+
+                    if (targetEmail === creatorEmail || (isTeammate && targetEmail === myEmail)) {
+                        myLink = activeLink;
+                    }
+
+                    if (isTeammate) {
+                        // Teammates only see their individual generation stats
+                        if (targetEmail === myEmail) {
+                            combinedStats = data.stats;
+                            combinedReferrals = data.referrals;
+                        }
+                    } else {
+                        // The Boss sees the combined, pooled revenue from the entire team
+                        combinedStats.joins += data.stats.joins;
+                        combinedStats.commission += parseFloat(data.stats.commission);
+                        
+                        const taggedRefs = (data.referrals || []).map(r => ({
+                            ...r,
+                            recruited_by: targetEmail === creatorEmail ? 'You' : targetEmail
+                        }));
+                        combinedReferrals = [...combinedReferrals, ...taggedRefs];
+
+                        // Build the breakdown for the Boss's Team Leaderboard
+                        if (targetEmail !== creatorEmail) {
+                            teamBreakdown.push({
+                                email: targetEmail,
+                                link: activeLink,
+                                joins: data.stats.joins,
+                                commission: data.stats.commission
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error(`Failed to fetch stats for ${targetEmail}`, err);
+            }
+        }
+
+        // Format and sort all data before sending to the client
+        combinedStats.commission = combinedStats.commission.toFixed(2);
+        combinedReferrals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        res.json({
+            success: true,
+            stats: combinedStats,
+            link: myLink,
+            referrals: combinedReferrals,
+            teamBreakdown: isTeammate ? [] : teamBreakdown
+        });
+
     } catch (e) { 
+        console.error(e);
         res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
     }
 });

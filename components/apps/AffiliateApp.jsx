@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Link2, Copy, CheckCircle2, Loader2, Lock, ArrowRight, Lightbulb, Info, CalendarClock, Wallet, History, ArrowLeft, Pencil, RotateCcw, ExternalLink } from 'lucide-react';
 import HelpDrawer from '../layout/HelpDrawer';
 
 export default function AffiliateApp({ session, unaData, activeTab = 'dashboard', setActiveTab, handleAppSwitch }) {
@@ -19,6 +19,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
     
     const [isLoading, setIsLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [copiedLinkStr, setCopiedLinkStr] = useState(null); // For leaderboard copying
 
     // Editing State
     const [isEditingLink, setIsEditingLink] = useState(false);
@@ -85,6 +86,13 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
         navigator.clipboard.writeText(refLink);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCopyTableLink = (link) => {
+        if (!link) return;
+        navigator.clipboard.writeText(link);
+        setCopiedLinkStr(link);
+        setTimeout(() => setCopiedLinkStr(null), 2000);
     };
 
     const handleSaveCustomLink = async () => {
@@ -168,12 +176,12 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     
                     {isTeammate ? (
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 sm:p-6 mb-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                        <div className="bg-[#38bdf8]/10 border border-[#38bdf8]/20 rounded-2xl p-5 sm:p-6 mb-8 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
                             <div className="flex items-start gap-3">
-                                <Info size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                                <Info size={20} className="text-[#38bdf8] flex-shrink-0 mt-0.5" />
                                 <div>
                                     <h4 className="text-white font-bold text-sm mb-1">Team Auto-Pooling Active</h4>
-                                    <p className="text-xs text-blue-100/70 leading-relaxed max-w-3xl">
+                                    <p className="text-xs text-[#38bdf8]/80 leading-relaxed max-w-3xl">
                                         As a registered teammate, any platform credits you generate through your scout link are automatically tracked here and seamlessly pooled into your Agency Owner's account to offset their subscription costs!
                                     </p>
                                 </div>
@@ -312,14 +320,14 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                             onClick={() => { if (!isTeammate) setActiveTab('payouts'); }}
                             className={`bg-[#111] border border-white/5 rounded-[2rem] p-6 shadow-xl flex items-center gap-4 ${!isTeammate ? 'cursor-pointer hover:bg-white/5 hover:border-white/10 transition-all group' : 'opacity-50'}`}
                         >
-                            <div className={`w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 border border-blue-500/20 ${!isTeammate ? 'group-hover:scale-110 transition-transform' : ''}`}>
+                            <div className={`w-12 h-12 rounded-2xl bg-[#38bdf8]/10 text-[#38bdf8] flex items-center justify-center shrink-0 border border-[#38bdf8]/20 ${!isTeammate ? 'group-hover:scale-110 transition-transform' : ''}`}>
                                 <CalendarClock size={20} />
                             </div>
                             <div className="flex-1">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Next Payout</p>
                                 <p className="text-lg font-black text-white leading-none mt-1.5">{isTeammate ? 'N/A' : getNextCreditDate()}</p>
                                 {!isTeammate && (
-                                    <p className="text-[9px] font-bold uppercase tracking-widest text-blue-500 mt-1.5 flex items-center gap-1">
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-[#38bdf8] mt-1.5 flex items-center gap-1">
                                         View Ledger <ArrowRight size={10} />
                                     </p>
                                 )}
@@ -340,7 +348,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
 
                     </div>
 
-                    {/* Team Contributions Leaderboard (Only shows if there are team members with stats) */}
+                    {/* Team Contributions Leaderboard */}
                     {teamBreakdown && teamBreakdown.length > 0 && !isTeammate && (
                         <div className="bg-[#111] rounded-[2rem] border border-white/5 p-6 shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-4">
                             <div className="flex items-center gap-3 mb-6">
@@ -352,6 +360,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                     <thead>
                                         <tr className="border-b border-white/5">
                                             <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Teammate Account</th>
+                                            <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500">Active Scout Link</th>
                                             <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Recruits Generated</th>
                                             <th className="pb-3 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Revenue Pooled</th>
                                         </tr>
@@ -360,6 +369,22 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                         {teamBreakdown.map((tm, idx) => (
                                             <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                                 <td className="py-4 text-xs font-bold text-white">{tm.email}</td>
+                                                <td className="py-4 text-xs font-mono text-gray-400">
+                                                    <div className="flex items-center gap-2">
+                                                        <a href={tm.link} target="_blank" rel="noreferrer" className="text-[#38bdf8] hover:text-white transition-colors truncate max-w-[200px]">
+                                                            {tm.link ? tm.link.replace('https://', '') : 'Not Setup'}
+                                                        </a>
+                                                        {tm.link && (
+                                                            <button 
+                                                                onClick={() => handleCopyTableLink(tm.link)} 
+                                                                className="text-gray-500 hover:text-white transition-colors"
+                                                                title="Copy Link"
+                                                            >
+                                                                {copiedLinkStr === tm.link ? <CheckCircle2 size={14} className="text-[#9df01c]" /> : <Copy size={14} />}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="py-4 text-xs font-mono text-gray-400 text-center">{tm.joins}</td>
                                                 <td className="py-4 text-sm font-black text-[#9df01c] text-right">+${parseFloat(tm.commission).toFixed(2)}</td>
                                             </tr>
@@ -449,7 +474,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                         </button>
                         <div>
                             <h3 className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-2 m-0 leading-none">
-                                <History className="text-blue-500" size={24} /> Payout Ledger
+                                <History className="text-[#38bdf8]" size={24} /> Payout Ledger
                             </h3>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
                                 Historical record of all platform credits
@@ -478,7 +503,7 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
                                         <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                             <td className="py-4 text-xs font-mono text-gray-400">{payout.date}</td>
                                             <td className="py-4 text-sm font-bold text-white">Scouting Revenue Credit</td>
-                                            <td className="py-4 text-sm font-black text-blue-500 text-right">+${payout.amount}</td>
+                                            <td className="py-4 text-sm font-black text-[#38bdf8] text-right">+${payout.amount}</td>
                                         </tr>
                                     ))}
                                 </tbody>
