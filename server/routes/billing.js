@@ -144,9 +144,10 @@ router.get('/api/cron/issue-credits', async (req, res) => {
                     totalEarned += parseFloat(ownerData.stats.commission || 0);
                 }
 
-                // 2. Get Teammate Auto-Pool Stats (REMOVED CRASHING STATUS CHECK)
+                // 2. Get Teammate Auto-Pool Stats (Removed the crashing status check)
                 const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id}`;
                 for (const tm of teammates) {
+                    if(!tm.teammate_email) continue;
                     try {
                         const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                             method: 'POST',
@@ -191,112 +192,166 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling) ---
+// --- UPDATED STATS ROUTE WITH BULLETPROOF LINK MAPPING ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
 
-        let totalStats = { clicks: 0, joins: 0, commission: 0.00 };
-        let allReferrals = [];
-        let link = '';
-        let teamBreakdown = [];
+        const myEmail = user.email.trim().toLowerCase();
+        const roleId = Number(user.role);
+        const isTeammate = roleId === 18;
 
-        // 1. Get Owner Stats
-        const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({ action: 'get_affiliate_stats', email: user.email })
-        });
-        const ownerData = await ownerRes.json();
-        
-        if (ownerData.success && ownerData.stats) {
-            totalStats.clicks += parseInt(ownerData.stats.clicks || 0);
-            totalStats.joins += parseInt(ownerData.stats.joins || 0);
-            totalStats.commission += parseFloat(ownerData.stats.commission || 0);
-            allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
-            link = ownerData.link || '';
+        // Find the owner of the team
+        let workspaceId = user.id;
+        if (isTeammate) {
+            const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${myEmail}`;
+            if (seatRows.length > 0) workspaceId = seatRows[0].owner_id;
         }
 
-        // 2. Get Teammate Stats (Auto-Pooling)
-        // REMOVED THE CRASHING "STATUS = 'active'" CHECK
-        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+        // Get the Boss's email
+        let creatorEmail = myEmail;
+        const settings = await sql`SELECT creator_email FROM bridge_settings WHERE user_id = ${workspaceId}`;
+        if (settings.length > 0 && settings[0].creator_email) {
+            creatorEmail = settings[0].creator_email.trim().toLowerCase();
+        }
 
-        if (teammates.length > 0) {
-            // Batch fetch profiles to get names and avatars safely
-            let profiles = {};
+        // Gather Team Roster
+        let emailsToFetch = [myEmail];
+        let teamEmails = [];
+
+        // If it's the Boss viewing the page, pull ALL teammates explicitly from the database
+        if (!isTeammate) {
+            if (creatorEmail !== myEmail) emailsToFetch.push(creatorEmail);
+            
+            // Extract teammates
+            const teamRows = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${workspaceId}`;
+            teamRows.forEach(r => {
+                if (r.teammate_email) {
+                    const clean = r.teammate_email.toLowerCase().trim();
+                    emailsToFetch.push(clean);
+                    teamEmails.push(clean);
+                }
+            });
+        }
+
+        const uniqueEmails = [...new Set(emailsToFetch)].filter(Boolean);
+
+        // BULLETPROOF CUSTOM LINK MAPPING (Handles both old email schema and new user_id schema)
+        const slugs = await sql`SELECT * FROM bridge_scout_links`;
+        const usersDb = await sql`SELECT id, email FROM users`;
+        const userMap = {};
+        usersDb.forEach(u => userMap[u.id] = u.email.toLowerCase().trim());
+
+        const slugMap = {};
+        slugs.forEach(s => {
+            // Map by direct email if it exists
+            if (s.email) slugMap[s.email.toLowerCase().trim()] = s.custom_slug;
+            // Map by user_id -> email if the newer schema is used
+            if (s.user_id && userMap[s.user_id]) slugMap[userMap[s.user_id]] = s.custom_slug;
+        });
+
+        // Fetch rich profiles from UNA (Avatars & Names)
+        let profiles = {};
+        try {
+            const profileRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+                body: JSON.stringify({ action: 'get_profiles', emails: uniqueEmails })
+            });
+            const profileData = await profileRes.json();
+            if (profileData.success && profileData.profiles) {
+                profiles = profileData.profiles;
+            }
+        } catch(e) { console.error(e); }
+
+        let combinedStats = { clicks: 0, joins: 0, commission: 0 };
+        let combinedReferrals = [];
+        let teamBreakdown = [];
+        let myLink = '';
+
+        for (const targetEmail of uniqueEmails) {
+            let activeLink = '';
+            let tJoins = 0;
+            let tCommission = 0;
+            const customSlug = slugMap[targetEmail];
+            const tProf = profiles[targetEmail] || {};
+
             try {
-                const emails = teammates.map(t => t.teammate_email);
-                const pRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
+                const response = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-                    body: JSON.stringify({ action: 'get_profiles', emails })
+                    body: JSON.stringify({ action: 'get_affiliate_stats', email: targetEmail })
                 });
-                const pData = await pRes.json();
-                if (pData.success) profiles = pData.profiles;
-            } catch(e) {}
-
-            for (const tm of teammates) {
+                const data = await response.json();
+                
+                // Smart Link Fallback
                 try {
-                    const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-                        body: JSON.stringify({ action: 'get_affiliate_stats', email: tm.teammate_email })
-                    });
-                    const tmData = await tmRes.json();
-                    
-                    let tClicks = 0, tJoins = 0, tComm = 0;
-                    let tmLink = tmData.link || '';
-
-                    if (tmData.success && tmData.stats) {
-                        tClicks = parseInt(tmData.stats.clicks || 0);
-                        tJoins = parseInt(tmData.stats.joins || 0);
-                        tComm = parseFloat(tmData.stats.commission || 0);
-                        
-                        totalStats.clicks += tClicks;
-                        totalStats.joins += tJoins;
-                        totalStats.commission += tComm;
-                        
-                        const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
-                        allReferrals = [...allReferrals, ...tmRefs];
+                    if (customSlug) {
+                        activeLink = `https://scout.selloutcrowds.com/${customSlug}`;
+                    } else if (data.success && data.link) {
+                        const urlParts = data.link.split('/');
+                        activeLink = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+                    } else if (tProf.url) {
+                        const urlParts = tProf.url.split('/');
+                        activeLink = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
                     }
+                } catch (err) {}
 
-                    // Check if they set up a custom slug
-                    try {
-                        const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${tm.teammate_email}`;
-                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
-                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
+                if (targetEmail === myEmail) {
+                    myLink = activeLink || myLink;
+                }
+
+                if (data.success && data.stats) {
+                    if (isTeammate) {
+                        if (targetEmail === myEmail) {
+                            combinedStats = data.stats;
+                            combinedReferrals = data.referrals || [];
                         }
-                    } catch(e) {}
+                    } else {
+                        combinedStats.joins += (data.stats.joins || 0);
+                        combinedStats.commission += parseFloat(data.stats.commission || 0);
+                        
+                        const taggedRefs = (data.referrals || []).map(r => ({
+                            ...r,
+                            recruited_by: (targetEmail === creatorEmail || targetEmail === myEmail) ? 'You' : targetEmail
+                        }));
+                        combinedReferrals = [...combinedReferrals, ...taggedRefs];
 
-                    const prof = profiles[tm.teammate_email] || {};
+                        tJoins = data.stats.joins || 0;
+                        tCommission = data.stats.commission || 0;
+                    }
+                }
+            } catch (err) {}
 
-                    // REMOVED THE > 0 FILTER. EVERYONE GETS PUSHED TO THE BOARD NOW.
-                    teamBreakdown.push({
-                        email: tm.teammate_email,
-                        name: prof.name || tm.teammate_email,
-                        avatar: prof.avatar || null,
-                        link: tmLink,
-                        clicks: tClicks,
-                        joins: tJoins,
-                        commission: tComm
-                    });
-                    
-                } catch(e) {}
+            // PUSH TO LEADERBOARD
+            if (!isTeammate && teamEmails.includes(targetEmail)) {
+                teamBreakdown.push({
+                    email: targetEmail,
+                    name: tProf.name || targetEmail,
+                    avatar: tProf.avatar || null,
+                    link: activeLink,
+                    joins: tJoins,
+                    commission: tCommission
+                });
             }
         }
+
+        combinedStats.commission = combinedStats.commission.toFixed(2);
+        combinedReferrals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         res.json({
             success: true,
-            stats: totalStats,
-            link: link,
-            referrals: allReferrals,
-            teamBreakdown: teamBreakdown
+            stats: combinedStats,
+            link: myLink,
+            referrals: combinedReferrals,
+            teamBreakdown: isTeammate ? [] : teamBreakdown
         });
 
-    } catch (error) {
-        res.status(500).json({ error: "Failed to fetch stats" });
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ error: "Failed to fetch affiliate stats" }); 
     }
 });
 
