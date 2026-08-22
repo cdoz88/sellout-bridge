@@ -298,7 +298,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                 {/* Boss Card */}
                                 {(() => {
                                     const ownerProf = profiles[ownerEmail] || {};
-                                    const ownerName = ownerProf.name || ownerEmail || 'Account Owner';
+                                    const ownerName = ownerProf.name || ownerEmail || 'Team Manager';
                                     const ownerAvatar = ownerProf.avatar;
                                     const ownerUrl = (ownerProf.url || 'https://selloutcrowds.com').replace('https://studio.selloutcrowds.com', 'https://selloutcrowds.com');
 
@@ -318,7 +318,7 @@ export default function TeammatesApp({ session, unaData, activeTab, setActiveTab
                                                     {ownerName} {ownerEmail && ownerEmail.toLowerCase() === myEmail ? <span className="text-gray-500 font-normal ml-1">(You)</span> : (!isTeammate ? <span className="text-gray-500 font-normal ml-1">(You)</span> : '')}
                                                 </p>
                                                 <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{ownerEmail !== ownerName ? ownerEmail : ''}</p>
-                                                <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Account Owner</p>
+                                                <p className="text-[10px] text-[#38bdf8] uppercase tracking-widest font-black mt-1">Team Manager</p>
                                             </div>
                                             <a href={ownerUrl} target="_blank" rel="noopener noreferrer" className="ml-auto relative z-10 p-2 text-gray-500 hover:text-[#38bdf8] bg-white/5 hover:bg-white/10 rounded-lg transition-colors shrink-0" title="View Profile">
                                                 <ExternalLink size={16} />
