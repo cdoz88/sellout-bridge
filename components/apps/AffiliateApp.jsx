@@ -34,7 +34,8 @@ export default function AffiliateApp({ session, unaData, activeTab = 'dashboard'
             return;
         }
 
-        fetch('/api/affiliates/stats', {
+        // USING THE NEW GUARANTEED ENDPOINT
+        fetch('/api/scout/team-stats', {
             headers: { 'Authorization': `Bearer ${session}` }
         })
         .then(res => res.json())
