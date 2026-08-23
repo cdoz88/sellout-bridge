@@ -207,6 +207,7 @@ router.get('/api/affiliates/stats', async (req, res) => {
         // --- PRE-FETCH ALL SLUGS FOR BULLETPROOF UNA USERNAME MAPPING ---
         let usernameToSlug = {};
         try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
             const slugs = await sql`SELECT custom_slug, una_username FROM bridge_scout_links`;
             slugs.forEach(s => {
                 if (s.custom_slug && s.una_username) {
@@ -232,16 +233,21 @@ router.get('/api/affiliates/stats', async (req, res) => {
             totalStats.joins += parseInt(ownerData.stats.joins || 0);
             totalStats.commission += parseFloat(ownerData.stats.commission || 0);
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
-            link = ownerData.link || '';
-
-            // Fetch owner's custom link properly:
+            
+            // --- APPLY USERNAME MAP FOR OWNER ---
             try {
-                const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
-                if (ownerSlugRows.length > 0 && ownerSlugRows[0].custom_slug) {
-                    link = `https://scout.selloutcrowds.com/${ownerSlugRows[0].custom_slug}`;
-                } else if (link) {
+                link = ownerData.link || '';
+                if (link) {
                     const urlParts = link.split('/');
-                    link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+                    const rawUsername = urlParts[urlParts.length - 1];
+                    const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
+                    const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
+                    
+                    if (customSlug) {
+                        link = `https://scout.selloutcrowds.com/${customSlug}`;
+                    } else {
+                        link = `https://scout.selloutcrowds.com/${rawUsername}`;
+                    }
                 }
             } catch(e) {}
         }
@@ -288,12 +294,11 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         allReferrals = [...allReferrals, ...tmRefs];
                     }
 
-                    // --- THE BULLETPROOF LINK FIX ---
-                    if (tmData && tmData.link) {
+                    // --- APPLY USERNAME MAP FOR TEAMMATE SAFELY ---
+                    if (tmData.success && tmData.link) {
                         const urlParts = tmData.link.split('/');
                         const rawUsername = urlParts[urlParts.length - 1];
                         const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
-                        
                         const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
                         
                         if (customSlug) {
