@@ -192,7 +192,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling and Bulletproof Link Logic) ---
+// --- Affiliate Stats API (With Auto-Pooling) ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -207,14 +207,13 @@ router.get('/api/affiliates/stats', async (req, res) => {
         // --- PRE-FETCH ALL SLUGS FOR BULLETPROOF UNA USERNAME MAPPING ---
         let usernameToSlug = {};
         try {
-            await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
             const slugs = await sql`SELECT custom_slug, una_username FROM bridge_scout_links`;
             slugs.forEach(s => {
                 if (s.custom_slug && s.una_username) {
-                    const decoded = decodeURIComponent(s.una_username).toLowerCase().trim();
                     const raw = s.una_username.toLowerCase().trim();
-                    usernameToSlug[decoded] = s.custom_slug;
+                    const decoded = decodeURIComponent(raw);
                     usernameToSlug[raw] = s.custom_slug;
+                    usernameToSlug[decoded] = s.custom_slug;
                 }
             });
         } catch(e) { console.error("Failed to build usernameToSlug map", e); }
@@ -235,19 +234,14 @@ router.get('/api/affiliates/stats', async (req, res) => {
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
             link = ownerData.link || '';
 
-            // --- APPLY USERNAME MAP FOR OWNER ---
+            // Fetch owner's custom link properly:
             try {
-                if (ownerData.link) {
-                    const urlParts = ownerData.link.split('/');
-                    const rawUsername = urlParts[urlParts.length - 1];
-                    const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
-                    const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
-                    
-                    if (customSlug) {
-                        link = `https://scout.selloutcrowds.com/${customSlug}`;
-                    } else {
-                        link = `https://scout.selloutcrowds.com/${rawUsername}`;
-                    }
+                const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
+                if (ownerSlugRows.length > 0 && ownerSlugRows[0].custom_slug) {
+                    link = `https://scout.selloutcrowds.com/${ownerSlugRows[0].custom_slug}`;
+                } else if (link) {
+                    const urlParts = link.split('/');
+                    link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
                 }
             } catch(e) {}
         }
@@ -294,11 +288,12 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         allReferrals = [...allReferrals, ...tmRefs];
                     }
 
-                    // --- APPLY USERNAME MAP FOR TEAMMATE SAFELY ---
-                    if (tmData.success && tmData.link) {
+                    // --- THE BULLETPROOF LINK FIX ---
+                    if (tmData && tmData.link) {
                         const urlParts = tmData.link.split('/');
                         const rawUsername = urlParts[urlParts.length - 1];
                         const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
+                        
                         const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
                         
                         if (customSlug) {
