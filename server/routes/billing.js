@@ -144,8 +144,8 @@ router.get('/api/cron/issue-credits', async (req, res) => {
                     totalEarned += parseFloat(ownerData.stats.commission || 0);
                 }
 
-                // 2. Get Teammate Auto-Pool Stats (REMOVED CRASHING STATUS CHECK)
-                const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id}`;
+                // 2. Get Teammate Auto-Pool Stats
+                const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${s.user_id} AND status = 'active'`;
                 for (const tm of teammates) {
                     try {
                         const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -191,7 +191,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling) ---
+// --- Affiliate Stats API (With Auto-Pooling and Custom Link Lookups) ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -202,6 +202,13 @@ router.get('/api/affiliates/stats', async (req, res) => {
         let allReferrals = [];
         let link = '';
         let teamBreakdown = [];
+
+        // Check for Boss's custom slug
+        let ownerCustomSlug = null;
+        try {
+            const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
+            if (ownerSlugRows.length > 0) ownerCustomSlug = ownerSlugRows[0].custom_slug;
+        } catch(e) {}
 
         // 1. Get Owner Stats
         const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -216,38 +223,73 @@ router.get('/api/affiliates/stats', async (req, res) => {
             totalStats.joins += parseInt(ownerData.stats.joins || 0);
             totalStats.commission += parseFloat(ownerData.stats.commission || 0);
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
-            link = ownerData.link || '';
+            
+            if (ownerCustomSlug) {
+                link = `https://scout.selloutcrowds.com/${ownerCustomSlug}`;
+            } else if (ownerData.link) {
+                const urlParts = ownerData.link.split('/');
+                link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+            }
         }
 
         // 2. Get Teammate Stats (Auto-Pooling)
-        // REMOVED THE CRASHING "STATUS = 'active'" CHECK
-        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
+        const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id} AND status = 'active'`;
 
         if (teammates.length > 0) {
-            // Batch fetch profiles to get names and avatars safely
+            // Map teammate emails to user_id to correctly fetch custom slugs!
+            const tmEmails = teammates.map(t => t.teammate_email.trim().toLowerCase());
+            const emailToUserId = {};
+            let slugMap = {};
+
+            try {
+                const userRows = await sql`SELECT id, email FROM users WHERE email = ANY(${tmEmails})`;
+                const userIds = [];
+                userRows.forEach(u => {
+                    emailToUserId[u.email.trim().toLowerCase()] = u.id;
+                    userIds.push(u.id);
+                });
+
+                if (userIds.length > 0) {
+                    const slugRows = await sql`SELECT user_id, custom_slug FROM bridge_scout_links WHERE user_id = ANY(${userIds})`;
+                    slugRows.forEach(s => slugMap[s.user_id] = s.custom_slug);
+                }
+            } catch(e) { console.error("Error mapping slugs:", e); }
+
+            // Pre-fetch rich profiles (Avatars & Names)
             let profiles = {};
             try {
-                const emails = teammates.map(t => t.teammate_email);
                 const pRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-                    body: JSON.stringify({ action: 'get_profiles', emails })
+                    body: JSON.stringify({ action: 'get_profiles', emails: tmEmails })
                 });
                 const pData = await pRes.json();
                 if (pData.success) profiles = pData.profiles;
             } catch(e) {}
 
             for (const tm of teammates) {
+                const cleanEmail = tm.teammate_email.trim().toLowerCase();
                 try {
                     const tmRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-                        body: JSON.stringify({ action: 'get_affiliate_stats', email: tm.teammate_email })
+                        body: JSON.stringify({ action: 'get_affiliate_stats', email: cleanEmail })
                     });
                     const tmData = await tmRes.json();
                     
                     let tClicks = 0, tJoins = 0, tComm = 0;
-                    let tmLink = tmData.link || '';
+                    let tmLink = '';
+
+                    // Lookup custom slug using the mapped user_id
+                    const tmUserId = emailToUserId[cleanEmail];
+                    const customSlug = tmUserId ? slugMap[tmUserId] : null;
+
+                    if (customSlug) {
+                        tmLink = `https://scout.selloutcrowds.com/${customSlug}`;
+                    } else if (tmData.link) {
+                        const urlParts = tmData.link.split('/');
+                        tmLink = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+                    }
 
                     if (tmData.success && tmData.stats) {
                         tClicks = parseInt(tmData.stats.clicks || 0);
@@ -262,17 +304,9 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         allReferrals = [...allReferrals, ...tmRefs];
                     }
 
-                    // Check if they set up a custom slug
-                    try {
-                        const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${tm.teammate_email}`;
-                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
-                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
-                        }
-                    } catch(e) {}
+                    const prof = profiles[cleanEmail] || {};
 
-                    const prof = profiles[tm.teammate_email] || {};
-
-                    // REMOVED THE > 0 FILTER. EVERYONE GETS PUSHED TO THE BOARD NOW.
+                    // Always push teammates to the breakdown, even if stats are 0
                     teamBreakdown.push({
                         email: tm.teammate_email,
                         name: prof.name || tm.teammate_email,
@@ -289,7 +323,11 @@ router.get('/api/affiliates/stats', async (req, res) => {
         
         res.json({
             success: true,
-            stats: totalStats,
+            stats: {
+                clicks: totalStats.clicks,
+                joins: totalStats.joins,
+                commission: totalStats.commission.toFixed(2)
+            },
             link: link,
             referrals: allReferrals,
             teamBreakdown: teamBreakdown
