@@ -231,7 +231,7 @@ router.get('/api/affiliates/stats', async (req, res) => {
             } catch(e) {}
         }
 
-        // 2. Get Teammate Stats (Auto-Pooling)
+        // 2. Get Teammate Auto-Pool Stats
         const teammates = await sql`SELECT teammate_email FROM bridge_team_seats WHERE owner_id = ${user.id}`;
 
         if (teammates.length > 0) {
@@ -279,16 +279,30 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         }
                     }
 
-                    // Look up custom slug using the user_id (mapped from their email)
+                    // --- SURGICAL FIX: SMART LINK LOOKUP ---
+                    // Look up custom slug using their email OR the una_username extracted from their default link
                     try {
-                        const userMatch = await sql`SELECT id FROM users WHERE email = ${tm.teammate_email.trim().toLowerCase()}`;
-                        if (userMatch.length > 0) {
-                            const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${userMatch[0].id}`;
-                            if (slugRows.length > 0 && slugRows[0].custom_slug) {
-                                tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
-                            }
+                        let slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${tm.teammate_email.trim().toLowerCase()}`;
+                        
+                        if (slugRows.length === 0 && tmData.link) {
+                            const urlParts = tmData.link.split('/');
+                            const defaultUsernameRaw = urlParts[urlParts.length - 1];
+                            const decodedUsername = decodeURIComponent(defaultUsernameRaw).toLowerCase().trim();
+                            const rawUsername = defaultUsernameRaw.toLowerCase().trim();
+                            
+                            slugRows = await sql`
+                                SELECT custom_slug FROM bridge_scout_links 
+                                WHERE LOWER(una_username) = ${decodedUsername} OR LOWER(una_username) = ${rawUsername}
+                            `;
                         }
-                    } catch(e) {}
+                        
+                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
+                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
+                        }
+                    } catch(e) {
+                        console.error("Failed custom link lookup for teammate", e);
+                    }
+                    // ---------------------------------------
 
                     const prof = profiles[tm.teammate_email] || {};
 
