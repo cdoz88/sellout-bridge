@@ -192,7 +192,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling) ---
+// --- Affiliate Stats API (With Auto-Pooling & Safe Username Mapping) ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -207,14 +207,14 @@ router.get('/api/affiliates/stats', async (req, res) => {
         // --- PRE-FETCH ALL SLUGS FOR BULLETPROOF UNA USERNAME MAPPING ---
         let usernameToSlug = {};
         try {
-            await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
-            const slugs = await sql`SELECT custom_slug, una_username FROM bridge_scout_links`;
+            const slugs = await sql`SELECT * FROM bridge_scout_links`;
             slugs.forEach(s => {
                 if (s.custom_slug && s.una_username) {
-                    const raw = s.una_username.toLowerCase().trim();
-                    const decoded = decodeURIComponent(raw);
-                    usernameToSlug[raw] = s.custom_slug;
-                    usernameToSlug[decoded] = s.custom_slug;
+                    try {
+                        const raw = s.una_username.toLowerCase().trim();
+                        usernameToSlug[raw] = s.custom_slug;
+                        usernameToSlug[decodeURIComponent(raw)] = s.custom_slug;
+                    } catch(err) {}
                 }
             });
         } catch(e) { console.error("Failed to build usernameToSlug map", e); }
@@ -233,21 +233,16 @@ router.get('/api/affiliates/stats', async (req, res) => {
             totalStats.joins += parseInt(ownerData.stats.joins || 0);
             totalStats.commission += parseFloat(ownerData.stats.commission || 0);
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
-            
-            // --- APPLY USERNAME MAP FOR OWNER ---
+            link = ownerData.link || '';
+
+            // Fetch owner's custom link properly:
             try {
-                link = ownerData.link || '';
-                if (link) {
+                const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
+                if (ownerSlugRows.length > 0 && ownerSlugRows[0].custom_slug) {
+                    link = `https://scout.selloutcrowds.com/${ownerSlugRows[0].custom_slug}`;
+                } else if (link) {
                     const urlParts = link.split('/');
-                    const rawUsername = urlParts[urlParts.length - 1];
-                    const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
-                    const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
-                    
-                    if (customSlug) {
-                        link = `https://scout.selloutcrowds.com/${customSlug}`;
-                    } else {
-                        link = `https://scout.selloutcrowds.com/${rawUsername}`;
-                    }
+                    link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
                 }
             } catch(e) {}
         }
@@ -292,19 +287,23 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         
                         const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
                         allReferrals = [...allReferrals, ...tmRefs];
-                    }
-
-                    // --- APPLY USERNAME MAP FOR TEAMMATE SAFELY ---
-                    if (tmData.success && tmData.link) {
-                        const urlParts = tmData.link.split('/');
-                        const rawUsername = urlParts[urlParts.length - 1];
-                        const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
-                        const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
                         
-                        if (customSlug) {
-                            tmLink = `https://scout.selloutcrowds.com/${customSlug}`;
-                        } else {
-                            tmLink = `https://scout.selloutcrowds.com/${rawUsername}`;
+                        // Default to the base UNA username link, then check the map for a custom slug
+                        if (tmData.link) {
+                            const urlParts = tmData.link.split('/');
+                            const defaultUsernameRaw = urlParts[urlParts.length - 1];
+                            tmLink = `https://scout.selloutcrowds.com/${defaultUsernameRaw}`;
+                            
+                            try {
+                                const raw = defaultUsernameRaw.toLowerCase().trim();
+                                let decoded = raw;
+                                try { decoded = decodeURIComponent(raw); } catch(err) {}
+                                
+                                const customSlug = usernameToSlug[decoded] || usernameToSlug[raw];
+                                if (customSlug) {
+                                    tmLink = `https://scout.selloutcrowds.com/${customSlug}`;
+                                }
+                            } catch(err) {}
                         }
                     }
 
