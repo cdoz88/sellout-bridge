@@ -2,6 +2,7 @@ import express from 'express';
 import { sql, getAuthenticatedUser, ensureSchema, ensureExpansionsSubscription, grantCommunityAccess, UNA_BASE_URL, UNA_SECRET } from '../config.js';
 
 const router = express.Router();
+const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
 // --- WORKSPACE ENGINE ---
 const getWorkspaceId = async (user) => {
@@ -74,11 +75,13 @@ router.post('/api/team/invite', async (req, res) => {
         const currentSeats = parseInt(tRows[0].count) || 0;
         const newTotalSeats = currentSeats + 1;
         
+        const isAdmin = Number(user.role) === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
         let freeSeats = 0;
-        if (Number(user.role) === 17) freeSeats = 6;
+        if (Number(user.role) === 12 || isAdmin) freeSeats = Infinity;
+        else if (Number(user.role) === 17) freeSeats = 6;
         else if (Number(user.role) === 16) freeSeats = 3;
 
-        const billableSeats = Math.max(0, newTotalSeats - freeSeats);
+        const billableSeats = freeSeats === Infinity ? 0 : Math.max(0, newTotalSeats - freeSeats);
 
         try { 
             await ensureExpansionsSubscription(user, billableSeats); 
@@ -146,11 +149,13 @@ router.post('/api/team/revoke', async (req, res) => {
         const currentSeats = parseInt(tRows[0].count) || 0;
         const newTotalSeats = Math.max(0, currentSeats - 1);
 
+        const isAdmin = Number(user.role) === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
         let freeSeats = 0;
-        if (Number(user.role) === 17) freeSeats = 6;
+        if (Number(user.role) === 12 || isAdmin) freeSeats = Infinity;
+        else if (Number(user.role) === 17) freeSeats = 6;
         else if (Number(user.role) === 16) freeSeats = 3;
 
-        const billableSeats = Math.max(0, newTotalSeats - freeSeats);
+        const billableSeats = freeSeats === Infinity ? 0 : Math.max(0, newTotalSeats - freeSeats);
 
         try { await ensureExpansionsSubscription(user, billableSeats); } catch (e) { console.error(e); }
 

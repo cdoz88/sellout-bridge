@@ -101,10 +101,15 @@ router.get('/api/cron/sync-meters', async (req, res) => {
             try {
                 await stripe.billing.meterEvents.create({
                     event_name: 'bridged_users_snapshot',
-                    payload: { value: totalBillableUsers.toString(), stripe_customer_id: s.platform_customer_id },
+                    payload: { 
+                        value: totalBillableUsers.toString(), 
+                        stripe_customer: s.platform_customer_id 
+                    },
                 });
                 eventsSent++;
-            } catch(err) {}
+            } catch(err) {
+                console.error(`Failed to push meter for customer ${s.platform_customer_id}:`, err.message);
+            }
         }
         res.json({ success: true, eventsSent });
     } catch (error) { res.status(500).json({ error: "Cron Failed" }); }
@@ -192,7 +197,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling and Bulletproof Link Mapping) ---
+// --- Affiliate Stats API (With Auto-Pooling) ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -203,20 +208,6 @@ router.get('/api/affiliates/stats', async (req, res) => {
         let allReferrals = [];
         let link = '';
         let teamBreakdown = [];
-
-        // +++ SURGICAL INSERT: SAFELY BUILD USERNAME-TO-SLUG MAP +++
-        let usernameToSlug = {};
-        try {
-            const slugs = await sql`SELECT custom_slug, una_username FROM bridge_scout_links`;
-            slugs.forEach(s => {
-                if (s.custom_slug && s.una_username) {
-                    const raw = s.una_username.toLowerCase().trim();
-                    usernameToSlug[raw] = s.custom_slug;
-                    try { usernameToSlug[decodeURIComponent(raw).toLowerCase().trim()] = s.custom_slug; } catch(e) {}
-                }
-            });
-        } catch(e) { console.error("Failed to build usernameToSlug map", e); }
-        // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         // 1. Get Owner Stats
         const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -233,26 +224,16 @@ router.get('/api/affiliates/stats', async (req, res) => {
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
             link = ownerData.link || '';
 
-            // +++ SURGICAL REPLACEMENT: OWNER LINK MAPPING +++
+            // Fetch owner's custom link properly:
             try {
-                if (link) {
+                const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
+                if (ownerSlugRows.length > 0 && ownerSlugRows[0].custom_slug) {
+                    link = `https://scout.selloutcrowds.com/${ownerSlugRows[0].custom_slug}`;
+                } else if (link) {
                     const urlParts = link.split('/');
-                    const rawUsername = urlParts[urlParts.length - 1];
-                    
-                    // Safely decode to prevent API crashes
-                    let decoded = rawUsername.toLowerCase().trim();
-                    try { decoded = decodeURIComponent(rawUsername).toLowerCase().trim(); } catch(e) {}
-                    
-                    const customSlug = usernameToSlug[decoded] || usernameToSlug[rawUsername.toLowerCase().trim()];
-                    
-                    if (customSlug) {
-                        link = `https://scout.selloutcrowds.com/${customSlug}`;
-                    } else {
-                        link = `https://scout.selloutcrowds.com/${rawUsername}`;
-                    }
+                    link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
                 }
             } catch(e) {}
-            // ++++++++++++++++++++++++++++++++++++++++++++++++
         }
 
         // 2. Get Teammate Stats (Auto-Pooling)
@@ -296,25 +277,31 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
                         allReferrals = [...allReferrals, ...tmRefs];
                         
-                        // +++ SURGICAL REPLACEMENT: TEAMMATE LINK MAPPING +++
+                        // Default to the base UNA username link
                         if (tmData.link) {
                             const urlParts = tmData.link.split('/');
-                            const rawUsername = urlParts[urlParts.length - 1];
-                            
-                            // Safely decode to prevent API crashes
-                            let decoded = rawUsername.toLowerCase().trim();
-                            try { decoded = decodeURIComponent(rawUsername).toLowerCase().trim(); } catch(e) {}
-                            
-                            const customSlug = usernameToSlug[decoded] || usernameToSlug[rawUsername.toLowerCase().trim()];
-                            
-                            if (customSlug) {
-                                tmLink = `https://scout.selloutcrowds.com/${customSlug}`;
-                            } else {
-                                tmLink = `https://scout.selloutcrowds.com/${rawUsername}`;
+                            tmLink = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+                        }
+                    }
+
+                    // Look up custom slug using the email (with fallback to user_id)
+                    try {
+                        try { await sql`ALTER TABLE bridge_scout_links ADD COLUMN IF NOT EXISTS email VARCHAR(255)`; } catch(e){}
+                        const cleanEmail = tm.teammate_email.trim().toLowerCase();
+                        
+                        const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${cleanEmail}`;
+                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
+                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
+                        } else {
+                            const userMatch = await sql`SELECT id FROM users WHERE email = ${cleanEmail}`;
+                            if (userMatch.length > 0) {
+                                const fallbackRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${userMatch[0].id}`;
+                                if (fallbackRows.length > 0 && fallbackRows[0].custom_slug) {
+                                    tmLink = `https://scout.selloutcrowds.com/${fallbackRows[0].custom_slug}`;
+                                }
                             }
                         }
-                        // +++++++++++++++++++++++++++++++++++++++++++++++++++
-                    }
+                    } catch(e) {}
 
                     const prof = profiles[tm.teammate_email] || {};
 
@@ -353,6 +340,8 @@ router.post('/api/scout/custom-link', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
+        try { await sql`ALTER TABLE bridge_scout_links ADD COLUMN IF NOT EXISTS email VARCHAR(255)`; } catch(e){}
+
         const { customSlug, unaUsername } = req.body;
         if (!customSlug || !unaUsername) return res.status(400).json({ error: "Missing parameters" });
         
@@ -363,7 +352,9 @@ router.post('/api/scout/custom-link', async (req, res) => {
             return res.status(400).json({ error: "That custom link is already taken!" });
         }
         
-        await sql`INSERT INTO bridge_scout_links (user_id, custom_slug, una_username) VALUES (${user.id}, ${cleanSlug}, ${unaUsername}) ON CONFLICT (user_id) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username`;
+        const userEmail = user.email.trim().toLowerCase();
+
+        await sql`INSERT INTO bridge_scout_links (user_id, custom_slug, una_username, email) VALUES (${user.id}, ${cleanSlug}, ${unaUsername}, ${userEmail}) ON CONFLICT (user_id) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username, email = EXCLUDED.email`;
         res.json({ success: true, slug: cleanSlug });
     } catch (error) {
         res.status(500).json({ error: "Failed to save custom link" });
@@ -431,14 +422,16 @@ router.get('/api/billing-estimate', async (req, res) => {
         const tRows = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${user.id}`;
         const teamCount = parseInt(tRows[0].count) || 0;
 
+        const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
+        const isAdmin = Number(user.role) === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
         const isEnterprise = Number(user.role) === 12;
 
         let freeSeats = 0;
-        if (isEnterprise) freeSeats = Infinity;
+        if (isEnterprise || isAdmin) freeSeats = Infinity;
         else if (Number(user.role) === 17) freeSeats = 6;
         else if (Number(user.role) === 16) freeSeats = 3;
 
-        const billableTeamCount = Math.max(0, teamCount - freeSeats);
+        const billableTeamCount = freeSeats === Infinity ? 0 : Math.max(0, teamCount - freeSeats);
 
         let activeStripeCount = 0;
         if (stripeAccountId && process.env.STRIPE_SECRET_KEY) {

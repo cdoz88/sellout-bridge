@@ -17,7 +17,8 @@ export const METERED_PRICE_ID = 'price_1TTjNp6y5pIVcSscCLCUffP8';
 export const ADMIN_EMAILS = ['info@ffadvice.com', 'info@fsan.com', 'info@selloutcrowds.com', 'corey@betheremarketing.com'];
 
 export async function ensureExpansionsSubscription(user, exactTeammateQuantity = null) {
-    if (Number(user.role) === 12) {
+    const isAdmin = Number(user.role) === 3 || (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+    if (Number(user.role) === 12 || isAdmin) {
         return { customerId: null, subscription: null };
     }
 
