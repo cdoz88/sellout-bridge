@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator, X } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {
@@ -9,6 +9,7 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
 
     const [billingEstimate, setBillingEstimate] = useState(null);
     const [isBillingLoading, setIsBillingLoading] = useState(true);
+    const [showBillingModal, setShowBillingModal] = useState(false);
 
     // New Dashboard Metrics State
     const [dashMetrics, setDashMetrics] = useState({ upcomingPosts: 0, upcomingEmails: 0, teamUsed: 0 });
@@ -94,19 +95,18 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
             {/* --- SECTION 1: OPERATIONS & BILLING HUB --- */}
             {hasBillingAccess && !isBillingLoading && billingEstimate && (
                 <div className="mb-8">
-                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 pl-2">Operations & Billing Hub</h3>
+                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4 pl-2">Operations</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         
                         {/* Teammates Allowed vs Used */}
-                        <div className="bg-[#111] border border-white/5 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white border border-white/10">
-                                    <Users size={18} />
+                        <div onClick={() => handleAppSwitch('teammates', 'directory')} className="bg-[#111] border border-white/5 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl cursor-pointer hover:border-white/20 transition-colors group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white border border-white/10 group-hover:text-[#9df01c] transition-colors shrink-0">
+                                    <Users size={16} />
                                 </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 bg-black px-2 py-1 rounded-md border border-white/5">Seats</span>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white transition-colors">Teammates Assigned</h4>
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Teammates Assigned</p>
                                 <div className="flex items-end gap-2">
                                     <span className="text-3xl font-black text-white leading-none">{dashMetrics.teamUsed}</span>
                                     <span className="text-xs font-bold text-gray-500 mb-1">
@@ -117,35 +117,37 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                         </div>
 
                         {/* Bridged Users */}
-                        <div className="bg-[#111] border border-white/5 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white border border-white/10">
-                                    <Link2 size={18} />
+                        <div onClick={() => handleAppSwitch('bridge', 'stripe')} className="bg-[#111] border border-white/5 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl cursor-pointer hover:border-white/20 transition-colors group">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white border border-white/10 group-hover:text-[#9df01c] transition-colors shrink-0">
+                                    <Link2 size={16} />
                                 </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 bg-black px-2 py-1 rounded-md border border-white/5">Integrations</span>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white transition-colors">Active Bridged Users</h4>
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Active Bridged Users</p>
                                 <span className="text-3xl font-black text-white leading-none">{billingEstimate.bridgedCount}</span>
                             </div>
                         </div>
 
                         {/* Upcoming Monthly Invoice */}
-                        <div className="bg-[#9df01c]/10 border border-[#9df01c]/20 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl group hover:bg-[#9df01c]/20 transition-colors cursor-pointer relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 text-[#9df01c] pointer-events-none group-hover:scale-110 transition-transform">
+                        <div onClick={() => setShowBillingModal(true)} className="bg-[#111] border border-[#eab308]/30 rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-xl group hover:border-[#eab308] transition-colors cursor-pointer relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 text-[#eab308] pointer-events-none group-hover:scale-110 transition-transform">
                                 <Calculator size={80} className="-mt-4 -mr-4" />
                             </div>
                             
-                            <div className="flex items-start justify-between mb-4 relative z-10">
-                                <div className="w-10 h-10 rounded-xl bg-[#9df01c] flex items-center justify-center text-black border border-[#9df01c]/50">
-                                    <CreditCard size={18} />
+                            <div className="flex items-center gap-3 mb-4 relative z-10">
+                                <div className="w-8 h-8 rounded-lg bg-[#eab308]/10 flex items-center justify-center text-[#eab308] border border-[#eab308]/20 shrink-0">
+                                    <CreditCard size={16} />
                                 </div>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#9df01c] bg-black px-2 py-1 rounded-md border border-[#9df01c]/30">Auto-Billed</span>
+                                <h4 className="text-[10px] font-black uppercase tracking-widest text-[#eab308]">Upcoming Add-On Charges</h4>
                             </div>
+                            
                             <div className="relative z-10">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#9df01c] mb-1">Upcoming Add-On Charges</p>
-                                <span className="text-3xl font-black text-[#9df01c] leading-none">${monthlyTotal.toFixed(2)}</span>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-[#9df01c]/70 mt-2 flex items-center gap-1">Click to view breakdown <ArrowRight size={8}/></p>
+                                <div className="flex items-end gap-2">
+                                    <span className="text-3xl font-black text-[#eab308] leading-none">${monthlyTotal.toFixed(2)}</span>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest text-gray-500 mb-1">Auto-Billed</span>
+                                </div>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-[#eab308]/70 mt-2 flex items-center gap-1">Click to view breakdown <ArrowRight size={8}/></p>
                             </div>
                         </div>
 
@@ -344,6 +346,61 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                     </div>
                 </div>
             </div>
+
+            {/* --- POPUP MODAL: BILLING BREAKDOWN --- */}
+            {showBillingModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#111] border border-white/10 rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative flex flex-col">
+                        <button onClick={() => setShowBillingModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors z-10"><X size={20}/></button>
+                        
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 bg-[#eab308]/10 border border-[#eab308]/20 rounded-xl flex items-center justify-center text-[#eab308] shrink-0">
+                                <Calculator size={24}/>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white m-0 leading-none">Billing Breakdown</h3>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Estimated Monthly Add-Ons</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div className="flex justify-between items-center bg-black border border-white/5 p-4 rounded-xl">
+                                <div>
+                                    <p className="text-xs font-bold text-white mb-0.5">Teammate Seats</p>
+                                    <p className="text-[9px] text-gray-500 font-mono">{dashMetrics.teamUsed} total ({billingEstimate.freeSeats === Infinity ? 'Unlimited' : billingEstimate.freeSeats} free)</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-black text-white">${(billingEstimate.isEnterprise ? 0 : (billingEstimate.billableTeamCount * 2)).toFixed(2)}</p>
+                                    <p className="text-[9px] text-gray-500 font-mono">{billingEstimate.isEnterprise ? '0' : billingEstimate.billableTeamCount} @ $2.00</p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center bg-black border border-white/5 p-4 rounded-xl">
+                                <div>
+                                    <p className="text-xs font-bold text-white mb-0.5">Bridged Users</p>
+                                    <p className="text-[9px] text-gray-500 font-mono">Synced community members</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-black text-white">${(billingEstimate.isEnterprise ? 0 : (billingEstimate.bridgedCount * 0.5)).toFixed(2)}</p>
+                                    <p className="text-[9px] text-gray-500 font-mono">{billingEstimate.isEnterprise ? '0' : billingEstimate.bridgedCount} @ $0.50</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-white/10 pt-4 flex justify-between items-end">
+                            <div>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Estimated Total</p>
+                                <p className="text-xs text-gray-400">Auto-billed via Stripe</p>
+                            </div>
+                            <span className="text-3xl font-black text-[#eab308] leading-none">${monthlyTotal.toFixed(2)}</span>
+                        </div>
+                        
+                        <button onClick={() => setShowBillingModal(false)} className="w-full mt-8 py-4 rounded-xl font-black uppercase tracking-widest text-[11px] bg-white/10 text-white hover:bg-white/20 transition-colors">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
