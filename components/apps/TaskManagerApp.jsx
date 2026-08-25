@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Search, Archive, RotateCcw, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star } from 'lucide-react';
+import { CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star, Loader2, Archive, RotateCcw } from 'lucide-react';
 
 // --- INLINED CONSTANTS & HELPERS ---
 const API_URL = 'https://api.fytsolutions.com/api.php';
@@ -403,7 +403,7 @@ function ProjectModal({ editingProject, setEditingProject, handleSaveProject, ha
             {editingProject.id && (
               editingProject.isArchived 
                 ? <button type="button" onClick={() => handlePermanentDeleteProject(editingProject.id)} className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium mr-auto">Delete Forever</button>
-                : <button type="button" onClick={() => handleArchiveProject(editingProject)} className="px-4 py-2 text-amber-600 hover:bg-amber-50 rounded-lg font-medium mr-auto">Archive</button>
+                : <button type="button" onClick={() => handleArchiveProject(editingProject, true)} className="px-4 py-2 text-amber-600 hover:bg-amber-50 rounded-lg font-medium mr-auto">Archive</button>
             )}
             <button type="button" onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium">Cancel</button>
             <button type="submit" form="projectForm" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">{editingProject.id ? 'Save' : 'Create Project'}</button>
@@ -411,17 +411,17 @@ function ProjectModal({ editingProject, setEditingProject, handleSaveProject, ha
         </div>
       </div>
     );
-  }
+}
 
 // --- MAIN APPLICATION COMPONENT ---
-export default function TaskManagerApp({ session, unaData }) {
+export default function TaskManagerApp({ session, unaData, activeTab }) {
     const [projects, setProjects] = useState([]);
     const [tasks, setTasks] = useState([]);
-    const [users, setUsers] = useState([]); // Array to hold team members for assignees
+    const [users, setUsers] = useState([]); 
     const [isLoading, setIsLoading] = useState(true);
 
     const [activeProjectId, setActiveProjectId] = useState(null);
-    const [viewMode, setViewMode] = useState('board'); // 'board' or 'list'
+    const [viewMode, setViewMode] = useState('board'); 
     
     // Modal States
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -441,16 +441,14 @@ export default function TaskManagerApp({ session, unaData }) {
 
     const fetchTaskData = async () => {
         try {
-            // 1. Fetch the team roster for the assignees list
             const teamRes = await fetch('/api/team', { headers: { 'Authorization': `Bearer ${session}` } });
             const teamData = await teamRes.json();
             
-            let fetchedUsers = [currentUser]; // Always include yourself
+            let fetchedUsers = [currentUser]; 
             
             if (teamData.teammates) {
                 teamData.teammates.forEach(tm => {
                     const prof = teamData.profiles?.[tm.teammate_email] || {};
-                    // Map emails as user IDs so it links properly to the backend text fields
                     if (tm.teammate_email !== unaData?.user?.email) {
                         fetchedUsers.push({
                             id: tm.teammate_email,
@@ -462,7 +460,6 @@ export default function TaskManagerApp({ session, unaData }) {
             }
             setUsers(fetchedUsers);
 
-            // 2. Fetch the actual projects and tasks
             const res = await fetch('/api/tasks/data', { headers: { 'Authorization': `Bearer ${session}` } });
             const data = await res.json();
             
@@ -470,7 +467,8 @@ export default function TaskManagerApp({ session, unaData }) {
                 setProjects(data.projects || []);
                 setTasks(data.tasks || []);
                 if (data.projects?.length > 0 && !activeProjectId) {
-                    setActiveProjectId(data.projects[0].id);
+                    const firstActive = data.projects.find(p => !p.isArchived);
+                    if (firstActive) setActiveProjectId(firstActive.id);
                 }
             }
         } catch (e) {
@@ -497,21 +495,21 @@ export default function TaskManagerApp({ session, unaData }) {
             if (data.success) {
                 fetchTaskData();
                 setIsProjectModalOpen(false);
-                setActiveProjectId(data.id);
+                if (!editingProject.id) setActiveProjectId(data.id);
             }
         } catch(e) { alert("Failed to save project."); }
     };
 
-    const handleArchiveProject = async (proj) => {
+    const handleArchiveProject = async (proj, isArchived) => {
         try {
             await fetch('/api/tasks/projects/archive', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session}` },
-                body: JSON.stringify({ id: proj.id, isArchived: true })
+                body: JSON.stringify({ id: proj.id, isArchived })
             });
             fetchTaskData();
             setIsProjectModalOpen(false);
-            if (activeProjectId === proj.id) setActiveProjectId(null);
+            if (activeProjectId === proj.id && isArchived) setActiveProjectId(null);
         } catch(e) {}
     };
 
@@ -592,7 +590,6 @@ export default function TaskManagerApp({ session, unaData }) {
             setNewCommentText('');
             fetchTaskData();
             
-            // Optimistically update the open modal
             const newComment = { id: Date.now(), userId: currentUser.id, text: newCommentText, timestamp: new Date().toISOString() };
             setCurrentTask(prev => ({ ...prev, comments: [...(prev.comments||[]), newComment] }));
         } catch(e) {}
@@ -607,7 +604,6 @@ export default function TaskManagerApp({ session, unaData }) {
         const taskId = parseInt(e.dataTransfer.getData('taskId'));
         const task = tasks.find(t => t.id === taskId);
         if (task && task.status !== newStatus) {
-            // Optimistic update
             const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
             setTasks(updatedTasks);
             
@@ -617,12 +613,11 @@ export default function TaskManagerApp({ session, unaData }) {
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session}` },
                     body: JSON.stringify({ ...task, status: newStatus })
                 });
-            } catch(err) { fetchTaskData(); } // Revert on failure
+            } catch(err) { fetchTaskData(); }
         }
     };
 
     const handleReorderTasks = async (updatedList) => {
-        // Optimistic UI Update
         const newTasks = tasks.map(t => {
             const found = updatedList.find(ut => ut.id === t.id);
             return found ? found : t;
@@ -667,6 +662,63 @@ export default function TaskManagerApp({ session, unaData }) {
     };
 
     if (isLoading) return <div className="flex h-full items-center justify-center text-[#9df01c]"><Loader2 className="w-8 h-8 animate-spin"/></div>;
+
+    // --- ARCHIVED PROJECTS VIEW ---
+    if (activeTab === 'archived') {
+        const archivedProjects = projects.filter(p => p.isArchived);
+        return (
+            <div className="flex flex-col h-full bg-[#f8fafc] text-slate-900 rounded-tl-3xl shadow-2xl overflow-hidden font-sans">
+                <div className="p-6 sm:p-8 h-full overflow-y-auto w-full custom-scrollbar">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Archive className="text-slate-500" size={28} /> Archived Projects</h2>
+                            <p className="text-slate-500 text-sm mt-1">Restore or permanently delete completed projects.</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        {archivedProjects.length === 0 ? (
+                            <div className="p-12 text-center flex flex-col items-center">
+                                <Archive size={48} className="text-slate-300 mb-4" />
+                                <p className="text-slate-500 font-medium">No archived projects found.</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Project Name</th>
+                                        <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider w-32 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {archivedProjects.map(project => (
+                                        <tr key={project.id} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="p-4">
+                                                <div className="font-bold text-slate-700 flex items-center gap-2">
+                                                    <DynamicIcon name={project.icon} size={16} className={colorStyles[project.color]?.text} />
+                                                    {project.name}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => handleArchiveProject(project, false)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Restore Project">
+                                                        <RotateCcw size={16} />
+                                                    </button>
+                                                    <button onClick={() => { if(window.confirm(`Permanently delete "${project.name}" and all of its tasks? This cannot be undone.`)) handlePermanentDeleteProject(project.id); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Permanently Delete">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const activeProject = projects.find(p => p.id === activeProjectId);
     const activeProjectTasks = tasks.filter(t => t.projectId === activeProjectId && t.status !== 'done').sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -774,7 +826,7 @@ export default function TaskManagerApp({ session, unaData }) {
                                     <div className="md:hidden flex flex-col divide-y divide-slate-100">
                                         {activeProjectTasks.length > 0 
                                             ? activeProjectTasks.map((t, i) => (
-                                                <TaskMobileCard key={t.id} task={t} showProject={false} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask} />
+                                                <TaskMobileCard key={t.id} task={t} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask} />
                                             )) 
                                             : <div className="p-8 text-center text-slate-500 text-sm">No active tasks in this project.</div>
                                         }
@@ -787,7 +839,7 @@ export default function TaskManagerApp({ session, unaData }) {
                                             <tbody>
                                                 {activeProjectTasks.length > 0 
                                                     ? activeProjectTasks.map((t, i) => (
-                                                        <TaskDesktopRow key={t.id} task={t} showProject={false} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask} />
+                                                        <TaskDesktopRow key={t.id} task={t} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask} />
                                                     )) 
                                                     : <tr><td colSpan="5" className="p-8 text-center text-slate-500">No active tasks in this project.</td></tr>
                                                 }
@@ -804,12 +856,12 @@ export default function TaskManagerApp({ session, unaData }) {
                                         </div>
                                         <div className="bg-white/60 rounded-xl shadow-sm border border-slate-200 overflow-hidden opacity-80 hover:opacity-100 transition-opacity">
                                             <div className="md:hidden flex flex-col divide-y divide-slate-100">
-                                                {completedProjectTasks.map(t => <TaskMobileCard key={t.id} task={t} showProject={false} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask}/>)}
+                                                {completedProjectTasks.map(t => <TaskMobileCard key={t.id} task={t} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask}/>)}
                                             </div>
                                             <div className="hidden md:block overflow-x-auto">
                                                 <table className="w-full text-left min-w-[600px]">
                                                     <tbody>
-                                                        {completedProjectTasks.map(t => <TaskDesktopRow key={t.id} task={t} showProject={false} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask}/>)}
+                                                        {completedProjectTasks.map(t => <TaskDesktopRow key={t.id} task={t} users={users} handleToggleTaskStatus={handleToggleTaskStatus} openTaskModal={openTaskModal} handleDeleteTask={handleDeleteTask}/>)}
                                                     </tbody>
                                                 </table>
                                             </div>
