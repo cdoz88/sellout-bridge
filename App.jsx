@@ -20,6 +20,7 @@ import AffiliateApp from './components/apps/AffiliateApp';
 import YoutubeSyncApp from './components/apps/YoutubeSyncApp';
 import WordpressSyncApp from './components/apps/WordpressSyncApp';
 import AdminDashboardApp from './components/apps/AdminDashboardApp';
+import TaskManagerApp from './components/apps/TaskManagerApp'; // NEW: Import Task Manager
 
 // Extracted Auth Components
 import LoginScreen from './components/auth/LoginScreen';
@@ -629,7 +630,8 @@ export default function App() {
           'assets': 'Asset Library',
           'content': 'Content Engine',
           'community-link': 'Custom Community URL',
-          'bridge': 'Subscription Bridge'
+          'bridge': 'Subscription Bridge',
+          'task-manager': 'Task Manager' // NEW: Registered Tool Name
       };
       return names[appId] || 'This tool';
   };
@@ -650,7 +652,8 @@ export default function App() {
           'assets': 'assets',
           'content': 'content',
           'community-link': 'community_link',
-          'bridge': 'bridge'
+          'bridge': 'bridge',
+          'task-manager': 'task_manager' // NEW: Registered Tool Access
       };
       
       const featureName = featureMap[appId];
@@ -782,6 +785,8 @@ export default function App() {
               return <WordpressSyncApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
           case 'admin':
               return <AdminDashboardApp session={session} unaData={unaData} activeTab={activeTab} setActiveTab={setActiveTab} />;
+          case 'task-manager':
+              return <TaskManagerApp session={session} unaData={unaData} />; // NEW: Render Task Manager
           default:
               return <PlaceholderApp currentApp={currentApp} />;
       }

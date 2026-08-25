@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp, Youtube, Shield } from 'lucide-react';
+import { ChevronsUpDown, LogOut, CreditCard, LayoutDashboard, Image as ImageIcon, Link2, FileText, Users, Contact, ListChecks, Zap, Lock, Globe, CalendarClock, Mail, TrendingUp, Youtube, Shield, ListTodo } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function TopBar({
@@ -43,6 +43,7 @@ export default function TopBar({
             case 'affiliate': return { name: 'Scouting', icon: <TrendingUp size={20} className="text-[#9df01c]" /> };
             case 'youtube': return { name: 'YouTube Sync', icon: <Youtube size={20} className="text-[#9df01c]" /> };
             case 'wordpress': return { name: 'WordPress Sync', icon: <WordPressIcon size={20} className="text-[#9df01c]" /> };
+            case 'task-manager': return { name: 'Task Manager', icon: <ListTodo size={20} className="text-[#9df01c]" /> }; // NEW
             default: return { name: 'Front Office', icon: <LayoutDashboard size={20} className="text-[#9df01c]" /> };
         }
     };
@@ -92,6 +93,14 @@ export default function TopBar({
                             <button onClick={() => handleAppSwitch('content', 'compose')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'content' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
                                 <div className="flex items-center gap-3">
                                     <CalendarClock size={18} className={currentApp === 'content' ? 'text-[#9df01c]' : ''}/> Post Scheduler
+                                </div>
+                                {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
+                            </button>
+
+                            {/* NEW: Task Manager App */}
+                            <button onClick={() => handleAppSwitch('task-manager', 'board')} className={`w-full flex items-center justify-between px-4 py-3 text-sm font-bold transition-colors ${currentApp === 'task-manager' ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <ListTodo size={18} className={currentApp === 'task-manager' ? 'text-[#9df01c]' : ''}/> Task Manager
                                 </div>
                                 {!canAccessContent && <Lock size={14} className="text-gray-500 opacity-50 shrink-0" />}
                             </button>

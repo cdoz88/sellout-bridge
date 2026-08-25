@@ -86,8 +86,8 @@ export async function ensureSchema() {
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS platform_customer_id VARCHAR(255)`; } catch(e){}
         try { await sql`ALTER TABLE bridge_settings ADD COLUMN IF NOT EXISTS lifetime_credited DECIMAL(10,2) DEFAULT 0.00`; } catch(e){}
 
-        // NEW: Scout Links Table
         try { await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`; } catch(e){}
+        try { await sql`ALTER TABLE bridge_scout_links ADD COLUMN IF NOT EXISTS email VARCHAR(255)`; } catch(e){}
 
         await sql`CREATE TABLE IF NOT EXISTS bridge_business_cards (user_id INTEGER PRIMARY KEY, card_data JSONB)`;
         try { await sql`ALTER TABLE bridge_business_cards ADD COLUMN IF NOT EXISTS custom_slug VARCHAR(255) UNIQUE`; } catch(e) {}
@@ -206,6 +206,45 @@ export async function ensureSchema() {
                 UNIQUE(list_id, email)
             )`;
         } catch(e) { console.error("Newsletter Schema Error:", e.message); }
+
+        // --- NEW: TASK MANAGER SCHEMA ---
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_projects (
+                id SERIAL PRIMARY KEY, 
+                user_id INTEGER, 
+                name VARCHAR(255), 
+                color VARCHAR(50), 
+                icon VARCHAR(50), 
+                is_archived BOOLEAN DEFAULT FALSE, 
+                admin_only BOOLEAN DEFAULT FALSE, 
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_tasks (
+                id SERIAL PRIMARY KEY, 
+                project_id INTEGER, 
+                user_id INTEGER, 
+                title VARCHAR(255), 
+                description TEXT, 
+                status VARCHAR(50) DEFAULT 'todo', 
+                due_date DATE, 
+                assignee_id INTEGER, 
+                tags JSONB, 
+                files JSONB, 
+                sort_order INTEGER DEFAULT 0, 
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+                completed_at TIMESTAMP, 
+                completed_by INTEGER
+            )`;
+
+            await sql`CREATE TABLE IF NOT EXISTS bridge_task_comments (
+                id SERIAL PRIMARY KEY, 
+                task_id INTEGER, 
+                user_id INTEGER, 
+                text TEXT, 
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`;
+        } catch(e) { console.error("Task Manager Schema Error:", e.message); }
 
     } catch (e) { console.error("Schema check notice:", e.message); }
 }

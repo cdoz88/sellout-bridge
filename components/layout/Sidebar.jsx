@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube, ShieldAlert, BookOpen, AddressBook } from 'lucide-react';
+import { CreditCard, Smartphone, Contact, LayoutDashboard, Globe, Image as ImageIcon, FileText, Download, RefreshCcw, Palette, Users, UserPlus, Repeat, Settings, Plus, Folder, Link2, ChevronUp, ChevronDown, Loader2, ListChecks, Lock, Zap, Send, LayoutList, CalendarClock, Mail, BarChart3, PenTool, LayoutTemplate, TrendingUp, History, Youtube, ShieldAlert, BookOpen, AddressBook, Archive, FolderOpen } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function Sidebar({ 
@@ -229,6 +229,23 @@ export default function Sidebar({
                                     <p className="text-[10px] font-black uppercase tracking-widest text-white mb-0.5">Getting Started</p>
                                     <p className="text-[9px] text-gray-500 font-bold">{progressPercent}% Complete</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* NEW: TASK MANAGER SIDEBAR MENU */}
+                {currentApp === 'task-manager' && (
+                    <div className="px-4 flex flex-col flex-1 h-full min-h-full">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 px-2">Menu</p>
+                            <div className="space-y-1">
+                                <button onClick={() => handleNavClick('board')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'board' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <FolderOpen size={16} /> Workspace
+                                </button>
+                                <button onClick={() => handleNavClick('archived')} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${activeTab === 'archived' ? 'bg-[#9df01c] text-black shadow-lg shadow-[#9df01c]/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                                    <Archive size={16} /> Archived Projects
+                                </button>
                             </div>
                         </div>
                     </div>
