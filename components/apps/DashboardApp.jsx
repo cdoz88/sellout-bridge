@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {

@@ -197,7 +197,7 @@ router.get('/api/cron/issue-credits', async (req, res) => {
     }
 });
 
-// --- Affiliate Stats API (With Auto-Pooling) ---
+// --- Affiliate Stats API ---
 router.get('/api/affiliates/stats', async (req, res) => {
     try {
         const user = await getAuthenticatedUser(req.headers.authorization);
@@ -208,6 +208,22 @@ router.get('/api/affiliates/stats', async (req, res) => {
         let allReferrals = [];
         let link = '';
         let teamBreakdown = [];
+
+        // --- PRE-FETCH ALL SLUGS FOR BULLETPROOF UNA USERNAME MAPPING ---
+        let usernameToSlug = {};
+        try {
+            await sql`CREATE TABLE IF NOT EXISTS bridge_scout_links (user_id INTEGER PRIMARY KEY, custom_slug VARCHAR(255) UNIQUE, una_username VARCHAR(255))`;
+            const slugs = await sql`SELECT custom_slug, una_username FROM bridge_scout_links`;
+            slugs.forEach(s => {
+                if (s.custom_slug && s.una_username) {
+                    const raw = s.una_username.toLowerCase().trim();
+                    const decoded = decodeURIComponent(raw);
+                    usernameToSlug[raw] = s.custom_slug;
+                    usernameToSlug[decoded] = s.custom_slug;
+                }
+            });
+        } catch(e) { console.error("Failed to build usernameToSlug map", e); }
+        // ----------------------------------------------------------------
 
         // 1. Get Owner Stats
         const ownerRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
@@ -224,14 +240,19 @@ router.get('/api/affiliates/stats', async (req, res) => {
             allReferrals = (ownerData.referrals || []).map(r => ({...r, recruited_by: 'You'}));
             link = ownerData.link || '';
 
-            // Fetch owner's custom link properly:
+            // --- APPLY USERNAME MAP FOR OWNER ---
             try {
-                const ownerSlugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${user.id}`;
-                if (ownerSlugRows.length > 0 && ownerSlugRows[0].custom_slug) {
-                    link = `https://scout.selloutcrowds.com/${ownerSlugRows[0].custom_slug}`;
-                } else if (link) {
-                    const urlParts = link.split('/');
-                    link = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
+                if (ownerData.link) {
+                    const urlParts = ownerData.link.split('/');
+                    const rawUsername = urlParts[urlParts.length - 1];
+                    const decodedUsername = decodeURIComponent(rawUsername).toLowerCase().trim();
+                    const customSlug = usernameToSlug[decodedUsername] || usernameToSlug[rawUsername.toLowerCase().trim()];
+                    
+                    if (customSlug) {
+                        link = `https://scout.selloutcrowds.com/${customSlug}`;
+                    } else {
+                        link = `https://scout.selloutcrowds.com/${rawUsername}`;
+                    }
                 }
             } catch(e) {}
         }
@@ -276,32 +297,26 @@ router.get('/api/affiliates/stats', async (req, res) => {
                         
                         const tmRefs = (tmData.referrals || []).map(r => ({...r, recruited_by: tm.teammate_email}));
                         allReferrals = [...allReferrals, ...tmRefs];
-                        
-                        // Default to the base UNA username link
-                        if (tmData.link) {
-                            const urlParts = tmData.link.split('/');
-                            tmLink = `https://scout.selloutcrowds.com/${urlParts[urlParts.length - 1]}`;
-                        }
                     }
 
-                    // Look up custom slug using the email (with fallback to user_id)
-                    try {
-                        try { await sql`ALTER TABLE bridge_scout_links ADD COLUMN IF NOT EXISTS email VARCHAR(255)`; } catch(e){}
-                        const cleanEmail = tm.teammate_email.trim().toLowerCase();
+                    // --- APPLY USERNAME MAP FOR TEAMMATE SAFELY ---
+                    if (tmData.success && tmData.link) {
+                        const urlParts = tmData.link.split('/');
+                        const rawUsername = urlParts[urlParts.length - 1];
                         
-                        const slugRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE email = ${cleanEmail}`;
-                        if (slugRows.length > 0 && slugRows[0].custom_slug) {
-                            tmLink = `https://scout.selloutcrowds.com/${slugRows[0].custom_slug}`;
+                        // Safely decode to prevent API crashes
+                        let decoded = rawUsername.toLowerCase().trim();
+                        try { decoded = decodeURIComponent(rawUsername).toLowerCase().trim(); } catch(e) {}
+                        
+                        const customSlug = usernameToSlug[decoded] || usernameToSlug[rawUsername.toLowerCase().trim()];
+                        
+                        if (customSlug) {
+                            tmLink = `https://scout.selloutcrowds.com/${customSlug}`;
                         } else {
-                            const userMatch = await sql`SELECT id FROM users WHERE email = ${cleanEmail}`;
-                            if (userMatch.length > 0) {
-                                const fallbackRows = await sql`SELECT custom_slug FROM bridge_scout_links WHERE user_id = ${userMatch[0].id}`;
-                                if (fallbackRows.length > 0 && fallbackRows[0].custom_slug) {
-                                    tmLink = `https://scout.selloutcrowds.com/${fallbackRows[0].custom_slug}`;
-                                }
-                            }
+                            tmLink = `https://scout.selloutcrowds.com/${rawUsername}`;
                         }
-                    } catch(e) {}
+                    }
+                    // +++++++++++++++++++++++++++++++++++++++++++++++++++
 
                     const prof = profiles[tm.teammate_email] || {};
 
@@ -340,8 +355,6 @@ router.post('/api/scout/custom-link', async (req, res) => {
         if (!user) return res.status(401).json({ error: "Not authenticated" });
         await ensureSchema();
         
-        try { await sql`ALTER TABLE bridge_scout_links ADD COLUMN IF NOT EXISTS email VARCHAR(255)`; } catch(e){}
-
         const { customSlug, unaUsername } = req.body;
         if (!customSlug || !unaUsername) return res.status(400).json({ error: "Missing parameters" });
         
@@ -352,9 +365,7 @@ router.post('/api/scout/custom-link', async (req, res) => {
             return res.status(400).json({ error: "That custom link is already taken!" });
         }
         
-        const userEmail = user.email.trim().toLowerCase();
-
-        await sql`INSERT INTO bridge_scout_links (user_id, custom_slug, una_username, email) VALUES (${user.id}, ${cleanSlug}, ${unaUsername}, ${userEmail}) ON CONFLICT (user_id) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username, email = EXCLUDED.email`;
+        await sql`INSERT INTO bridge_scout_links (user_id, custom_slug, una_username) VALUES (${user.id}, ${cleanSlug}, ${unaUsername}) ON CONFLICT (user_id) DO UPDATE SET custom_slug = EXCLUDED.custom_slug, una_username = EXCLUDED.una_username`;
         res.json({ success: true, slug: cleanSlug });
     } catch (error) {
         res.status(500).json({ error: "Failed to save custom link" });
@@ -669,6 +680,58 @@ router.post('/api/paypal-webhook', async (req, res) => {
         }
     } catch (error) {}
     res.json({ received: true });
+});
+
+// --- NEW ROUTE: DASHBOARD METRICS ---
+router.get('/api/dashboard/metrics', async (req, res) => {
+    try {
+        const user = await getAuthenticatedUser(req.headers.authorization);
+        if (!user) return res.status(401).json({ error: "Not authenticated" });
+        await ensureSchema();
+
+        const roleId = Number(user.role);
+        const isTeammate = roleId === 18;
+
+        // 1. Resolve Workspace Ownership
+        let workspaceId = user.id;
+        if (isTeammate) {
+            const seatRows = await sql`SELECT owner_id FROM bridge_team_seats WHERE teammate_email = ${user.email.trim().toLowerCase()}`;
+            if (seatRows.length > 0) workspaceId = seatRows[0].owner_id;
+        }
+
+        // 2. Scheduled Posts Count
+        let upcomingPosts = 0;
+        try {
+            const postsDb = await sql`SELECT count(*) FROM bridge_scheduled_posts WHERE user_id = ${workspaceId} AND status = 'pending'`;
+            upcomingPosts = parseInt(postsDb[0]?.count) || 0;
+        } catch(e) {}
+
+        // 3. Draft/Scheduled Newsletters Count
+        let upcomingEmails = 0;
+        try {
+            const emailDb = await sql`SELECT count(*) FROM bridge_newsletters WHERE user_id = ${workspaceId} AND status != 'sent'`;
+            upcomingEmails = parseInt(emailDb[0]?.count) || 0;
+        } catch(e) {} 
+
+        // 4. Teammate Usage
+        let teamUsed = 0;
+        try {
+            const teamDb = await sql`SELECT count(*) FROM bridge_team_seats WHERE owner_id = ${workspaceId}`;
+            teamUsed = parseInt(teamDb[0]?.count) || 0;
+        } catch(e) {}
+
+        res.json({
+            success: true,
+            metrics: {
+                upcomingPosts,
+                upcomingEmails,
+                teamUsed
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch dashboard metrics" });
+    }
 });
 
 export default router;
