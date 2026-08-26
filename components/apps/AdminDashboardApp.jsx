@@ -54,6 +54,7 @@ export default function AdminDashboardApp({ session, unaData, activeTab = 'guide
         { id: 'content', name: 'Content Engine' },
         { id: 'community_link', name: 'Community Links' },
         { id: 'bridge', name: 'Subscription Bridge' },
+        { id: 'task_manager', name: 'Task Manager' }, // NEW: Added to Access Control Matrix
     ];
 
     const limitFeatures = [

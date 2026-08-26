@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator, X } from 'lucide-react';
+import { LayoutDashboard, Contact, Users, CreditCard, Link2, Image as ImageIcon, FileText, ListChecks, Lock, ArrowRight, Loader2, Zap, Globe, CalendarClock, TrendingUp, Youtube, Mail, Calculator, X, ListTodo } from 'lucide-react';
 import WordPressIcon from '../icons/WordPressIcon';
 
 export default function DashboardApp({ session, unaData, handleAppSwitch, hasAccess }) {
@@ -320,6 +320,17 @@ export default function DashboardApp({ session, unaData, handleAppSwitch, hasAcc
                                 {!hasAccess('bridge') ? <Lock size={14} className="text-gray-600" /> : <ArrowRight size={14} className="text-gray-600 group-hover:text-white transition-colors" />}
                             </div>
                         )}
+
+                        <div onClick={() => hasAccess('task-manager') ? handleAppSwitch('task-manager', 'board') : null} className={`flex items-center justify-between p-4 sm:px-6 transition-colors ${hasAccess('task-manager') ? 'hover:bg-white/5 cursor-pointer group' : 'opacity-50 cursor-not-allowed'}`}>
+                            <div className="flex items-center gap-4">
+                                <ListTodo size={18} className="text-gray-400 group-hover:text-white transition-colors" />
+                                <div>
+                                    <h4 className="text-sm font-bold text-white group-hover:text-[#9df01c] transition-colors">Task Manager</h4>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">Manage projects and collaborate with your team.</p>
+                                </div>
+                            </div>
+                            {!hasAccess('task-manager') ? <Lock size={14} className="text-gray-600" /> : <ArrowRight size={14} className="text-gray-600 group-hover:text-white transition-colors" />}
+                        </div>
 
                         <div onClick={() => handleAppSwitch('assets', 'cat_1')} className="flex items-center justify-between p-4 sm:px-6 hover:bg-white/5 transition-colors cursor-pointer group">
                             <div className="flex items-center gap-4">
