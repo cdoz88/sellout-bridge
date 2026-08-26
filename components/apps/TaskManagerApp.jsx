@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star, Loader2, Archive, RotateCcw } from 'lucide-react';
+import { CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star, Loader2, Archive, RotateCcw, Settings } from 'lucide-react';
 
 // --- INLINED CONSTANTS & HELPERS ---
 const API_URL = 'https://api.fytsolutions.com/api.php';
@@ -47,13 +47,6 @@ const formatDate = (dateString) => {
     if (!dateString) return 'No Date';
     const date = new Date(dateString + 'T12:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-const calculateProjectProgress = (projectId, allTasks) => {
-    const pTasks = allTasks.filter(t => t.projectId === projectId);
-    if (pTasks.length === 0) return 0;
-    const done = pTasks.filter(t => t.status === 'done').length;
-    return Math.round((done / pTasks.length) * 100);
 };
 
 // --- SUBCOMPONENTS ---
@@ -756,19 +749,21 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
                 <div className="flex-1 overflow-hidden flex flex-col p-6">
                     
                     {/* Project Header & Controls */}
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-6 gap-4 shrink-0">
-                        <div>
-                            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-white flex items-center gap-3">
                                 <div className={`p-2 rounded-lg bg-black border ${colorStyles[activeProject.color]?.border}`}>
                                     <DynamicIcon name={activeProject.icon} size={20} className={colorStyles[activeProject.color]?.text} />
                                 </div>
                                 {activeProject.name}
                             </h2>
-                            <div className="flex items-center gap-4 mt-3">
-                                <button onClick={() => { setEditingProject(activeProject); setIsProjectModalOpen(true); }} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#9df01c] transition-colors">Project Settings</button>
-                                <div className="h-3 w-px bg-white/10"></div>
-                                <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5"><CheckCircle size={12} className="text-emerald-500"/> {calculateProjectProgress(activeProject.id, tasks)}% Complete</div>
-                            </div>
+                            <button 
+                                onClick={() => { setEditingProject(activeProject); setIsProjectModalOpen(true); }} 
+                                className="text-gray-500 hover:text-[#9df01c] transition-colors p-2 bg-black border border-white/5 rounded-lg hover:border-white/10"
+                                title="Project Settings"
+                            >
+                                <Settings size={16} />
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-1.5 bg-black p-1.5 rounded-xl border border-white/10">
@@ -789,13 +784,23 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
                                         <h3 className="font-black uppercase tracking-widest text-xs text-gray-400">{status === 'in-progress' ? 'In Progress' : status.replace('-', ' ')}</h3>
                                         <span className="bg-black text-gray-500 text-[10px] py-1 px-2.5 rounded-lg font-bold border border-white/10">{tasks.filter(t => t.projectId === activeProject.id && t.status === status).length}</span>
                                     </div>
+                                    
+                                    <button onClick={() => openTaskModal(null, activeProject.id, status)} className="mb-3 w-full py-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5 rounded-xl transition-colors border border-dashed border-white/10 hover:border-white/20">
+                                        <Plus size={14} /> Add Task
+                                    </button>
+
                                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                                         {tasks.filter(t => t.projectId === activeProject.id && t.status === status).sort((a,b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(task => {
                                             const assignee = users?.find(u => u.id === task.assigneeId);
                                             const taskIsOverdue = isOverdue(task.dueDate, task.status);
                                             return (
                                                 <div key={task.id} draggable onDragStart={(e) => handleDragStart(e, task.id)} className={`bg-black p-5 rounded-2xl border cursor-grab active:cursor-grabbing transition-all group ${taskIsOverdue ? 'border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'border-white/5 hover:border-white/20'}`}>
-                                                    <p className={`font-medium text-sm mb-3 cursor-pointer transition-colors ${task.status === 'done' ? 'text-gray-600 line-through' : 'text-gray-200 hover:text-[#9df01c]'}`} onClick={() => openTaskModal(task)}>{task.title}</p>
+                                                    <div className="flex items-start gap-2.5 mb-3">
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleTaskStatus(task); }} className="mt-0.5 flex-shrink-0 cursor-pointer text-gray-600 hover:text-[#9df01c] transition-colors">
+                                                            {task.status === 'done' ? <CheckCircle size={18} className="text-[#9df01c]" /> : <Circle size={18} />}
+                                                        </button>
+                                                        <p className={`font-medium text-sm cursor-pointer transition-colors leading-tight pt-0.5 ${task.status === 'done' ? 'text-gray-600 line-through' : 'text-gray-200 hover:text-[#9df01c]'}`} onClick={() => openTaskModal(task)}>{task.title}</p>
+                                                    </div>
                                                     
                                                     <div className="flex flex-wrap items-center gap-2 mb-4">
                                                         <TagDisplay tags={task.tags} />
@@ -819,9 +824,6 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
                                             )
                                         })}
                                     </div>
-                                    <button onClick={() => openTaskModal(null, activeProject.id, status)} className="mt-4 w-full py-3 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/5 rounded-xl transition-colors border border-dashed border-white/10 hover:border-white/20">
-                                        <Plus size={14} /> Add Task
-                                    </button>
                                 </div>
                                 ))}
                             </div>
