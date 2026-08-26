@@ -639,16 +639,28 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
         const uploaded = [];
         for (const file of uploadFiles) {
             const formData = new FormData();
-            formData.append('fileToUpload', file);
+            
+            // The Front Office API explicitly expects the 'file' label, not 'fileToUpload'
+            formData.append('file', file); 
+            formData.append('fileToUpload', file); // Fallback included for complete safety
+
             try {
                 const res = await fetch(`${API_URL}?action=upload`, { method: 'POST', body: formData });
                 const data = await res.json();
-                if (data.success) uploaded.push({ name: file.name, url: data.fileUrl });
-            } catch (err) { console.error("Upload failed", err); }
+                
+                if (data.success) {
+                    uploaded.push({ name: file.name, url: data.fileUrl || data.url });
+                }
+            } catch (err) { 
+                console.error("Upload failed", err); 
+            }
         }
         
         setCurrentTask(prev => ({ ...prev, files: [...(prev.files || []), ...uploaded] }));
         setIsUploading(false);
+        
+        // Reset the file input so the same file can be re-selected if accidentally removed
+        e.target.value = null;
     };
 
     const removeFile = (indexToRemove) => {
