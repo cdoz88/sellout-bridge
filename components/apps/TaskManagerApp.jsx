@@ -164,7 +164,7 @@ function TaskDesktopRow({ task, users, handleToggleTaskStatus, openTaskModal, ha
 }
 
 function TaskModal({
-    currentTask, setCurrentTask, handleSaveTask, handleDeleteTask, setIsTaskModalOpen,
+    currentTask, setCurrentTask, handleSaveTask, handleDeleteTask, handleCloseTaskModal,
     users, isUploading, handleFileUpload, removeFile,
     newCommentText, setNewCommentText, handleAddComment, currentUser
   }) {
@@ -192,7 +192,7 @@ function TaskModal({
               <CheckCircle className="text-[#9df01c]" size={20} />
               {currentTask.id ? 'Edit Task' : 'New Task'}
             </h3>
-            <button onClick={() => setIsTaskModalOpen(false)} className="text-gray-500 hover:text-white transition-colors"><X size={20} /></button>
+            <button onClick={handleCloseTaskModal} className="text-gray-500 hover:text-white transition-colors"><X size={20} /></button>
           </div>
           <div className="overflow-y-auto flex-1 p-6 custom-scrollbar">
             <form id="taskForm" onSubmit={handleSaveTask} className="space-y-6">
@@ -373,7 +373,7 @@ function TaskModal({
           </div>
           <div className="p-6 border-t border-white/5 bg-[#0a0a0a] flex justify-end gap-3 flex-shrink-0">
             {currentTask.id && <button type="button" onClick={() => handleDeleteTask(currentTask.id)} className="px-4 py-2.5 text-red-500 hover:bg-red-500/10 rounded-xl font-black uppercase tracking-widest text-[10px] transition-colors mr-auto">Delete</button>}
-            <button type="button" onClick={() => setIsTaskModalOpen(false)} className="px-4 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white rounded-xl transition-colors font-black uppercase tracking-widest text-[10px]">Cancel</button>
+            <button type="button" onClick={handleCloseTaskModal} className="px-4 py-2.5 text-gray-400 hover:bg-white/5 hover:text-white rounded-xl transition-colors font-black uppercase tracking-widest text-[10px]">Cancel</button>
             <button type="submit" form="taskForm" className="px-6 py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl transition-colors font-black uppercase tracking-widest text-[10px]" disabled={isUploading}>{currentTask.id ? 'Save Changes' : 'Create Task'}</button>
           </div>
         </div>
@@ -465,6 +465,7 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
     
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [currentTask, setCurrentTask] = useState({ title: '', description: '', status: 'todo', dueDate: '', assigneeId: '', tags: [], files: [], comments: [] });
+    const [initialTaskSnapshot, setInitialTaskSnapshot] = useState(null);
     
     const [isUploading, setIsUploading] = useState(false);
     const [newCommentText, setNewCommentText] = useState('');
@@ -564,17 +565,47 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
 
     // --- TASK ACTIONS ---
     const openTaskModal = (task = null, projId = null, initialStatus = 'todo') => {
-        if (task) {
-            setCurrentTask(task);
-        } else {
-            setCurrentTask({ 
-                title: '', description: '', status: initialStatus, 
-                dueDate: '', assigneeId: '', tags: [], files: [], comments: [],
-                projectId: projId || activeProjectId 
-            });
-        }
+        const taskData = task ? { ...task } : { 
+            title: '', description: '', status: initialStatus, 
+            dueDate: '', assigneeId: '', tags: [], files: [], comments: [],
+            projectId: projId || activeProjectId 
+        };
+        setCurrentTask(taskData);
+        setInitialTaskSnapshot(JSON.stringify(taskData));
         setNewCommentText('');
         setIsTaskModalOpen(true);
+    };
+
+    const checkUnsavedChanges = () => {
+        if (!initialTaskSnapshot) return false;
+        
+        const current = currentTask;
+        const initial = JSON.parse(initialTaskSnapshot);
+        
+        const fields = ['title', 'description', 'status', 'dueDate', 'assigneeId', 'projectId'];
+        for (const f of fields) {
+            const cVal = current[f] != null ? String(current[f]) : '';
+            const iVal = initial[f] != null ? String(initial[f]) : '';
+            if (cVal !== iVal) return true;
+        }
+        
+        if (JSON.stringify(current.tags || []) !== JSON.stringify(initial.tags || [])) return true;
+        if (JSON.stringify(current.files || []) !== JSON.stringify(initial.files || [])) return true;
+        
+        return false;
+    };
+
+    const handleCloseTaskModal = () => {
+        const hasUnsavedTaskChanges = checkUnsavedChanges();
+        const hasUnsavedComment = newCommentText.trim() !== '';
+
+        if (hasUnsavedTaskChanges || hasUnsavedComment) {
+            if (!window.confirm("You have unsaved changes. Are you sure you want to close without saving?")) {
+                return;
+            }
+        }
+        setIsTaskModalOpen(false);
+        setNewCommentText('');
     };
 
     const handleSaveTask = async (e) => {
@@ -969,7 +1000,7 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
                     setCurrentTask={setCurrentTask} 
                     handleSaveTask={handleSaveTask} 
                     handleDeleteTask={handleDeleteTask} 
-                    setIsTaskModalOpen={setIsTaskModalOpen}
+                    handleCloseTaskModal={handleCloseTaskModal}
                     users={users} 
                     isUploading={isUploading} 
                     handleFileUpload={handleFileUpload} 
