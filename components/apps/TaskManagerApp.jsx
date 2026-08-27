@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star, Loader2, Archive, RotateCcw, Settings } from 'lucide-react';
+import { CheckCircle, Circle, Clock, Trash2, Paperclip, MessageSquare, Plus, GripVertical, X, Shield, Upload, RefreshCw, FileText, Download, UserCircle, Target, Briefcase, Zap, Globe, Layout, Monitor, Smartphone, Server, Database, Code, PenTool, Hash, Star, Loader2, Archive, RotateCcw, Settings, Eye } from 'lucide-react';
 
 // --- INLINED CONSTANTS & HELPERS ---
 const API_URL = 'https://api.fytsolutions.com/api.php';
@@ -169,6 +169,20 @@ function TaskModal({
     newCommentText, setNewCommentText, handleAddComment, currentUser
   }) {
     const getUser = (id) => users.find(u => u.id === id);
+    const [previewImage, setPreviewImage] = useState(null);
+
+    // MASKED DOWNLOAD HANDLER: Uses a hidden element so the browser doesn't show the URL on hover
+    const handleMaskedDownload = (e, file) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const downloadUrl = `${API_URL}?action=download&file=${encodeURIComponent(file.url)}&name=${encodeURIComponent(file.name)}`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', file.name);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
   
     return (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -233,7 +247,7 @@ function TaskModal({
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Attachments</label>
                 <div className="space-y-3">
-                  <label className={`flex flex-col items-center justify-center w-full h-24 border border-white/10 border-dashed rounded-xl cursor-pointer bg-black hover:bg-white/5 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <label className={`flex flex-col items-center justify-center w-full h-24 border border-white/10 border-dashed rounded-xl cursor-pointer bg-black hover:bg-white/5 transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       {isUploading ? <RefreshCw className="w-6 h-6 text-[#9df01c] mb-2 animate-spin" /> : <Upload className="w-6 h-6 text-gray-500 mb-2" />}
                       <p className="text-sm text-gray-400">
@@ -245,22 +259,37 @@ function TaskModal({
                   
                   {currentTask.files && currentTask.files.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {currentTask.files.map((file, index) => (
-                        <div key={index} className="relative group rounded-xl overflow-hidden border border-white/10 bg-black aspect-video flex items-center justify-center">
-                          {file.url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) || file.url.startsWith('data:image') ? (
-                            <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="flex flex-col items-center p-2 text-center">
-                              <FileText size={24} className="text-gray-500 mb-1" />
-                              <span className="text-[10px] text-gray-400 truncate w-full">{file.name}</span>
+                      {currentTask.files.map((file, index) => {
+                        const isImage = file.url.match(/\.(jpeg|jpg|gif|png|webp|svg)$/i) || file.url.startsWith('data:image');
+                        return (
+                          <div key={index} className="relative group rounded-xl overflow-hidden border border-white/10 bg-black aspect-video flex items-center justify-center">
+                            {isImage ? (
+                              <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center p-2 text-center">
+                                <FileText size={24} className="text-gray-500 mb-1" />
+                                <span className="text-[10px] text-gray-400 truncate w-full">{file.name}</span>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                               {/* Preview Eye Icon */}
+                               {isImage && (
+                                   <button type="button" onClick={() => setPreviewImage(file.url)} title="Preview Image" className="p-2 bg-[#111] text-white rounded-lg hover:bg-white/10 hover:text-[#9df01c] border border-white/10">
+                                       <Eye size={14} />
+                                   </button>
+                               )}
+                               {/* Masked Download Button */}
+                               <button type="button" onClick={(e) => handleMaskedDownload(e, file)} title="Download File" className="p-2 bg-[#111] text-white rounded-lg hover:bg-white/10 hover:text-[#9df01c] border border-white/10">
+                                   <Download size={14} />
+                               </button>
+                               {/* Delete Button */}
+                               <button type="button" onClick={() => removeFile(index)} title="Delete File" className="p-2 bg-[#111] text-white rounded-lg hover:bg-red-500/20 hover:text-red-500 border border-white/10">
+                                   <Trash2 size={14} />
+                               </button>
                             </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                             <a href={`${API_URL}?action=download&file=${encodeURIComponent(file.url)}&name=${encodeURIComponent(file.name)}`} title="Download" className="p-2 bg-[#111] text-white rounded-lg hover:bg-white/10 hover:text-[#9df01c] border border-white/10"><Download size={14} /></a>
-                             <button type="button" onClick={() => removeFile(index)} className="p-2 bg-[#111] text-white rounded-lg hover:bg-red-500/20 hover:text-red-500 border border-white/10"><Trash2 size={14} /></button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -348,6 +377,16 @@ function TaskModal({
             <button type="submit" form="taskForm" className="px-6 py-2.5 bg-[#9df01c] hover:bg-[#8ce015] text-black rounded-xl transition-colors font-black uppercase tracking-widest text-[10px]" disabled={isUploading}>{currentTask.id ? 'Save Changes' : 'Create Task'}</button>
           </div>
         </div>
+
+        {/* IMAGE PREVIEW LIGHTBOX */}
+        {previewImage && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm cursor-zoom-out" onClick={() => setPreviewImage(null)}>
+                <button className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors" onClick={() => setPreviewImage(null)}>
+                    <X size={32} />
+                </button>
+                <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg cursor-default shadow-2xl" onClick={e => e.stopPropagation()} />
+            </div>
+        )}
       </div>
     );
   }
@@ -632,7 +671,8 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
 
     // --- FILE UPLOADS ---
     const handleFileUpload = async (e) => {
-        const uploadFiles = Array.from(e.target.files);
+        const target = e.target;
+        const uploadFiles = Array.from(target.files);
         if (!uploadFiles.length) return;
         
         setIsUploading(true);
@@ -640,7 +680,10 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
         
         for (const file of uploadFiles) {
             const formData = new FormData();
-            formData.append('file', file);
+            
+            // The Front Office API explicitly expects the 'file' label, not 'fileToUpload'
+            formData.append('file', file); 
+            formData.append('fileToUpload', file); // Fallback included for complete safety
 
             try {
                 const res = await fetch(`${API_URL}?action=upload_file`, { 
@@ -659,7 +702,9 @@ export default function TaskManagerApp({ session, unaData, activeTab }) {
         
         setCurrentTask(prev => ({ ...prev, files: [...(prev.files || []), ...uploaded] }));
         setIsUploading(false);
-        e.target.value = null;
+        
+        // Reset the file input safely using the cached target
+        target.value = null;
     };
 
     const removeFile = (indexToRemove) => {
