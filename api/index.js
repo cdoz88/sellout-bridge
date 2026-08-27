@@ -13,8 +13,9 @@ import domainRoutes from '../server/routes/domains.js';
 import postsRoutes from '../server/routes/posts.js';
 import newsletterRoutes from '../server/routes/newsletter.js';
 import youtubeRoutes from '../server/routes/youtube.js';
-import adminBridgeRoutes from './admin-bridge.js';
-import tasksRoutes from '../server/routes/tasks.js'; // NEW: Import Task Manager routes
+import adminBridgeRoutes from './admin-bridge.js'; 
+import tasksRoutes from '../server/routes/tasks.js'; 
+import wpSyncBridgeRoutes from '../server/routes/wp-sync-bridge.js'; // NEW: Import WP Sync Bridge
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/', postsRoutes);
 app.use('/', newsletterRoutes);
 app.use('/', youtubeRoutes);
 app.use('/', adminBridgeRoutes); 
-app.use('/', tasksRoutes); // NEW: Mount the Task Manager routes so the Front Office can reach them!
+app.use('/', tasksRoutes); 
+app.use('/', wpSyncBridgeRoutes); // NEW: Opens the endpoint for the WP Plugin!
 
 export default app;
