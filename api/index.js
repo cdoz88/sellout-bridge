@@ -15,7 +15,7 @@ import newsletterRoutes from '../server/routes/newsletter.js';
 import youtubeRoutes from '../server/routes/youtube.js';
 import adminBridgeRoutes from './admin-bridge.js'; 
 import tasksRoutes from '../server/routes/tasks.js'; 
-import wpSyncBridgeRoutes from '../server/routes/wp-sync-bridge.js'; // NEW: Import WP Sync Bridge
+import wpRoutes from '../server/routes/wp.js'; // NEW: Import WP routes
 
 const app = express();
 
@@ -34,6 +34,6 @@ app.use('/', newsletterRoutes);
 app.use('/', youtubeRoutes);
 app.use('/', adminBridgeRoutes); 
 app.use('/', tasksRoutes); 
-app.use('/', wpSyncBridgeRoutes); // NEW: Opens the endpoint for the WP Plugin!
+app.use('/', wpRoutes); // NEW: Opens the endpoint for the WP Plugin!
 
 export default app;

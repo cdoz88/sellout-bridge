@@ -214,6 +214,7 @@ router.post(['/api/oauth/token', '/oauth/token'], async (req, res) => {
             if (userRows.length > 0) userEmail = userRows[0].email;
         } catch(e) {}
 
+        // --- BULLETPROOF TOKEN REGISTRATION TO UNA DATABASE ---
         if (domain) {
             try {
                 await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
