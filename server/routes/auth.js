@@ -371,7 +371,10 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
     try {
         const { action } = req.params;
         const validActions = ['create-post', 'edit-post', 'delete-post'];
-        if (!validActions.includes(action)) return res.status(400).json({ error: "Invalid proxy action" });
+        
+        if (!validActions.includes(action)) {
+            return res.status(400).json({ error: "Invalid proxy action" });
+        }
 
         const { access_token, user, data } = req.body;
         
@@ -456,6 +459,34 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
     } catch (error) {
         console.error(`WP Proxy ${action} error:`, error);
         return res.status(200).json({ error: "Hub Server Error: " + error.message });
+    }
+});
+
+// --- NEW UNIFIED DISCONNECT ROUTE ---
+router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
+    try {
+        const { access_token } = req.body;
+        if (!access_token) return res.status(400).json({ error: "Missing token" });
+
+        // 1. Delete the token locally on the Node Postgres database
+        await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
+
+        // 2. Tell the UNA server to globally wipe the token
+        const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
+        await fetch(STUDIO_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({
+                action: 'delete_wp_token_string',
+                token_string: access_token,
+                secret: UNA_SECRET
+            })
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("WP Proxy disconnect error:", error);
+        res.status(500).json({ error: "Failed to disconnect" });
     }
 });
 
