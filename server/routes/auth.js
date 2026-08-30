@@ -51,8 +51,7 @@ router.get('/api/get-communities', async (req, res) => {
         const meData = await getAuthenticatedUser(req.headers.authorization);
         if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid session" });
         
-        let userProfileUrl = meData.profile_link.replace('https://studio.', 'https://www.');
-        if (!userProfileUrl.includes('www.')) userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com');
+        let userProfileUrl = meData.profile_link;
         
         // --- OPTION A: THE UMBRELLA METHOD ---
         let targetEmail = meData.email;
@@ -96,6 +95,16 @@ router.get('/api/get-communities', async (req, res) => {
         }
         // --- END UMBRELLA METHOD ---
 
+        // Force targetProfileUrl to perfectly match the UNA Base URL to prevent permalink crashes
+        if (targetProfileUrl) {
+            try {
+                const parsedUrl = new URL(targetProfileUrl);
+                targetProfileUrl = `${UNA_BASE_URL}${parsedUrl.pathname}`;
+            } catch (e) {
+                if (targetProfileUrl.startsWith('/')) targetProfileUrl = `${UNA_BASE_URL}${targetProfileUrl}`;
+            }
+        }
+
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', targetProfileUrl); // Use target Profile URL
@@ -104,7 +113,11 @@ router.get('/api/get-communities', async (req, res) => {
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
         let parsedData = null;
-        try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
+        try { 
+            parsedData = JSON.parse(text); 
+            if (parsedData.code === 1 && parsedData.msg) return res.status(200).json({ error: parsedData.msg });
+        } catch (e) { return res.json({ crowds: [], spaces: [] }); }
+        
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
         let ownedSpaces = [];
@@ -307,6 +320,16 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         }
         // --- END UMBRELLA METHOD ---
 
+        // Force targetUser to perfectly match the UNA Base URL to prevent permalink crashes
+        if (targetUser) {
+            try {
+                const parsedUrl = new URL(targetUser);
+                targetUser = `${UNA_BASE_URL}${parsedUrl.pathname}`;
+            } catch (e) {
+                if (targetUser.startsWith('/')) targetUser = `${UNA_BASE_URL}${targetUser}`;
+            }
+        }
+
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
@@ -328,6 +351,11 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
         try {
             const json = JSON.parse(text);
 
+            // Translate UNA errors so the WordPress plugin catches them
+            if (json.code === 1 && json.msg) {
+                return res.status(200).json({ error: "UNA Server Error: " + json.msg });
+            }
+
             try {
                 const connectorRes = await fetch(`${UNA_BASE_URL}/bridge-connector.php`, {
                     method: 'POST',
@@ -348,7 +376,7 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
                     json.allow_view_to.values = json.allow_view_to.values.filter(item => {
                         if (item.type === 'group_header' || item.type === 'group_end') return true;
                         if (item.key === undefined || item.key === null) return true;
-
+                        
                         const profileId = Math.abs(parseInt(item.key, 10)).toString();
                         return ownedIds.has(profileId);
                     });
@@ -426,11 +454,21 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         }
         // --- END UMBRELLA METHOD ---
         
+        // Force targetUser to perfectly match the UNA Base URL to prevent permalink crashes
+        if (targetUser) {
+            try {
+                const parsedUrl = new URL(targetUser);
+                targetUser = `${UNA_BASE_URL}${parsedUrl.pathname}`;
+            } catch (e) {
+                if (targetUser.startsWith('/')) targetUser = `${UNA_BASE_URL}${targetUser}`;
+            }
+        }
+        
         const hubDomain = 'https://bridge.selloutcrowds.com';
 
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN);
-        formData.append('user', targetUser); // Uses the master profile link!
+        formData.append('user', targetUser); 
         formData.append('domain', hubDomain);
 
         if (data && typeof data === 'object') {
@@ -452,6 +490,12 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
         
         try {
             const json = JSON.parse(text);
+            
+            // Translate UNA errors so the WordPress plugin catches them
+            if (json.code === 1 && json.msg && !json.post_id) {
+                return res.status(200).json({ error: "UNA Server Error: " + json.msg });
+            }
+
             return res.json(json);
         } catch(e) {
             return res.status(200).json({ error: "UNA did not return JSON. Raw: " + text.substring(0, 100) });
