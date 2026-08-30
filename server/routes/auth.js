@@ -51,8 +51,7 @@ router.get('/api/get-communities', async (req, res) => {
         const meData = await getAuthenticatedUser(req.headers.authorization);
         if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid session" });
         
-        let userProfileUrl = meData.profile_link.replace('https://studio.', 'https://www.');
-        if (!userProfileUrl.includes('www.')) userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com');
+        let userProfileUrl = meData.profile_link;
         
         // --- OPTION A: THE UMBRELLA METHOD ---
         let targetEmail = meData.email;
@@ -96,6 +95,16 @@ router.get('/api/get-communities', async (req, res) => {
         }
         // --- END UMBRELLA METHOD ---
 
+        // Force targetProfileUrl to perfectly match the UNA Base URL to prevent permalink crashes
+        if (targetProfileUrl) {
+            try {
+                const parsedUrl = new URL(targetProfileUrl);
+                targetProfileUrl = `${UNA_BASE_URL}${parsedUrl.pathname}`;
+            } catch (e) {
+                if (targetProfileUrl.startsWith('/')) targetProfileUrl = `${UNA_BASE_URL}${targetProfileUrl}`;
+            }
+        }
+
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', targetProfileUrl); // Use target Profile URL
@@ -104,7 +113,11 @@ router.get('/api/get-communities', async (req, res) => {
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
         let parsedData = null;
-        try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
+        try { 
+            parsedData = JSON.parse(text); 
+            if (parsedData.code === 1 && parsedData.msg) return res.status(200).json({ error: parsedData.msg });
+        } catch (e) { return res.json({ crowds: [], spaces: [] }); }
+        
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
         let ownedSpaces = [];

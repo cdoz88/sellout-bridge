@@ -62,14 +62,14 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
         }
     };
 
-    const handleDisconnect = async (tokenId, siteDomain) => {
+    const handleDisconnect = async (tokenId, siteDomain, tokenString) => {
         if (!window.confirm(`Are you sure you want to disconnect ${siteDomain}? Posts published on this WordPress site will no longer automatically sync to your communities.`)) return;
 
         try {
-            const res = await fetch('/api/admin-bridge', {
+            const res = await fetch('/api/wp/disconnect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'delete_wp_token', token_id: tokenId, email: userEmail })
+                body: JSON.stringify({ access_token: tokenString })
             });
             const data = await res.json();
             if (data.success) {
@@ -295,7 +295,7 @@ export default function WordpressSyncApp({ session, unaData, activeTab = 'manage
                                             </td>
                                             <td className="py-4 pr-4 text-right">
                                                 <button
-                                                    onClick={() => handleDisconnect(token.id, token.site)}
+                                                    onClick={() => handleDisconnect(token.id, token.site, token.token)}
                                                     className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1 ml-auto"
                                                     title="Disconnect Site"
                                                 >
