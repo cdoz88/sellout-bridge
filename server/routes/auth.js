@@ -51,7 +51,8 @@ router.get('/api/get-communities', async (req, res) => {
         const meData = await getAuthenticatedUser(req.headers.authorization);
         if (!meData || !meData.profile_link) return res.status(401).json({ error: "Invalid session" });
         
-        let userProfileUrl = meData.profile_link;
+        let userProfileUrl = meData.profile_link.replace('https://studio.', 'https://www.');
+        if (!userProfileUrl.includes('www.')) userProfileUrl = userProfileUrl.replace('https://selloutcrowds.com', 'https://www.selloutcrowds.com');
         
         // --- OPTION A: THE UMBRELLA METHOD ---
         let targetEmail = meData.email;
@@ -95,16 +96,6 @@ router.get('/api/get-communities', async (req, res) => {
         }
         // --- END UMBRELLA METHOD ---
 
-        // Force targetProfileUrl to perfectly match the UNA Base URL to prevent permalink crashes
-        if (targetProfileUrl) {
-            try {
-                const parsedUrl = new URL(targetProfileUrl);
-                targetProfileUrl = `${UNA_BASE_URL}${parsedUrl.pathname}`;
-            } catch (e) {
-                if (targetProfileUrl.startsWith('/')) targetProfileUrl = `${UNA_BASE_URL}${targetProfileUrl}`;
-            }
-        }
-
         const formData = new URLSearchParams();
         formData.append('api_key', FSAN_TOKEN); 
         formData.append('user', targetProfileUrl); // Use target Profile URL
@@ -113,11 +104,7 @@ router.get('/api/get-communities', async (req, res) => {
         const fsanRes = await fetch(FSAN_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: formData });
         const text = await fsanRes.text();
         let parsedData = null;
-        try { 
-            parsedData = JSON.parse(text); 
-            if (parsedData.code === 1 && parsedData.msg) return res.status(200).json({ error: parsedData.msg });
-        } catch (e) { return res.json({ crowds: [], spaces: [] }); }
-        
+        try { parsedData = JSON.parse(text); } catch (e) { return res.json({ crowds: [], spaces: [] }); }
         if (!parsedData || !parsedData.allow_view_to || !parsedData.allow_view_to.values) return res.json({ crowds: [], spaces: [] });
 
         let ownedSpaces = [];
@@ -397,6 +384,35 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
     }
 });
 
+// --- NEW UNIFIED DISCONNECT ROUTE ---
+// NOTE: MUST BE DEFINED ABOVE THE /api/wp/:action WILDCARD SO IT DOES NOT THROW "INVALID ACTION"
+router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
+    try {
+        const { access_token } = req.body;
+        if (!access_token) return res.status(400).json({ error: "Missing token" });
+
+        // 1. Delete the token locally on the Node Postgres database
+        await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
+
+        // 2. Tell the UNA server to globally wipe the token
+        const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
+        await fetch(STUDIO_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
+            body: JSON.stringify({
+                action: 'delete_wp_token_string',
+                token_string: access_token,
+                secret: UNA_SECRET
+            })
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("WP Proxy disconnect error:", error);
+        res.status(500).json({ error: "Failed to disconnect" });
+    }
+});
+
 router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
     try {
         const { action } = req.params;
@@ -505,34 +521,6 @@ router.post(['/api/wp/:action', '/wp/:action'], async (req, res) => {
     } catch (error) {
         console.error(`WP Proxy ${action} error:`, error);
         return res.status(200).json({ error: "Hub Server Error: " + error.message });
-    }
-});
-
-// --- NEW UNIFIED DISCONNECT ROUTE ---
-router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
-    try {
-        const { access_token } = req.body;
-        if (!access_token) return res.status(400).json({ error: "Missing token" });
-
-        // 1. Delete the token locally on the Node Postgres database
-        await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
-
-        // 2. Tell the UNA server to globally wipe the token
-        const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
-        await fetch(STUDIO_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${UNA_SECRET}` },
-            body: JSON.stringify({
-                action: 'delete_wp_token_string',
-                token_string: access_token,
-                secret: UNA_SECRET
-            })
-        });
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error("WP Proxy disconnect error:", error);
-        res.status(500).json({ error: "Failed to disconnect" });
     }
 });
 
