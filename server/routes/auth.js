@@ -391,10 +391,28 @@ router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
         const { access_token } = req.body;
         if (!access_token) return res.status(400).json({ error: "Missing token" });
 
-        // 1. Delete the token locally on the Node Postgres database
+        // 1. Fetch domain to ping WordPress Webhook
+        try {
+            const rows = await sql`SELECT domain FROM wp_access_tokens WHERE token = ${access_token}`;
+            if (rows.length > 0 && rows[0].domain) {
+                const wpDomain = rows[0].domain;
+                // Fire-and-forget webhook to tell WordPress to wipe its own settings
+                await fetch(`https://${wpDomain}/wp-json/soc/v1/remote-disconnect`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`
+                    }
+                }).catch(e => console.error("WP Webhook failed:", e));
+            }
+        } catch (err) {
+            console.error("Failed to lookup domain for webhook", err);
+        }
+
+        // 2. Delete the token locally on the Node Postgres database
         await sql`DELETE FROM wp_access_tokens WHERE token = ${access_token}`;
 
-        // 2. Tell the UNA server to globally wipe the token
+        // 3. Tell the UNA server to globally wipe the token
         const STUDIO_URL = 'https://studio.selloutcrowds.com/bridge-connector.php';
         await fetch(STUDIO_URL, {
             method: 'POST',
