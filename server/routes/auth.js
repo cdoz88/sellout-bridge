@@ -395,14 +395,20 @@ router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
         try {
             const rows = await sql`SELECT domain FROM wp_access_tokens WHERE token = ${access_token}`;
             if (rows.length > 0 && rows[0].domain) {
-                const wpDomain = rows[0].domain;
+                let wpDomain = rows[0].domain;
+                
+                // CRITICAL FIX: Strip https:// so we don't accidentally create https://https://admin...
+                wpDomain = wpDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+                
                 // Fire-and-forget webhook to tell WordPress to wipe its own settings
                 await fetch(`https://${wpDomain}/wp-json/soc/v1/remote-disconnect`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${access_token}`
-                    }
+                    },
+                    // Send the token in the body as a fallback for strict firewalls
+                    body: JSON.stringify({ token: access_token })
                 }).catch(e => console.error("WP Webhook failed:", e));
             }
         } catch (err) {
