@@ -385,7 +385,7 @@ router.post(['/api/wp/get-fields', '/wp/get-fields'], async (req, res) => {
 });
 
 // --- NEW UNIFIED DISCONNECT ROUTE ---
-// NOTE: MUST BE DEFINED ABOVE THE /api/wp/:action WILDCARD SO IT DOES NOT THROW "INVALID ACTION"
+// MUST BE DEFINED ABOVE THE /api/wp/:action WILDCARD SO IT DOES NOT THROW "INVALID ACTION"
 router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
     try {
         const { access_token } = req.body;
