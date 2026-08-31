@@ -400,16 +400,22 @@ router.post(['/api/wp/disconnect', '/wp/disconnect'], async (req, res) => {
                 // CRITICAL FIX: Strip https:// so we don't accidentally create https://https://admin...
                 wpDomain = wpDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
                 
-                // Fire-and-forget webhook to tell WordPress to wipe its own settings
-                await fetch(`https://${wpDomain}/wp-json/soc/v1/remote-disconnect`, {
+                const webhookPayload = {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${access_token}`
+                        'Authorization': `Bearer ${access_token}`,
+                        'User-Agent': 'SelloutCrowds-Bridge/1.0'
                     },
                     // Send the token in the body as a fallback for strict firewalls
                     body: JSON.stringify({ token: access_token })
-                }).catch(e => console.error("WP Webhook failed:", e));
+                };
+
+                // Fire-and-forget webhook to tell WordPress to wipe its own settings
+                // Attempt HTTPS first, fallback to HTTP if it fails (useful for local/dev servers)
+                fetch(`https://${wpDomain}/wp-json/soc/v1/remote-disconnect`, webhookPayload)
+                    .catch(() => fetch(`http://${wpDomain}/wp-json/soc/v1/remote-disconnect`, webhookPayload))
+                    .catch(e => console.error("WP Webhook failed:", e));
             }
         } catch (err) {
             console.error("Failed to lookup domain for webhook", err);
